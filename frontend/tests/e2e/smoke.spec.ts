@@ -17,7 +17,7 @@ for (const route of ROUTES) {
 
     await expect(page.getByRole('heading', { level: 1, name: route.heading })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Glavna navigacija' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Pokreni optimizaciju' })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' })).toBeVisible()
     // Let mount effects (run twice under StrictMode) and mock responses settle.
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(500)

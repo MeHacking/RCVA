@@ -183,3 +183,117 @@
   display: flex;
   gap: var(--space-2);
 }
+
+/* Optimization results screen */
+
+.start-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+  padding-block: var(--space-3);
+}
+
+.start-panel .start-panel__field {
+  margin: 0;
+  width: 12rem;
+}
+
+.start-panel__note {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+}
+
+.job-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.job-progress__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-semibold);
+}
+
+.result__meta {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.route-table tbody th {
+  font-weight: var(--weight-semibold);
+  text-align: left;
+}
+
+.route-table__shipments {
+  white-space: normal;
+  min-width: 8rem;
+}
+
+.route-table__links a {
+  margin-left: var(--space-3);
+}
+
+.route-table .route-table__detail > td {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  background: var(--surface-muted);
+  text-align: left;
+}
+
+.route-table tbody tr.route-table__detail:hover {
+  background: none;
+}
+
+.stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 2rem auto 1fr auto auto;
+}
+
+/* Each <li> spans the list grid and shares its columns, so stops line up like a table. */
+.stops__item {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.stops__item > * {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  /* spacing as padding, not column-gap, so row borders stay continuous */
+  padding: 0.3rem var(--space-3) 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.stops__item:last-child > * {
+  border-bottom: 0;
+}
+
+.stops__seq {
+  justify-content: flex-end;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+
+.stops__place {
+  gap: 0.3em;
+  white-space: normal;
+}
+
+.stops__meta {
+  justify-content: flex-end;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.stops__item--base .stops__place {
+  color: var(--text-muted);
+}

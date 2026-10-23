@@ -54,6 +54,13 @@ const PATHS = {
       <path d="M12 7.5v.5" />
     </>
   ),
+  check: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12.5 2.8 2.8L16.5 9.5" />
+    </>
+  ),
+  chevron: <path d="m9 6 6 6-6 6" />,
   alert: (
     <>
       <path d="M12 3 2 20h20z" />
