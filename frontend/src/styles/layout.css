@@ -655,3 +655,72 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* Truck 3D view. TeGo renders into one fixed canvas behind the page, so the viewport
+   element must stay transparent (no background on it or on its ancestors). */
+
+.truck-3d {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.truck-visualizer__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.truck-visualizer__viewport {
+  position: relative;
+  height: 30rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+.truck-visualizer__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.truck-3d__list h2 {
+  margin-bottom: var(--space-1);
+}
+
+.truck-3d__space {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.truck-3d__shipments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+button.truck-3d__shipment {
+  width: 100%;
+  height: auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: var(--space-2);
+  font-weight: normal;
+  text-align: left;
+  white-space: normal;
+}
+
+button.truck-3d__shipment[aria-pressed='true'] {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+}

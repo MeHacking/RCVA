@@ -6,6 +6,7 @@ import type {
   ImportPreview,
   ImportRow,
   ImportRowPatch,
+  LoadPlan,
   Location,
   OptimizationJob,
   OptimizationJobCreated,
@@ -20,7 +21,7 @@ import type {
 /**
  * The only API surface screens may depend on. Mirrors the REST API from
  * "Specifikacija v2", section 6 (prefix /api/v1). Endpoints for shipment editing,
- * cancel, load plan and export are added together with their screens.
+ * cancel and export are added together with their screens.
  *
  * Every method rejects with ApiError on a non-2xx response.
  */
@@ -39,6 +40,8 @@ export interface ApiClient {
   getOptimizationJob(id: number): Promise<OptimizationJob>
   /** Only for COMPLETED jobs; 409 otherwise */
   getOptimizationResult(id: number): Promise<OptimizationResult>
+  /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */
+  getLoadPlan(jobId: number, truckId: number): Promise<LoadPlan>
 
   /** POST /imports/excel; 415 for a non-.xlsx file, 400 when the file cannot be read */
   createImport(file: File): Promise<ImportCreated>

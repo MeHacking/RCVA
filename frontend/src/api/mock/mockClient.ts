@@ -2,6 +2,7 @@ import type { Scenario } from '../../fixtures'
 import { ApiError, type ApiClient } from '../client'
 import type { JobStatus, OptimizationJob, OptimizationJobRequest, Truck, TruckInput } from '../types'
 import { createImportStore, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
+import { buildLoadPlan } from './loadPlan'
 
 export interface MockApiOptions {
   scenario: Scenario
@@ -107,6 +108,18 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
     throw new Error('Unreachable: PROVEN scenario has no jobs')
   }
 
+  function completedResult(id: number) {
+    const view = jobView(findJob(id))
+    if (view.status !== 'COMPLETED' || scenario.outcome.kind !== 'COMPLETED') {
+      throw new ApiError({
+        title: 'Rezultat nije dostupan',
+        status: 409,
+        detail: `Posao ${id} je u statusu ${view.status}; rezultat postoji samo za COMPLETED.`,
+      })
+    }
+    return scenario.outcome.result
+  }
+
   return {
     listLocations: () => respond(() => locations),
     listShipments: () => respond(() => shipments),
@@ -155,17 +168,14 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
 
     getOptimizationJob: (id) => respond(() => jobView(findJob(id))),
 
-    getOptimizationResult: (id) =>
+    getOptimizationResult: (id) => respond(() => completedResult(id)),
+
+    getLoadPlan: (jobId, truckId) =>
       respond(() => {
-        const view = jobView(findJob(id))
-        if (view.status !== 'COMPLETED' || scenario.outcome.kind !== 'COMPLETED') {
-          throw new ApiError({
-            title: 'Rezultat nije dostupan',
-            status: 409,
-            detail: `Posao ${id} je u statusu ${view.status}; rezultat postoji samo za COMPLETED.`,
-          })
-        }
-        return scenario.outcome.result
+        const result = completedResult(jobId)
+        const truck = trucks.find((t) => t.id === truckId)
+        if (!truck) throw notFound(`Kamion ${truckId} ne postoji.`)
+        return buildLoadPlan(jobId, result, truck, shipments)
       }),
 
     createImport: (file) => respond(() => imports.create(file)),
