@@ -1,0 +1,59 @@
+import type {
+  BaseSettings,
+  Location,
+  OptimizationJob,
+  OptimizationJobCreated,
+  OptimizationJobRequest,
+  OptimizationResult,
+  ProblemDetails,
+  Shipment,
+  Truck,
+  TruckInput,
+} from './types'
+
+/**
+ * The only API surface screens may depend on. Mirrors the REST API from
+ * "Specifikacija v2", section 6 (prefix /api/v1). Endpoints for imports, shipment
+ * editing, cancel, load plan and export are added together with their screens.
+ *
+ * Every method rejects with ApiError on a non-2xx response.
+ */
+export interface ApiClient {
+  listLocations(): Promise<Location[]>
+  listShipments(): Promise<Shipment[]>
+
+  listTrucks(): Promise<Truck[]>
+  createTruck(input: TruckInput): Promise<Truck>
+  updateTruck(id: number, input: TruckInput): Promise<Truck>
+
+  getBase(): Promise<BaseSettings>
+
+  /** 202 on success; 422 with infeasibilityKind PROVEN when infeasibility is proven up front */
+  createOptimizationJob(request: OptimizationJobRequest): Promise<OptimizationJobCreated>
+  getOptimizationJob(id: number): Promise<OptimizationJob>
+  /** Only for COMPLETED jobs; 409 otherwise */
+  getOptimizationResult(id: number): Promise<OptimizationResult>
+}
+
+export class ApiError extends Error {
+  readonly status: number
+  readonly problem: ProblemDetails
+
+  constructor(problem: ProblemDetails) {
+    super(problem.detail ?? problem.title)
+    this.name = 'ApiError'
+    this.status = problem.status
+    this.problem = problem
+  }
+}
+
+/** User-facing message for any error thrown by an ApiClient call */
+export function describeError(error: unknown): string {
+  if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`
+  if (error instanceof Error) return error.message
+  return 'Nepoznata greška.'
+}
+
+export function isProvenInfeasible(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 422 && error.problem.infeasibilityKind === 'PROVEN'
+}
