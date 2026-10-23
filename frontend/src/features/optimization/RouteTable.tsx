@@ -2,8 +2,9 @@ import { Fragment, useState } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { LdmBar } from '../../components/LdmBar'
-import { formatKm, formatLdm } from '../../format/units'
+import { formatKm } from '../../format/units'
 import type { TruckRow } from './resultRows'
+import { StopList } from './StopList'
 
 const COLUMNS = 6
 
@@ -79,50 +80,5 @@ export function RouteTable({ jobId, rows }: { jobId: number; rows: TruckRow[] })
         </tbody>
       </table>
     </div>
-  )
-}
-
-function StopList({ id, row }: { id: string; row: TruckRow }) {
-  return (
-    <ol id={id} className="stops" aria-label={`Stanice: ${row.truckName}`}>
-      <li className="stops__item stops__item--base">
-        <span className="stops__seq">0</span>
-        <StopTag label="Baza" />
-        <span className="stops__place">{row.baseName}</span>
-        <span className="stops__meta" />
-        <span className="stops__meta" />
-      </li>
-      {row.stops.map((stop) => (
-        <li key={stop.sequence} className="stops__item">
-          <span className="stops__seq">{stop.sequence}</span>
-          {stop.type === 'PICKUP' ? (
-            <StopTag label="Preuzimanje" modifier="pickup" />
-          ) : (
-            <StopTag label="Isporuka" modifier="delivery" />
-          )}
-          <span className="stops__place">
-            {stop.locationName} <span className="text--muted">· {stop.shipmentLabel}</span>
-          </span>
-          <span className="stops__meta">+{formatKm(stop.legMeters)}</span>
-          <span className="stops__meta">na kamionu {formatLdm(stop.loadAfterLdmTenths)} LDM</span>
-        </li>
-      ))}
-      <li className="stops__item stops__item--base">
-        <span className="stops__seq">↩</span>
-        <StopTag label="Povratak" />
-        <span className="stops__place">{row.baseName}</span>
-        <span className="stops__meta">+{formatKm(row.returnLegMeters)}</span>
-        <span className="stops__meta" />
-      </li>
-    </ol>
-  )
-}
-
-/** Grid cell (keeps the row border) holding a compact tag. */
-function StopTag({ label, modifier }: { label: string; modifier?: 'pickup' | 'delivery' }) {
-  return (
-    <span className="stops__type">
-      <span className={modifier ? `tag tag--${modifier}` : 'tag'}>{label}</span>
-    </span>
   )
 }

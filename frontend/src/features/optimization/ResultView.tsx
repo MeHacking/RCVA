@@ -1,26 +1,14 @@
-import { useCallback } from 'react'
-import { useApi } from '../../api/apiContext'
 import type { OptimizationJob, OptimizationResult } from '../../api/types'
 import { Notice } from '../../components/Notice'
 import { ErrorState, LoadingState } from '../../components/states'
 import { formatTime } from '../../format/time'
 import { formatKm, formatLdm, formatScore } from '../../format/units'
-import { useAsyncData } from '../../hooks/useAsyncData'
 import { buildTruckRows, buildUnassignedRows, type ReferenceData } from './resultRows'
 import { RouteTable } from './RouteTable'
+import { useReferenceData } from './useReferenceData'
 
 export function ResultView({ job, result }: { job: OptimizationJob; result: OptimizationResult }) {
-  const api = useApi()
-  const load = useCallback(async (): Promise<ReferenceData> => {
-    const [trucks, shipments, locations, base] = await Promise.all([
-      api.listTrucks(),
-      api.listShipments(),
-      api.listLocations(),
-      api.getBase(),
-    ])
-    return { trucks, shipments, locations, base }
-  }, [api])
-  const [reference, reload] = useAsyncData(load)
+  const [reference, reload] = useReferenceData()
 
   return (
     <div className="result">
