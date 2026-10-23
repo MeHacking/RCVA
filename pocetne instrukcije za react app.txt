@@ -1,0 +1,51 @@
+Redosled koraka
+
+Kostur aplikacije: Vite + React + TypeScript, StrictMode ostaje uključen jer pomaže da se uhvate greške u čišćenju.
+Prenos TeGo koda:
+LoadViewer/*.js ide u public/legacy/tego/ kao statički fajlovi, bez bundlera, jer su to klasične skripte sa globalnim promenljivama.
+Dodaju se NOTICE i Apache 2.0 obaveštenje (PTV Group), uz oznaku izmenjenih fajlova.
+Učitavač skripti:
+Funkcija koja ubacuje skripte redom: three.min.js, threex.domevents.js, OrbitControls.js, packwidget.js, naš tooltip.js, mapping.js.
+Mora da bude idempotentna (jedno obećanje za celu aplikaciju), inače StrictMode učita skripte dvaput.
+Tipovi: fajl tego.d.ts sa deklaracijama globalnih simbola (PackWidget, mapItems, mapBins, THREE).
+Zamena jQuery-ja:
+Proveren nalaz: packwidget.js ne koristi jQuery, a packWidgetUtils.js ga koristi na 7 mesta (samo opisi paketa).
+Dovoljno je napisati oko 20 linija običnog JavaScript-a za tooltip, removeTooltip, highlightItem i unhighlightItem.
+packwidget.js poziva te funkcije samo uz proveru da postoje.
+Adapter podataka:
+Čista funkcija LoadPlan u prikazni format ({bin, items}).
+Deli milimetre sa 10, preslikava ose (JSON x u x, z u y, y u z) i zamenjuje dužinu i širinu pri rotaciji.
+Lako se testira Vitest-om.
+Test 9 prvi, pa destroy(): kao u prethodnom odgovoru; test mora prvo da padne na neizmenjenom kodu.
+Komponenta TruckVisualizer:
+Kontejner sa eksplicitnom visinom. U mom testu je widget sa visinom 0 jednostavno preskočen i ništa se nije iscrtalo.
+Pozivi onItemOver i onItemClick se prevode u React stanje (selectedShipmentId).
+Čišćenje u useEffect poziva destroy().
+Probni podaci: fiksni JSON izveden iz payload.json, da se frontend (faza 2) razvija pre nego što backend postoji.
+Ekran „Truck 3D Visualization”: izbor kamiona, oznaka „ilustrativno” za LDM režim i veza sa GET .../load-plan.
+Povezivanje sa backend-om: Vite proxy za /api prema Spring Boot-u i podešen CORS.
+Testovi: Playwright za testove 8 i 9 (uključujući StrictMode), Vitest za adapter. WebGL se u jsdom ne može proveriti.
+
+Zamka koju treba odlučiti pre koraka 8
+
+Deljeni canvas: TeGo crta u jedan canvas preko celog ekrana (position:fixed; z-index:-1) u document.body, a widget-i samo „seku” svoj deo.
+Posledica: ako bilo koji roditeljski element u React aplikaciji ima neprozirnu pozadinu, 3D prikaz će biti sakriven iza njega. To je moj zaključak iz CSS pravila, nije isprobano u React aplikaciji.
+Opcija A: zadržati deljeni canvas (manja izmena), uz providne roditeljske elemente na tom ekranu.
+Opcija B: svaki widget dobija sopstveni canvas i renderer. To je veća izmena u packwidget.js, ali čišćenje postaje jednostavno (renderer.dispose() i uklanjanje canvas-a).
+
+Nivo sigurnosti
+
+Visok: za redosled i za nalaz o jQuery-ju, jer su proverena u kodu.
+Srednji: za zaključak o providnim roditeljima i za to da su koraci dovoljni. To će pokazati tek prvi prototip.
+Nije procenjeno: koliko vremena koraci traju.
+
+Sledeća tri pitanja koja vredi postaviti
+
+Da li biramo opciju A (deljeni canvas) ili B (canvas po widget-u)?
+Da li prvi prototip radi sa fiksnim probnim JSON-om iz payload.json, ili čekamo na backend?
+Da li ostajemo na Three.js r73 koji dolazi uz TeGo, ili nadogradnju razmatramo tek kasnije?
+
+Sources:
+
+Dostavljena arhiva TeGo-Trans-Visualization.zip (LoadViewer/packwidget.js, packWidgetUtils.js, mapping.js, loading-space-optimization.js)
+Merenje iz ranije poruke (Chromium, 20 promena kamiona)
