@@ -6,7 +6,7 @@ test('top bar starts a job and polls it to completion', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/')
   const status = page.getByTestId('last-job-status')
-  const button = page.getByRole('button', { name: 'Pokreni optimizaciju' })
+  const button = page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' })
 
   await expect(status).toContainText('Nije pokretano')
   await expect(status).toContainText('Optimizacija još nije pokretana.')

@@ -23,8 +23,9 @@ export default defineConfig({
   projects: [
     // Default data set; specs under scenarios/ need their own server.
     { name: 'chromium', testIgnore: 'scenarios/**', use: { baseURL: url(SERVERS.small) } },
-    { name: 'scenario-proven', testMatch: 'scenarios/proven.spec.ts', use: { baseURL: url(SERVERS.proven) } },
-    { name: 'scenario-notFound', testMatch: 'scenarios/notFound.spec.ts', use: { baseURL: url(SERVERS.notFound) } },
+    // scenarios/<scenario>*.spec.ts runs against that scenario's server
+    { name: 'scenario-proven', testMatch: 'scenarios/proven*.spec.ts', use: { baseURL: url(SERVERS.proven) } },
+    { name: 'scenario-notFound', testMatch: 'scenarios/notFound*.spec.ts', use: { baseURL: url(SERVERS.notFound) } },
   ],
   // Dev server on purpose: StrictMode double-invokes effects only in development.
   webServer: Object.entries(SERVERS).map(([scenario, port]) => ({
