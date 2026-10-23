@@ -62,7 +62,7 @@ export function RouteTable({ jobId, rows }: { jobId: number; rows: TruckRow[] })
                       Stanice ({row.stops.length})
                     </button>
                   </td>
-                  <td className="route-table__links">
+                  <td className="actions route-table__links">
                     <Link to={`/truck-3d${query}`}>3D prikaz</Link>
                     <Link to={`/route-map${query}`}>Mapa</Link>
                   </td>

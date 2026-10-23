@@ -217,7 +217,7 @@ fieldset.field {
   font-variant-numeric: tabular-nums;
 }
 
-.table td:last-child {
+.table .actions {
   text-align: right;
 }
 
@@ -559,4 +559,18 @@ button.button--ghost:hover:not(:disabled) {
 .tag--delivery {
   color: var(--success);
   background: var(--success-subtle);
+}
+
+.table-summary {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.table-summary strong {
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.table-summary strong.text--error {
+  color: var(--danger);
 }

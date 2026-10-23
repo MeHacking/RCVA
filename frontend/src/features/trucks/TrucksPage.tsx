@@ -99,7 +99,7 @@ function TruckTable({
                 )}
               </td>
               <td>{truck.available ? 'Da' : <span className="text--muted">Ne</span>}</td>
-              <td>
+              <td className="actions">
                 <button type="button" onClick={() => onEdit(truck)} aria-label={`Izmeni ${truck.name}`}>
                   Izmeni
                 </button>
