@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { formatKm } from '../../src/format/units'
 import { SCENARIOS } from '../../src/fixtures'
-import { trucksLowerBound } from '../../src/fixtures/builders'
+import { trucksLowerBound } from '../../src/domain/capacity'
 
 describe('test 7 fixture (specification v2, section 10)', () => {
   const { outcome } = SCENARIOS.test7

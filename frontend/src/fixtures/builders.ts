@@ -1,4 +1,5 @@
 import type { OptimizationResult, RoutePlan, Shipment, StopType, Truck } from '../api/types'
+import { trucksLowerBound } from '../domain/capacity'
 
 /** Distance in whole metres between two locations */
 export type DistanceFn = (fromLocationId: number, toLocationId: number) => number
@@ -31,23 +32,6 @@ export function haversineDistance(latLon: Record<number, readonly [number, numbe
   }
 }
 
-/**
- * Lower bound on trucks (valid with two phases per route): the smallest k for which
- * the k largest available capacities cover the total LDM. null if the whole fleet is not enough.
- */
-export function trucksLowerBound(shipments: Shipment[], trucks: Truck[]): number | null {
-  const total = shipments.reduce((sum, s) => sum + s.ldmTenths, 0)
-  const capacities = trucks
-    .filter((t) => t.available)
-    .map((t) => t.capacityLdmTenths)
-    .sort((a, b) => b - a)
-  let covered = 0
-  for (let k = 0; k < capacities.length; k++) {
-    if (covered >= total) return k
-    covered += capacities[k]
-  }
-  return covered >= total ? capacities.length : null
-}
 
 /**
  * Builds a COMPLETED result from a fixed stop order. Legs, loads and totals are derived,
