@@ -1,3 +1,13 @@
+/*
+ * MODIFIED for RCVA (2026-10-23), see NOTICE. Changes:
+ *  - create(): every event listener of the widget is registered through listen() and
+ *    remembered; the THREEx.DomEvents instance is kept on the widget.
+ *  - new PackWidget.prototype.destroy(): removes those listeners, destroys DomEvents and
+ *    OrbitControls, disposes geometries and materials, and leaves the shared renderer.
+ *  - PackWidgetRenderer: keeps the animation frame id, exposes the WebGL renderer
+ *    (for renderer.info), has dispose() (stop loop, release context, remove canvas) and
+ *    takes its clear color from PackWidget.rendererBackgroundColor when set.
+ */
 /**
  * Returns the position of an object with respect to the
  * (0, 0, 0) coordinate of the object.
@@ -839,6 +849,13 @@ PackWidget.prototype.createThreeScene = function(bins, items, camera, lights) {
  * @param container dom element
  */
 PackWidget.prototype.create = function (container) {
+  // RCVA: remember listeners so destroy() can remove them.
+  var registeredListeners = [];
+  this._listeners = registeredListeners;
+  function listen(target, type, handler, options) {
+    target.addEventListener(type, handler, options);
+    registeredListeners.push([target, type, handler, options]);
+  }
 
   var containerWidth = container.offsetWidth || container.clientWidth || window.innerWidth;
   var containerHeight = container.offsetHeight || container.clientHeight || window.innerHeight;
@@ -887,6 +904,7 @@ PackWidget.prototype.create = function (container) {
 
     // add Threex Event Handlers for items
   var domEvents = new THREEx.DomEvents(camera, scene.userData.element);
+  this._domEvents = domEvents; // RCVA: destroyed in destroy()
 
     var itemClicked = this.onItemClick;
     var itemOver = this.onItemOver;
@@ -2338,10 +2356,10 @@ PackWidget.prototype.create = function (container) {
       }
     };
 
-    scene.userData.element.addEventListener('touchstart', onMobilePanHoldTouchStart, { passive: false });
-    scene.userData.element.addEventListener('touchmove', onMobilePanHoldTouchMove, { passive: false });
-    scene.userData.element.addEventListener('touchend', onMobilePanHoldTouchEnd, { passive: false });
-    scene.userData.element.addEventListener('touchcancel', onMobilePanHoldTouchEnd, { passive: false });
+    listen(scene.userData.element, 'touchstart', onMobilePanHoldTouchStart, { passive: false });
+    listen(scene.userData.element, 'touchmove', onMobilePanHoldTouchMove, { passive: false });
+    listen(scene.userData.element, 'touchend', onMobilePanHoldTouchEnd, { passive: false });
+    listen(scene.userData.element, 'touchcancel', onMobilePanHoldTouchEnd, { passive: false });
 
     for (var i = 0; i < graphicsItems.length; i++) {
       domEvents.bind(graphicsItems[i], 'click', function(item) {
@@ -2361,7 +2379,7 @@ PackWidget.prototype.create = function (container) {
 
     var supportsPointerEvents = typeof window !== 'undefined' && !!window.PointerEvent;
     if (supportsPointerEvents) {
-      scene.userData.element.addEventListener('pointerdown', function(e) {
+      listen(scene.userData.element, 'pointerdown', function(e) {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (e.pointerType === 'touch') {
           registerTouchPointer(e.pointerId);
@@ -2380,7 +2398,7 @@ PackWidget.prototype.create = function (container) {
         }
       }, false);
 
-      scene.userData.element.addEventListener('pointermove', function(e) {
+      listen(scene.userData.element, 'pointermove', function(e) {
         if (e.pointerType === 'touch' && getActiveTouchPointerCount() >= 2) {
           cancelDragForPinchGesture();
           return;
@@ -2406,10 +2424,10 @@ PackWidget.prototype.create = function (container) {
         endItemDrag(tapSelect);
         e.preventDefault();
       };
-      scene.userData.element.addEventListener('pointerup', endPointerDrag, false);
-      scene.userData.element.addEventListener('pointercancel', endPointerDrag, false);
+      listen(scene.userData.element, 'pointerup', endPointerDrag, false);
+      listen(scene.userData.element, 'pointercancel', endPointerDrag, false);
     } else {
-      scene.userData.element.addEventListener('mousedown', function(e) {
+      listen(scene.userData.element, 'mousedown', function(e) {
         if (e.button !== 0) return;
         if (dragState.active) return;
         if (beginItemDrag(e.clientX, e.clientY)) {
@@ -2418,17 +2436,17 @@ PackWidget.prototype.create = function (container) {
         }
       }, false);
 
-      window.addEventListener('mousemove', function(e) {
+      listen(window, 'mousemove', function(e) {
         if (!dragState.active || dragState.pointerId !== 'mouse') return;
         moveItemDrag(e.clientX, e.clientY);
       }, false);
 
-      window.addEventListener('mouseup', function() {
+      listen(window, 'mouseup', function() {
         if (!dragState.active || dragState.pointerId !== 'mouse') return;
         endItemDrag(false);
       }, false);
 
-      scene.userData.element.addEventListener('touchstart', function(e) {
+      listen(scene.userData.element, 'touchstart', function(e) {
         if (e.touches && e.touches.length > 1) {
           cancelDragForPinchGesture();
           return;
@@ -2442,7 +2460,7 @@ PackWidget.prototype.create = function (container) {
         }
       }, { passive: false });
 
-      scene.userData.element.addEventListener('touchmove', function(e) {
+      listen(scene.userData.element, 'touchmove', function(e) {
         if (e.touches && e.touches.length > 1) {
           cancelDragForPinchGesture();
           return;
@@ -2463,11 +2481,11 @@ PackWidget.prototype.create = function (container) {
         }
         endItemDrag(true);
       };
-      scene.userData.element.addEventListener('touchend', endTouchDrag, false);
-      scene.userData.element.addEventListener('touchcancel', endTouchDrag, false);
+      listen(scene.userData.element, 'touchend', endTouchDrag, false);
+      listen(scene.userData.element, 'touchcancel', endTouchDrag, false);
     }
 
-    scene.userData.element.addEventListener('dblclick', function(e) {
+    listen(scene.userData.element, 'dblclick', function(e) {
       if (dragState.active) return;
       if (!isEditEnabled()) return;
       var hit = pickHit(e.clientX, e.clientY);
@@ -2483,7 +2501,7 @@ PackWidget.prototype.create = function (container) {
       e.preventDefault();
     }, false);
 
-    scene.userData.element.addEventListener('touchstart', function(e) {
+    listen(scene.userData.element, 'touchstart', function(e) {
       if (dragState.active || Date.now() < suppressClickUntil) return;
       if (mobilePanHold.active) return;
       if (!e.touches || e.touches.length !== 1) return;
@@ -2504,7 +2522,7 @@ PackWidget.prototype.create = function (container) {
       }
     }, { passive: true });
 
-    scene.userData.element.addEventListener('click', function(e) {
+    listen(scene.userData.element, 'click', function(e) {
       if (dragState.active || Date.now() < suppressClickUntil) return;
       if (Date.now() - lastTouchTime < 500) return;
       var hit = pickItem(e.clientX, e.clientY);
@@ -2556,9 +2574,9 @@ PackWidget.prototype.create = function (container) {
   }
 
 
-  scene.userData.element.addEventListener('mousemove', onDocumentMouseMove, false);
-  window.addEventListener('resize', refreshRect, false);
-  window.addEventListener('orientationchange', refreshRect, false);
+  listen(scene.userData.element, 'mousemove', onDocumentMouseMove, false);
+  listen(window, 'resize', refreshRect, false);
+  listen(window, 'orientationchange', refreshRect, false);
 
   function onDocumentMouseMove (event) {
     event.preventDefault();
@@ -2573,11 +2591,49 @@ PackWidget.prototype.create = function (container) {
   this.widgetRenderer.widgets.push(this);
 };
 
-/** 
+/**
+ * RCVA: releases everything create() set up. Safe to call more than once.
+ */
+PackWidget.prototype.destroy = function () {
+  var listeners = this._listeners || [];
+  for (var i = 0; i < listeners.length; i++) {
+    listeners[i][0].removeEventListener(listeners[i][1], listeners[i][2], listeners[i][3]);
+  }
+  this._listeners = [];
+  if (this._domEvents) {
+    this._domEvents.destroy();
+    this._domEvents = null;
+  }
+  var scene = this.scene;
+  if (scene) {
+    if (scene.userData.controls) scene.userData.controls.dispose();
+    scene.traverse(function (object) {
+      if (object.geometry) object.geometry.dispose();
+      if (object.material) {
+        var materials = object.material.materials || [object.material];
+        for (var m = 0; m < materials.length; m++) materials[m].dispose();
+      }
+    });
+    scene.userData = {};
+    this.scene = null;
+  }
+  this.itemMap.clear();
+  var shared = PackWidget.prototype.widgetRenderer;
+  if (shared) {
+    var index = shared.widgets.indexOf(this);
+    if (index >= 0) shared.widgets.splice(index, 1);
+    if (shared.widgets.length === 0) {
+      shared.dispose();
+      PackWidget.prototype.widgetRenderer = null;
+    }
+  }
+};
+
+/**
  * Renderer for the Packwidgets
  */
 function PackWidgetRenderer() {
-    var visualizerBackgroundColor = 0xfff2e0;
+    var visualizerBackgroundColor = PackWidget.rendererBackgroundColor !== undefined ? PackWidget.rendererBackgroundColor : 0xfff2e0; // RCVA
     var canvas = document.createElement("canvas");
     canvas.style.position = 'fixed';
     canvas.style.top = 0;
@@ -2592,6 +2648,8 @@ function PackWidgetRenderer() {
     var renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true});
     renderer.setClearColor(visualizerBackgroundColor, 1);
     renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer = renderer; // RCVA: renderer.info for leak checks
+    var frameId = null; // RCVA
 
 
 	// update size of the canvas element in case it was resized
@@ -2607,10 +2665,19 @@ function PackWidgetRenderer() {
 
         render();
         
-        requestAnimationFrame(animate);
+        frameId = requestAnimationFrame(animate); // RCVA: kept for dispose()
     };
 
     this.animate = animate;
+
+    // RCVA: stop the loop, release the WebGL context and remove the canvas.
+    this.dispose = function () {
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        frameId = null;
+        renderer.dispose();
+        renderer.forceContextLoss();
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    };
 
 		// render canvas
     function render() {

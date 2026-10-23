@@ -14,6 +14,9 @@ import {
 } from './tego/tegoAdapter'
 import type { PackWidgetInstance } from './tego/tegoTypes'
 
+/** --cream in src/styles/tokens.css */
+const PAGE_BACKGROUND = 0xf5efe6
+
 /** Contract from Spec v2, section 7. */
 export interface TruckVisualizerProps {
   truck: CargoSpaceMm
@@ -51,6 +54,8 @@ export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = 
       (tego) => {
         const container = containerRef.current
         if (cancelled || !container) return
+        // The shared canvas fills the page behind the content: match --cream from tokens.css.
+        tego.PackWidget.rendererBackgroundColor = PAGE_BACKGROUND
         const bins = tego.mapBins([toViewerBin({ innerLengthMm, innerWidthMm, innerHeightMm })], BIN_MAPPING)
         const items = tego.mapItems(toViewerItems(placements), VIEWER_MAPPING)
         widget = new tego.PackWidget(bins, items, {

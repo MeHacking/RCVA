@@ -34,7 +34,10 @@ export interface PackWidgetOptions {
 export type TegoMapping = Record<string, string[] | string | number>
 
 export interface TegoGlobals {
-  PackWidget: new <T>(bins: unknown[], items: PackWidgetItem<T>[], options: PackWidgetOptions) => PackWidgetInstance<T>
+  PackWidget: (new <T>(bins: unknown[], items: PackWidgetItem<T>[], options: PackWidgetOptions) => PackWidgetInstance<T>) & {
+    /** RCVA modification: clear color of the shared canvas (TeGo default 0xfff2e0) */
+    rendererBackgroundColor?: number
+  }
   mapItems<T>(data: T[], mapping: TegoMapping): PackWidgetItem<T>[]
   mapBins(data: unknown[], mapping: TegoMapping): unknown[]
 }

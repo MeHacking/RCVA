@@ -105,7 +105,6 @@ test('test 8: the load plan is drawn with one body per placement, selection and 
 })
 
 test('test 9: switching trucks 20 times leaves one canvas and no leaks (StrictMode)', async ({ page }) => {
-  test.fail(true, "unmodified TeGo code has no destroy(): widgets, listeners and GPU memory leak")
   test.setTimeout(120_000) // 20 switches, each waits for the mock latency and a new scene
   await page.addInitScript(installListenerCounter)
   await openTruck3d(page)
@@ -141,7 +140,6 @@ test('test 9: switching trucks 20 times leaves one canvas and no leaks (StrictMo
 })
 
 test('test 9b: leaving the screen removes the shared canvas', async ({ page }) => {
-  test.fail(true, "unmodified TeGo code never removes its shared canvas")
   await openTruck3d(page)
   await page.getByRole('navigation').getByRole('link', { name: 'Pregled' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Pregled' })).toBeVisible()
