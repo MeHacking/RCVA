@@ -297,3 +297,45 @@
 .stops__item--base .stops__place {
   color: var(--text-muted);
 }
+
+/* Route map (list phase) */
+
+.route-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.route-filter button[aria-pressed='true'] {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.route-filter__meta {
+  margin-left: auto;
+  font-size: var(--text-sm);
+}
+
+.route-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin-bottom: var(--space-3);
+}
+
+.route-card__header h2 {
+  margin: 0;
+}
+
+.route-card__km {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.route-card__link {
+  margin-left: auto;
+}

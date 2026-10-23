@@ -25,6 +25,12 @@ export interface LastJobContextValue {
 
 export const LastJobContext = createContext<LastJobContextValue | null>(null)
 
+/** The last job and its result, but only once it has COMPLETED with a result loaded. */
+export function completedJob(state: LastJobState): { job: OptimizationJob; result: OptimizationResult } | null {
+  if (state.kind !== 'tracking' || !state.job || !state.result || state.job.status !== 'COMPLETED') return null
+  return { job: state.job, result: state.result }
+}
+
 /** A job is being started or is still queued/running, so a new one must not be started. */
 export function isLastJobBusy(state: LastJobState): boolean {
   if (state.kind === 'starting') return true
