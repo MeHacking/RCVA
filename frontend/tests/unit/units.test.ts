@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatDimensionsMm,
+  formatKg,
   formatKm,
   formatLdm,
   formatScore,
@@ -32,6 +33,13 @@ describe('formatKm', () => {
     [-1001489, '-1001,5 km'],
   ])('%i m -> %s', (meters, expected) => {
     expect(formatKm(meters)).toBe(expected)
+  })
+})
+
+describe('formatKg', () => {
+  it('keeps whole kilograms and uses a decimal comma otherwise', () => {
+    expect(formatKg(3200)).toBe('3200')
+    expect(formatKg(1.5)).toBe('1,5')
   })
 })
 

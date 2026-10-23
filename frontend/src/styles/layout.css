@@ -339,3 +339,225 @@
 .route-card__link {
   margin-left: auto;
 }
+
+/* Excel import wizard */
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.stepper__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.stepper__number {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--gray-100);
+  font-weight: var(--weight-semibold);
+}
+
+.stepper__item[aria-current='step'] {
+  border-color: var(--accent);
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.stepper__item[aria-current='step'] .stepper__number {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.stepper__item--done .stepper__number {
+  background: var(--success-subtle);
+  color: var(--success);
+}
+
+.file-field {
+  max-width: 32rem;
+  margin-top: var(--space-3);
+}
+
+.mapping-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-4);
+}
+
+.mapping-source .field {
+  width: 14rem;
+}
+
+.mapping-source__count {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.mapping-table {
+  margin-bottom: var(--space-2);
+}
+
+.mapping-table td:nth-child(2) {
+  width: 18rem;
+}
+
+.mapping-table__hint {
+  white-space: normal;
+  font-size: var(--text-sm);
+}
+
+.mapping-preview__title {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-md);
+}
+
+.wizard-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: var(--space-4);
+}
+
+.wizard-actions__note {
+  font-size: var(--text-sm);
+}
+
+.import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.import-summary > div {
+  min-width: 8rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.import-summary dt {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.import-summary dd {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.import-summary--success dd {
+  color: var(--success);
+}
+
+.import-summary--danger dd {
+  color: var(--danger);
+}
+
+.import-table td,
+.import-table th {
+  vertical-align: top;
+  padding-block: var(--space-2);
+  height: auto;
+}
+
+/* Row number on top, the original cell text below it. max-width does not apply to
+   table cells, so widths sit on inner blocks. */
+.import-table th.import-table__source {
+  font-weight: var(--weight-semibold);
+}
+
+.import-table__source > span {
+  display: block;
+  width: 11rem;
+  white-space: normal;
+  font-size: var(--text-sm);
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
+.import-table__source > .import-table__id {
+  display: inline;
+  color: var(--text);
+}
+
+.import-table__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+.import-table__problems {
+  white-space: normal;
+}
+
+.import-table__row--excluded > :not(.actions) {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.import-table__editor > td {
+  background: var(--surface-muted);
+}
+
+.row-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 18rem;
+  white-space: normal; /* table cells default to nowrap */
+}
+
+.row-status__list {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+/* Fills the spanning cell without adding its own width to the table's column sizing. */
+.row-editor {
+  width: 0;
+  min-width: 100%;
+}
+
+.row-editor__source {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  white-space: normal;
+}
+
+.row-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(12rem, 1fr));
+  gap: var(--space-4);
+}
+
+.confirm-list {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-5);
+}
+
+.confirm-list li {
+  margin-bottom: var(--space-1);
+}

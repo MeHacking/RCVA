@@ -13,6 +13,11 @@ export function formatKm(meters: number): string {
   return `${formatTenths(tenthsOfKm)} km`
 }
 
+/** 3200 -> "3200", 1.5 -> "1,5" (weight in kg, decimal comma) */
+export function formatKg(kg: number): string {
+  return String(kg).replace('.', ',')
+}
+
 /** (13600, 2480, 2700) -> "13600 × 2480 × 2700 mm"; null when any dimension is missing */
 export function formatDimensionsMm(
   lengthMm: number | null,

@@ -1,5 +1,5 @@
 import { toCsv } from '../../format/csv'
-import { formatLdm } from '../../format/units'
+import { formatKg, formatLdm } from '../../format/units'
 import { SHIPMENT_STATUS_LABELS, type ShipmentRow } from './shipmentRows'
 
 const HEADER = [
@@ -15,7 +15,7 @@ const HEADER = [
   'Status',
 ]
 
-/** Same columns as the table; numbers as plain values (LDM with a decimal comma). */
+/** Same columns as the table; numbers with a decimal comma, as Excel with Serbian settings expects. */
 export function shipmentsToCsv(rows: ShipmentRow[]): string {
   return toCsv(
     HEADER,
@@ -25,7 +25,7 @@ export function shipmentsToCsv(rows: ShipmentRow[]): string {
       row.deliveryName,
       row.deliveryPostalCode,
       formatLdm(row.ldmTenths),
-      row.weightKg,
+      row.weightKg === null ? null : formatKg(row.weightKg),
       row.lengthMm,
       row.widthMm,
       row.heightMm,

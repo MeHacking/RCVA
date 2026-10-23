@@ -168,6 +168,9 @@ fieldset.field {
 /* Tables (dense) */
 
 .table-wrap {
+  /* containing block for absolutely positioned children (e.g. .visually-hidden),
+     so overflow clips them instead of widening the page */
+  position: relative;
   overflow-x: auto;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -573,4 +576,35 @@ button.button--ghost:hover:not(:disabled) {
 
 .table-summary strong.text--error {
   color: var(--danger);
+}
+
+select {
+  height: var(--control-height);
+  width: 100%;
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+select[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+input[type='file'] {
+  height: auto;
+  padding: var(--space-2);
+}
+
+.field-row--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.notice__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }

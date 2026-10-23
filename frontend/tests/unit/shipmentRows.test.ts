@@ -30,7 +30,7 @@ describe('buildShipmentRows', () => {
 describe('shipment status (derived, not in Spec v2)', () => {
   const ok = location(1, 'A', 'RS', '11000', [44.8, 20.4])
   const manual = { ...location(2, 'B', 'SE', '34131', [56.8, 13.9]), geocodeStatus: 'MANUAL' as const }
-  const failed: Location = { ...location(3, '57338 TRANAS', 'SE', '57338', null), geocodeStatus: 'FAILED' }
+  const failed: Location = { ...location(3, '12345 SODERTALJE', 'SE', '12345', null), geocodeStatus: 'FAILED' }
   const noCoordinates = location(4, 'D', 'SE', null, null)
 
   const statusOf = (pickupId: number, deliveryId: number, extra: Location[] = []) =>

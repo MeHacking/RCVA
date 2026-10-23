@@ -1,10 +1,11 @@
 import { useCallback } from 'react'
+import { useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
 import { Badge, type BadgeTone } from '../../components/Badge'
 import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { CSV_BOM } from '../../format/csv'
-import { formatDimensionsMm, formatLdm } from '../../format/units'
+import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { downloadText } from '../../utils/download'
 import {
@@ -24,6 +25,7 @@ const STATUS_TONES: Record<ShipmentStatus, BadgeTone> = {
 
 export function ShipmentsPage() {
   const api = useApi()
+  const navigate = useNavigate()
   const load = useCallback(async () => {
     const [shipments, locations] = await Promise.all([api.listShipments(), api.listLocations()])
     return buildShipmentRows(shipments, locations)
@@ -40,9 +42,14 @@ export function ShipmentsPage() {
       <PageHeader
         title="Pošiljke"
         actions={
-          <button type="button" onClick={exportCsv} disabled={rows.status !== 'success' || rows.data.length === 0}>
-            Izvezi CSV
-          </button>
+          <>
+            <button type="button" onClick={exportCsv} disabled={rows.status !== 'success' || rows.data.length === 0}>
+              Izvezi CSV
+            </button>
+            <button type="button" className="button--primary" onClick={() => navigate('/shipments/import')}>
+              Uvezi Excel
+            </button>
+          </>
         }
       />
 
@@ -51,7 +58,8 @@ export function ShipmentsPage() {
       {rows.status === 'success' &&
         (rows.data.length === 0 ? (
           <EmptyState title="Nema unetih pošiljki">
-            Pošiljke se unose uvozom Excel fajla (čarobnjak za uvoz dolazi u sledećem koraku).
+            Pošiljke se unose uvozom Excel fajla: kliknite „Uvezi Excel“, izaberite fajl, povežite kolone,
+            ispravite redove sa greškom i potvrdite upis.
           </EmptyState>
         ) : (
           <ShipmentTable rows={rows.data} />
@@ -94,7 +102,9 @@ function ShipmentTable({ rows }: { rows: ShipmentRow[] }) {
                 <td>{row.deliveryName}</td>
                 <td>{row.deliveryPostalCode ?? <span className="text--muted">–</span>}</td>
                 <td className="num">{formatLdm(row.ldmTenths)}</td>
-                <td className="num">{row.weightKg ?? <span className="text--muted">–</span>}</td>
+                <td className="num">
+                  {row.weightKg === null ? <span className="text--muted">–</span> : formatKg(row.weightKg)}
+                </td>
                 <td>
                   {formatDimensionsMm(row.lengthMm, row.widthMm, row.heightMm) ?? (
                     <span className="text--muted">nije uneto</span>
