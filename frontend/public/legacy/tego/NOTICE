@@ -1,0 +1,23 @@
+TeGo LoadViewer (3D view of the load in a truck)
+
+Source: TeGo-Trans-Visualization (archive TeGo-Trans-Visualization.zip, git commit
+1445927f45c591e78c9c4616b82426e91bb87301, 2026-02-23), folder LoadViewer/.
+That project is derived from the PTV Group tutorial "Loading Space Optimization /
+Bin Packing" and is licensed under the Apache License, Version 2.0 (see LICENSE),
+Copyright 2022 PTV Group. Its package.json states "ISC", which does not match its
+LICENSE file; the LICENSE file is followed here.
+
+Files taken over:
+  packwidget.js        Apache-2.0 (PTV Group, TeGo changes)
+  mapping.js           Apache-2.0 (PTV Group)
+  three.min.js         three.js r73, MIT (threejs.org/license)
+  OrbitControls.js     three.js example controls, MIT (authors in the file header)
+  threex.domevents.js  THREEx helper by Jerome Etienne; the file has no license header.
+                       The upstream project is published as MIT; to be confirmed
+                       before delivery.
+
+Not taken over: packWidgetUtils.js (jQuery tooltip), loadViewer.js (global state),
+server.js, the Railway packing service client and jQuery from the PTV server.
+
+Modified files are marked with a "MODIFIED for RCVA" comment at the top that lists
+the changes.

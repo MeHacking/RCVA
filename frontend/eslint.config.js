@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'test-results', 'playwright-report', 'blob-report']),
+  // public/legacy: third-party classic scripts (TeGo LoadViewer), kept as close to the source as possible
+  globalIgnores(['dist', 'test-results', 'playwright-report', 'blob-report', 'public/legacy']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
