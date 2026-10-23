@@ -1,5 +1,11 @@
 import type {
   BaseSettings,
+  ImportCommitResult,
+  ImportCreated,
+  ImportMapping,
+  ImportPreview,
+  ImportRow,
+  ImportRowPatch,
   Location,
   OptimizationJob,
   OptimizationJobCreated,
@@ -13,8 +19,8 @@ import type {
 
 /**
  * The only API surface screens may depend on. Mirrors the REST API from
- * "Specifikacija v2", section 6 (prefix /api/v1). Endpoints for imports, shipment
- * editing, cancel, load plan and export are added together with their screens.
+ * "Specifikacija v2", section 6 (prefix /api/v1). Endpoints for shipment editing,
+ * cancel, load plan and export are added together with their screens.
  *
  * Every method rejects with ApiError on a non-2xx response.
  */
@@ -33,6 +39,15 @@ export interface ApiClient {
   getOptimizationJob(id: number): Promise<OptimizationJob>
   /** Only for COMPLETED jobs; 409 otherwise */
   getOptimizationResult(id: number): Promise<OptimizationResult>
+
+  /** POST /imports/excel; 415 for a non-.xlsx file, 400 when the file cannot be read */
+  createImport(file: File): Promise<ImportCreated>
+  /** PUT /imports/{id}/mapping; re-reads all rows, discarding earlier corrections */
+  setImportMapping(importId: number, mapping: ImportMapping): Promise<void>
+  getImportPreview(importId: number): Promise<ImportPreview>
+  /** NOT IN SPEC v2: PUT /imports/{id}/rows/{rowNumber}, manual correction of one row */
+  updateImportRow(importId: number, rowNumber: number, patch: ImportRowPatch): Promise<ImportRow>
+  commitImport(importId: number): Promise<ImportCommitResult>
 }
 
 export class ApiError extends Error {

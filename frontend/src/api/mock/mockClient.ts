@@ -1,9 +1,12 @@
 import type { Scenario } from '../../fixtures'
 import { ApiError, type ApiClient } from '../client'
 import type { JobStatus, OptimizationJob, OptimizationJobRequest, Truck, TruckInput } from '../types'
+import { createImportStore, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
 
 export interface MockApiOptions {
   scenario: Scenario
+  /** reads uploaded .xlsx files; tests pass a fake */
+  readWorkbook?: WorkbookReader
   /** simulated network latency per call */
   latencyMs?: number
   /** time a job spends in QUEUED */
@@ -22,19 +25,30 @@ interface JobRecord {
 
 /**
  * In-memory ApiClient over a fixture scenario. Every job on a scenario ends with the
- * scenario's fixed outcome; edits to trucks do not change it (there is no solver here).
- * Returned objects are copies, so callers cannot mutate the mock's state.
+ * scenario's fixed outcome; edits to trucks and imported shipments do not change it
+ * (there is no solver here). Returned objects are copies, so callers cannot mutate
+ * the mock's state.
  */
 export function createMockApiClient(options: MockApiOptions): ApiClient {
-  const { scenario, latencyMs = 300, queuedMs = 800, runningMs = 3000, now = Date.now } = options
+  const {
+    scenario,
+    readWorkbook = readWorkbookInBrowser,
+    latencyMs = 300,
+    queuedMs = 800,
+    runningMs = 3000,
+    now = Date.now,
+  } = options
   const trucks: Truck[] = structuredClone(scenario.trucks)
+  const shipments = structuredClone(scenario.shipments)
+  const locations = structuredClone(scenario.locations)
+  const imports = createImportStore({ shipments, locations, readWorkbook })
   const jobs = new Map<number, JobRecord>()
   let nextTruckId = Math.max(0, ...trucks.map((t) => t.id)) + 1
   let nextJobId = 1
 
-  async function respond<T>(produce: () => T): Promise<T> {
+  async function respond<T>(produce: () => T | Promise<T>): Promise<T> {
     if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs))
-    return structuredClone(produce())
+    return structuredClone(await produce())
   }
 
   function findJob(id: number): JobRecord {
@@ -94,8 +108,8 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
   }
 
   return {
-    listLocations: () => respond(() => scenario.locations),
-    listShipments: () => respond(() => scenario.shipments),
+    listLocations: () => respond(() => locations),
+    listShipments: () => respond(() => shipments),
     listTrucks: () => respond(() => trucks),
     getBase: () => respond(() => scenario.base),
 
@@ -153,6 +167,12 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         }
         return scenario.outcome.result
       }),
+
+    createImport: (file) => respond(() => imports.create(file)),
+    setImportMapping: (importId, mapping) => respond(() => imports.setMapping(importId, mapping)),
+    getImportPreview: (importId) => respond(() => imports.preview(importId)),
+    updateImportRow: (importId, rowNumber, patch) => respond(() => imports.updateRow(importId, rowNumber, patch)),
+    commitImport: (importId) => respond(() => imports.commit(importId)),
   }
 }
 

@@ -156,6 +156,92 @@ export interface LoadPlan {
   warnings: string[]
 }
 
+// Excel import, Spec v2 section 6: POST /imports/excel, PUT /imports/{id}/mapping,
+// GET /imports/{id}/preview, POST /imports/{id}/commit. Parsing happens on the server.
+
+/** Fields a spreadsheet column can be mapped to. Either `relation` or `pickup` + `delivery`. */
+export type ImportField =
+  | 'externalId'
+  | 'relation'
+  | 'pickup'
+  | 'delivery'
+  | 'deliveryPostalCode'
+  | 'ldm'
+  | 'weight'
+  | 'description'
+
+export interface ImportSheetInfo {
+  name: string
+  rowCount: number
+  /** first rows as text, for choosing the header row and columns */
+  previewRows: string[][]
+}
+
+/** 201 from POST /imports/excel */
+export interface ImportCreated {
+  importId: number
+  fileName: string
+  sheets: ImportSheetInfo[]
+}
+
+export interface ImportMapping {
+  sheetName: string
+  /** 1-based spreadsheet row holding the column names; data starts below it */
+  headerRow: number
+  /** field -> 0-based column index */
+  columns: Partial<Record<ImportField, number>>
+}
+
+/** A place as read from the file, before it becomes a Location */
+export interface PlaceGuess {
+  name: string
+  postalCode: string | null
+  /** ISO-like code as written in the file (RS, SE, NO, MK, BIH...) */
+  country: string | null
+}
+
+export interface ImportRow {
+  /** 1-based spreadsheet row */
+  rowNumber: number
+  /** the source text the places were read from (relation or pickup/delivery cells) */
+  sourceText: string
+  externalId: string
+  pickup: PlaceGuess | null
+  delivery: PlaceGuess | null
+  ldmTenths: number | null
+  weightKg: number | null
+  description: string | null
+  /** blocking: the row is not written while it has errors */
+  errors: string[]
+  /** informative: the row is written anyway */
+  warnings: string[]
+  excluded: boolean
+  /** edited by hand in the preview */
+  corrected: boolean
+}
+
+/** GET /imports/{id}/preview */
+export interface ImportPreview {
+  importId: number
+  fileName: string
+  rows: ImportRow[]
+}
+
+/** NOT IN SPEC v2: body of PUT /imports/{id}/rows/{rowNumber} (manual correction before commit) */
+export interface ImportRowPatch {
+  externalId?: string
+  pickup?: PlaceGuess
+  delivery?: PlaceGuess
+  ldmTenths?: number
+  excluded?: boolean
+}
+
+/** POST /imports/{id}/commit: valid, non-excluded rows are written, the rest skipped */
+export interface ImportCommitResult {
+  created: number
+  skipped: number
+}
+
 /** Error body, RFC 9457 Problem Details with extension members */
 export interface ProblemDetails {
   type?: string
