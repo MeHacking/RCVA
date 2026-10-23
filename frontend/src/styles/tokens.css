@@ -1,0 +1,72 @@
+/* Design tokens: the only place for raw colors, sizes and spacing. Light theme only. */
+:root {
+  /* Neutrals */
+  --gray-0: #ffffff;
+  --gray-50: #f7f8fa;
+  --gray-100: #eff1f4;
+  --gray-200: #e2e5ea;
+  --gray-300: #cdd2da;
+  --gray-500: #6a7282;
+  --gray-700: #3a4250;
+  --gray-900: #151a23;
+
+  /* Accent (single brand color) */
+  --accent: #1f5fbf;
+  --accent-hover: #194f9f;
+  --accent-subtle: #e9f0fb;
+
+  /* Status */
+  --success: #17793a;
+  --success-subtle: #e6f4eb;
+  --warning: #995800;
+  --warning-subtle: #fcf1df;
+  --danger: #b9312a;
+  --danger-subtle: #fbeceb;
+  --info: var(--accent);
+  --info-subtle: var(--accent-subtle);
+
+  /* Semantic roles */
+  --bg: var(--gray-50);
+  --surface: var(--gray-0);
+  --surface-muted: var(--gray-50);
+  --border: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --text: var(--gray-900);
+  --text-muted: var(--gray-500);
+  --focus-ring: 0 0 0 3px rgba(31, 95, 191, 0.28);
+
+  /* Sidebar */
+  --nav-bg: #161c27;
+  --nav-text: #a9b2c3;
+  --nav-text-active: #ffffff;
+  --nav-hover: rgba(255, 255, 255, 0.06);
+  --nav-active: rgba(255, 255, 255, 0.1);
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.8125rem; /* 13px */
+  --text-md: 0.875rem; /* 14px, base */
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Spacing (4px grid) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --shadow-sm: 0 1px 2px rgba(21, 26, 35, 0.06);
+
+  /* Sizes */
+  --control-height: 2rem;
+  --sidebar-width: 13.5rem;
+  --topbar-height: 3.25rem;
+}

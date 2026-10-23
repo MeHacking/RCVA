@@ -6,13 +6,14 @@ export const NOT_FOUND_MESSAGE =
 
 export const PROVEN_TITLE = 'Dokazano neizvodljivo'
 
+/** Short labels for status badges */
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
-  QUEUED: 'u redu čekanja',
-  RUNNING: 'optimizacija u toku…',
-  COMPLETED: 'završeno',
-  INFEASIBLE: 'nije izvodljivo',
-  CANCELLED: 'otkazano',
-  FAILED: 'greška solvera',
+  QUEUED: 'U redu čekanja',
+  RUNNING: 'U toku',
+  COMPLETED: 'Završeno',
+  INFEASIBLE: 'Nije izvodljivo',
+  CANCELLED: 'Otkazano',
+  FAILED: 'Greška solvera',
 }
 
 export function isTerminal(status: JobStatus): boolean {
