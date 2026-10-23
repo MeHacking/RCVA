@@ -40,7 +40,7 @@ button:disabled {
 }
 
 button.button--primary {
-  color: #fff;
+  color: var(--accent-text);
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -326,7 +326,7 @@ fieldset.field {
 
 .state--error {
   background: var(--danger-subtle);
-  border-color: #efc5c2;
+  border-color: var(--danger-border);
 }
 
 .state--error .state__icon {
