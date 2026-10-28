@@ -14,7 +14,7 @@ import rs.rcva.domain.Model.ValidationReport;
 
 class SolutionValidatorTest {
 
-    private final SolutionValidator validator = new SolutionValidator(Test7.PLANAR);
+    private final SolutionValidator validator = new SolutionValidator(Test7Data.PLANAR);
 
     private static RouteStop stop(int sequence, StopType type, long shipmentId, long locationId, int load, long leg) {
         return new RouteStop(sequence, type, shipmentId, locationId, load, leg);
@@ -41,7 +41,7 @@ class SolutionValidatorTest {
     }
 
     private ValidationReport validate(List<RoutePlan> routes) {
-        return validator.validate(Test7.input(), result(routes, 2, 1_001_489, List.of()));
+        return validator.validate(Test7Data.input(), result(routes, 2, 1_001_489, List.of()));
     }
 
     @Test
@@ -63,7 +63,7 @@ class SolutionValidatorTest {
                 stop(6, StopType.DELIVERY, 74, 742, 0, 10_000));
         routes.set(0, new RoutePlan(71, 140, 520_990, a));
         routes.set(1, new RoutePlan(72, 60, b.totalMeters(), b.stops().subList(0, 1)));
-        ValidationReport report = validator.validate(Test7.input(), result(routes, 2, 1_001_489, List.of()));
+        ValidationReport report = validator.validate(Test7Data.input(), result(routes, 2, 1_001_489, List.of()));
         assertThat(report.passed()).isFalse();
         assertThat(report.violations()).contains("Kamion A: teret 14,0 LDM je veći od kapaciteta 10,0 LDM.");
     }
@@ -102,7 +102,7 @@ class SolutionValidatorTest {
                 stop(2, StopType.PICKUP, 73, 731, 100, 100_000),
                 stop(3, StopType.DELIVERY, 71, 712, 40, 50_000),
                 stop(4, StopType.DELIVERY, 73, 999, 0, 200_000))));
-        ValidationReport report = validator.validate(Test7.input(), result(routes, 2, 1_001_489, List.of(72L)));
+        ValidationReport report = validator.validate(Test7Data.input(), result(routes, 2, 1_001_489, List.of(72L)));
         assertThat(report.violations()).containsExactly(
                 "Kamion A, stanica 4: S3 se isporučuje na lokaciji #732, ne #999.",
                 "Pošiljka S4 je preuzeta 0 i isporučena 0 put(a); očekuje se po jednom.",
@@ -115,7 +115,7 @@ class SolutionValidatorTest {
         List<RoutePlan> routes = new ArrayList<>(expectedRoutes());
         routes.set(1, new RoutePlan(71, 100, 501_489, routes.get(1).stops()));
         routes.add(new RoutePlan(99, 0, 0, List.of()));
-        assertThat(validator.validate(Test7.input(), result(routes, 2, 1_001_489, List.of())).violations())
+        assertThat(validator.validate(Test7Data.input(), result(routes, 2, 1_001_489, List.of())).violations())
                 .containsExactly("Kamion A ima više od jedne rute.", "Kamion #99 nije među kamionima ovog posla.");
     }
 }

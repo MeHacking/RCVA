@@ -14,11 +14,11 @@ import rs.rcva.optimization.routing.DistanceProvider;
  * planar coordinates in km, straight-line distances, return to base. Expected: 2 trucks,
  * 1 001 489 m (S1+S3, S2+S4), although 3 trucks would give 921,5 km.
  */
-final class Test7 {
+public final class Test7Data {
 
-    static final long BASE = 700;
+    public static final long BASE = 700;
 
-    static final Map<Long, double[]> COORDINATES_KM = Map.of(
+    public static final Map<Long, double[]> COORDINATES_KM = Map.of(
             700L, new double[] {0, 0},
             711L, new double[] {-50, 0}, // S1 pickup
             712L, new double[] {100, 0}, // S1 delivery
@@ -30,16 +30,16 @@ final class Test7 {
             742L, new double[] {-100, 10}); // S4 delivery
 
     /** Straight line between planar points, rounded to whole metres. */
-    static final DistanceProvider PLANAR = (from, to) -> {
+    public static final DistanceProvider PLANAR = (from, to) -> {
         double[] a = COORDINATES_KM.get(from.id());
         double[] b = COORDINATES_KM.get(to.id());
         return Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) * 1000);
     };
 
-    private Test7() {
+    private Test7Data() {
     }
 
-    static JobInput input() {
+    public static JobInput input() {
         List<Location> locations = COORDINATES_KM.keySet().stream().sorted()
                 .map(id -> new Location(id, "Tačka " + id, null, "XX", null, 0.0, 0.0, GeocodeStatus.OK))
                 .toList();
@@ -52,7 +52,7 @@ final class Test7 {
         return new JobInput(shipments, trucks, locations, new BaseSettings(BASE, true));
     }
 
-    static Shipment shipment(long id, String externalId, int ldmTenths, long pickup, long delivery) {
+    public static Shipment shipment(long id, String externalId, int ldmTenths, long pickup, long delivery) {
         return new Shipment(id, externalId, null, ldmTenths, pickup, delivery, false, null, null, null, null);
     }
 
