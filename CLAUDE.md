@@ -4,7 +4,7 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 28.10.2026, Excel uvoz na serveru (posle commit-a `72cd64f`).
+Poslednje ažuriranje: 28.10.2026, Timefold optimizacija i 3D raspored na serveru (posle commit-a `334713c`).
 
 ## Šta aplikacija radi
 
@@ -15,11 +15,12 @@ Rezultat se prikazuje kao spisak ruta (kasnije mapa) i kao 3D raspored robe u ka
 - Model (Spec v2): **PDP** (preuzimanje i isporuka) sa **više skladišta**, **dve faze po ruti**
   (prvo sva preuzimanja, pa sve isporuke; pretpostavka čeka potvrdu), kapacitet samo u LDM,
   pošiljke nedeljive. Izvan MVP-a: LIFO, vremenski prozori, težina kao ograničenje, više tura.
-- Backend (kamioni, pošiljke, Excel uvoz): Java 21, Spring Boot 4.1.1, Maven, Apache POI. Planirano: Timefold Solver
-  (skor Hard/Medium/Soft: hard = prekršaji, medium = broj kamiona, soft = metri), nezavisni
-  `SolutionValidator`, OSRM za rastojanja, kasnije PostgreSQL.
-- Frontend: React + TypeScript + Vite. Radi nad mock API-jem; u režimu `server` kamione,
-  pošiljke, lokacije i Excel uvoz radi preko backend-a.
+- Backend (ceo API iz `frontend/src/api/client.ts`): Java 21, Spring Boot 4.1.1, Maven,
+  Apache POI, Timefold Solver 2.7.1 (skor Hard/Medium/Soft: hard = LDM preko kapaciteta,
+  medium = broj kamiona, soft = metri), nezavisni `SolutionValidator`. Rastojanja su za sada
+  vazdušna linija (haversine); planirano: OSRM, geokodiranje, PostgreSQL.
+- Frontend: React + TypeScript + Vite. Radi nad mock API-jem (podrazumevano) ili, u režimu
+  `server`, potpuno nad backend-om.
 
 ## Izvori istine
 
@@ -69,9 +70,13 @@ RCVA/
     │   ├── imports/              Excel uvoz: RelationParser, QuantityParser, Gazetteer, ImportRows,
     │   │                         ImportService, PoiWorkbookReader (prenos src/api/mock/import/)
     │   ├── trucks/TruckService   validacija i CRUD kamiona (poruke iste kao u mock-u)
-    │   └── optimization/ActiveJobs  „ima li posla u toku“ (za 409 pri uklanjanju); sada uvek prazno
-    └── src/test/java/            JUnit 6: TruckServiceTest, ApiContractTest (MockMvc), imports/*
-                                  (TestWorkbooks pravi .xlsx u memoriji; binarnih test fajlova nema)
+    │   └── optimization/         OptimizationService (poslovi, jedna pozadinska nit), Feasibility
+    │       │                     (PROVEN, donja granica), SolutionValidator, SimpleLoadPlanner, JobInput
+    │       ├── routing/          Assumptions (pretpostavke koje čekaju Gojka), RoutePlanner
+    │       │                     (redosled stanica), DistanceProvider + HaversineDistanceProvider
+    │       └── solver/           Timefold: ShipmentAssignment → Vehicle, RoutingConstraints, RoutingSolver
+    └── src/test/java/            JUnit 6: ApiContractTest (MockMvc), imports/*, optimization/*
+                                  (TestWorkbooks pravi .xlsx u memoriji; Test7Data je test 7)
 ```
 
 ## Komande
@@ -80,7 +85,7 @@ RCVA/
 cd frontend
 npm run dev                          # http://localhost:5173, sve na mock-u, scenario "small"
 VITE_MOCK_SCENARIO=test7 npm run dev # i: proven, notFound
-VITE_API_MODE=server npm run dev     # kamioni preko backend-a (Vite proxy /api -> :8080)
+VITE_API_MODE=server npm run dev     # sve preko backend-a (Vite proxy /api -> :8080)
 npm run build                        # tsc -b && vite build
 npm run lint
 npm test                             # Vitest (logika, bez DOM-a)
@@ -93,17 +98,19 @@ cd backend
 ```
 
 Izvor podataka bira `VITE_API_MODE` (`src/api/apiMode.ts`, `src/api/createApiClient.ts`):
-`mock` (podrazumevano) ili `server`. U režimu `server` sa backend-a idu kamioni, baza,
-pošiljke, lokacije i Excel uvoz; optimizacija i 3D raspored ostaju na mock-u. Mock
-optimizacija zato ne vidi pošiljke uvezene na server (rezultat je fiksan po scenariju).
-Bočna traka uvek prikazuje izvor podataka.
+`mock` (podrazumevano) ili `server`. U režimu `server` sve ide sa backend-a, a
+`VITE_MOCK_SCENARIO` se ne koristi. Bočna traka uvek prikazuje izvor podataka.
+
+Serverski e2e testovi dele jedan backend i izvršavaju se abecedno po fajlu:
+`optimization.server` mora ići pre `shipmentImport.server`, jer uvoz dodaje pošiljke bez
+koordinata, a sa njima server odbija optimizaciju (409).
 
 Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5175) i
 `notFound` (5176). Testovi u `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog
 scenarija.
 
-Stanje (28.10.2026): frontend build i lint čisti, 165 Vitest, 40 Playwright (mock) i
-7 Playwright (server) testova prolaze; backend `mvnw verify` prolazi, 69 testova.
+Stanje (28.10.2026): frontend build i lint čisti, 167 Vitest, 40 Playwright (mock) i
+9 Playwright (server) testova prolaze; backend `mvnw verify` prolazi, 99 testova.
 
 ## Pravila rada (dogovoreno sa korisnikom)
 
@@ -148,25 +155,52 @@ Excel uvoz po dopuni 1, odeljak 4: `POST /imports/excel` (multipart, do 10 MB),
 pravila, poruke i testni slučajevi kao mock (`ImportParsingTest`, `ImportServiceTest`).
 Greške kao Problem Details sa naslovima na srpskom i `errors` po polju. Podaci u memoriji;
 restart ih vraća na početne. Runtime licence: Apache-2.0 (Spring, Tomcat, Jackson, Apache
-POI 5.5.1 i njegove zavisnosti), BSD-3-Clause (curvesapi, iz POI), MIT (SLF4J),
-EPL-2.0/LGPL-2.1 (Logback), EPL-2.0 (jakarta.annotation).
+POI 5.5.1, Timefold 2.7.1, Micrometer, Gizmo, SmallRye Common, JBoss Logging...),
+BSD-3-Clause (curvesapi, iz POI), BSD-2-Clause (HdrHistogram), EDL-1.0 (jakarta.xml.bind),
+**GPL-2.0 sa Classpath Exception** (jdk-classfile-backport, iz Timefold-a; ista licenca kao
+JDK), MIT (SLF4J), EPL-2.0/LGPL-2.1 (Logback), EPL-2.0 (jakarta.annotation).
+
+Optimizacija na serveru:
+- `POST /optimization-jobs` (202; 400; 409 za pošiljke bez koordinata; 422 PROVEN sa
+  `causes`), `GET /optimization-jobs/{id}`, `GET .../result` (409 dok nije COMPLETED),
+  `GET .../trucks/{truckId}/load-plan`. Posao kopira ulaz (`JobInput`); poslovi idu jedan
+  po jedan; kamion se ne može ukloniti dok posao čeka ili radi.
+- **Model**: Timefold odlučuje samo koji kamion nosi koju pošiljku (`ShipmentAssignment` →
+  `Vehicle`); redosled stanica za taj skup daje `RoutePlanner` (dve faze; do 9 pošiljki po
+  kamionu egzaktno, Held-Karp, iznad toga najbliži sused + 2-opt). Razlog: kod modela sa
+  pojedinačnim stanicama zamena dve pošiljke između kamiona traži 4 poteza odjednom, što
+  podrazumevani potezi ne nalaze.
+- Testovi: test 7 (2 kamiona, 1 001 489 m, validator čist), test skora koji pokazuje da
+  2 kamiona pobeđuju 3 kamiona od 921 489 m (pada bez ograničenja za broj kamiona), test 5b
+  (NOT_FOUND), test 4 (PROVEN), 28 izmišljenih pošiljki veličine stvarnog fajla, test 8 nad
+  rezultatom solvera (serverski e2e).
+- Stvarni Excel je lokalno pušten kroz serverski uvoz: 28 redova, 25 bez greške, 3 greške,
+  115,0 LDM, kao u dopuni 1. **Optimizacija nad njim još nema smisla**: probno geokodiranje
+  zna desetak gradova, pa većina mesta nema koordinate (409).
 
 ## Sledeći koraci
 
 1. ~~Backend kostur~~ (urađeno 28.10.2026; PostgreSQL namerno odložen).
 2. ~~Excel uvoz na serveru~~ (urađeno 28.10.2026). Mock pravila u
    `frontend/src/api/mock/import/` i Java pravila moraju ostati ista dok mock postoji.
-3. **Timefold optimizacija** (čeka odgovore vlasnika procesa, videti dole): PDP sa dve faze,
-   provera PROVEN pre rešavanja, `SolutionValidator`, testovi 1–7, probni `DistanceProvider`.
-4. **SimpleLoadPlanner** na serveru (`GET .../load-plan`), test 8 sa pravim podacima.
-5. Kasnije: OSRM i geokodiranje, mapa (Leaflet), PostgreSQL, završno testiranje (svih 9 testova).
+3. ~~Timefold optimizacija~~ (urađeno 28.10.2026, **na pretpostavkama** iz
+   `optimization/routing/Assumptions.java`; kada Gojko odgovori, proveriti ih).
+   Testovi 1–3, 5a i 6 iz Spec v2 nisu preneti: specifikacija nije u repozitorijumu, a ovde
+   su opisani samo testovi 4, 5b, 7, 8 i 9.
+4. ~~SimpleLoadPlanner na serveru~~ (urađeno 28.10.2026).
+5. **Geokodiranje i OSRM**: bez toga stvarni podaci ne mogu u optimizaciju. Zameniti
+   `HaversineDistanceProvider` i `Gazetteer`.
+6. Kasnije: mapa (Leaflet), PostgreSQL, završno testiranje (svih 9 testova).
 
 Predlozi iz dopune 1 koji čekaju odluku: `GET /optimization-jobs/latest` (poslednji posao se
 sada gubi posle osvežavanja) i naziv i kapacitet kamiona u rezultatu (`inputSnapshot`).
 
 ## Otvorena pitanja
 
-Za vlasnika procesa (Gojko, preko Luke); blokiraju Timefold model:
+Za vlasnika procesa (Gojko, preko Luke). Model trenutno radi na pretpostavkama: dve faze,
+polazak iz baze, povratak po `BaseSettings.returnToBase`, bez ograničenja redosleda
+(`optimization/routing/Assumptions.java`; menjaju se `RoutePlanner`, ograničenje kapaciteta
+i `SolutionValidator`):
 
 1. Da li kamion prvo preuzima svu robu, pa je isporučuje (dve faze po ruti)?
 2. Gde kamion polazi i gde završava rutu (baza, povratak, otvorena ruta)?
@@ -207,8 +241,16 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 - **Playwright + Maven na Windows-u**: `cmd.exe` ne nalazi `mvnw.cmd` po samom imenu, pa
   `playwright.server.config.ts` koristi apsolutnu putanju.
 - **Dva izvora istih podataka**: `backend/.../SampleData.java` i
-  `frontend/src/fixtures/smallScenario.ts` moraju imati iste id-jeve dok god deo frontenda
-  radi na mock-u (mock optimizacija se odnosi na te id-jeve).
+  `frontend/src/fixtures/smallScenario.ts` imaju iste podatke; serverski e2e testovi
+  očekuju iste brojeve kao mock (npr. 20,9 LDM, 2 kamiona).
+- **Timefold 2.x**: `HardMediumSoftScore` je u `ai.timefold.solver.core.api.score`,
+  `@PlanningId` u `api.domain.common`. Naziv ograničenja (`asConstraint`) sme da sadrži samo
+  ASCII slova, pa nazivi idu na engleskom. Koristi se samo `timefold-solver-core`, bez
+  Spring startera.
+- **Test koji prolazi i bez onoga što proverava**: test 7 sa pretragom prolazi i kada se
+  ukloni ograničenje za broj kamiona (solver zaglavi u lokalnom optimumu sa 2 kamiona).
+  Leksikografski cilj zato dokazuje poseban test skora. Kod testova solvera uvek probati
+  i pokvareni kod.
 - **Surefire i `@Nested`**: `-Dtest=ImportParsingTest` pokreće 0 testova; treba
   `'-Dtest=ImportParsingTest*'` (ugnežđene klase su `ImportParsingTest$ParseRelation`...).
 - **JS i Java regex**: JS `\s` i `trim()` hvataju i neprelomljivi razmak (čest u Excel-u),
