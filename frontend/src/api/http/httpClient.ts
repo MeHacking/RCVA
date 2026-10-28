@@ -2,27 +2,44 @@ import { ApiError, type ApiClient } from '../client'
 import type { ProblemDetails } from '../types'
 
 /** The part of ApiClient the backend serves so far (backend/, Spring Boot). */
-export type ServerApi = Pick<ApiClient, 'listTrucks' | 'createTruck' | 'updateTruck' | 'deleteTruck' | 'getBase'>
+export type ServerApi = Pick<
+  ApiClient,
+  | 'listTrucks'
+  | 'createTruck'
+  | 'updateTruck'
+  | 'deleteTruck'
+  | 'getBase'
+  | 'listShipments'
+  | 'listLocations'
+  | 'createImport'
+  | 'setImportMapping'
+  | 'getImportPreview'
+  | 'updateImportRow'
+  | 'commitImport'
+>
 
 /**
  * ApiClient calls over HTTP to /api/v1 (proxied to the backend by Vite in development).
  * Non-2xx answers become ApiError with the server's Problem Details.
  */
 export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = (...args) => fetch(...args)): ServerApi {
+  /** A FormData body goes as multipart (the browser sets the boundary), anything else as JSON. */
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const json = body !== undefined && !(body instanceof FormData)
     let response: Response
     try {
       response = await fetchImpl(`${baseUrl}${path}`, {
         method,
-        headers: body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: json ? { Accept: 'application/json', 'Content-Type': 'application/json' } : { Accept: 'application/json' },
+        body: json ? JSON.stringify(body) : (body as FormData | undefined),
       })
     } catch {
       throw new ApiError({ title: 'Server nije dostupan', status: 0, detail: 'Server nije dostupan. Proverite da li je backend pokrenut.' })
     }
     if (!response.ok) throw new ApiError(await readProblem(response))
-    if (response.status === 204) return undefined as T
-    return (await response.json()) as T
+    // 204, or 200 without a body (PUT /imports/{id}/mapping)
+    const text = await response.text()
+    return (text === '' ? undefined : JSON.parse(text)) as T
   }
 
   return {
@@ -31,6 +48,17 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     updateTruck: (id, input) => request('PUT', `/trucks/${id}`, input),
     deleteTruck: (id) => request('DELETE', `/trucks/${id}`),
     getBase: () => request('GET', '/base'),
+    listShipments: () => request('GET', '/shipments'),
+    listLocations: () => request('GET', '/locations'),
+    createImport: (file) => {
+      const form = new FormData()
+      form.append('file', file, file.name)
+      return request('POST', '/imports/excel', form)
+    },
+    setImportMapping: (importId, mapping) => request('PUT', `/imports/${importId}/mapping`, mapping),
+    getImportPreview: (importId) => request('GET', `/imports/${importId}/preview`),
+    updateImportRow: (importId, rowNumber, patch) => request('PUT', `/imports/${importId}/rows/${rowNumber}`, patch),
+    commitImport: (importId) => request('POST', `/imports/${importId}/commit`),
   }
 }
 
