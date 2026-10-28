@@ -23,6 +23,7 @@ import rs.rcva.api.ApiException;
 import rs.rcva.data.InMemoryStore;
 import rs.rcva.domain.Model.InfeasibilityKind;
 import rs.rcva.domain.Model.JobStatus;
+import rs.rcva.domain.Model.LoadPlan;
 import rs.rcva.domain.Model.Location;
 import rs.rcva.domain.Model.OptimizationJob;
 import rs.rcva.domain.Model.OptimizationJobCreated;
@@ -123,9 +124,15 @@ public class OptimizationService implements ActiveJobs {
         return job.result;
     }
 
-    /** The input of a job, for the load plan. */
-    public synchronized JobInput input(long id) {
-        return find(id).input;
+    /** 409 unless COMPLETED; 404 when the truck is not in the job or has no route; 409 without cargo dimensions. */
+    public synchronized LoadPlan loadPlan(long id, long truckId) {
+        OptimizationResult result = result(id);
+        JobInput input = find(id).input;
+        Truck truck = input.trucksById().get(truckId);
+        if (truck == null) {
+            throw ApiException.notFound("Kamion " + truckId + " nije u poslu " + id + ".");
+        }
+        return SimpleLoadPlanner.plan(id, result, truck, input.shipmentsById());
     }
 
     @Override

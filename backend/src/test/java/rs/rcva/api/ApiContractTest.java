@@ -294,6 +294,19 @@ class ApiContractTest {
                 .andExpect(jsonPath("$.validation.passed").value(true))
                 .andExpect(jsonPath("$.validation.violations", hasSize(0)));
         mvc.perform(delete("/api/v1/trucks/3")).andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/optimization-jobs/1/trucks/1/load-plan"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jobId").value(1))
+                .andExpect(jsonPath("$.truckId").value(1))
+                .andExpect(jsonPath("$.mode").value("ILLUSTRATIVE_LDM"))
+                .andExpect(jsonPath("$.placements[0].xMm").value(0))
+                .andExpect(jsonPath("$.placements[0].rotated").value(false))
+                .andExpect(jsonPath("$.warnings").isArray());
+        // Solo 1 was not available, so it is not part of the job.
+        mvc.perform(get("/api/v1/optimization-jobs/1/trucks/3/load-plan"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Kamion 3 nije u poslu 1."));
     }
 
     @Test

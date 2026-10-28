@@ -25,6 +25,7 @@ import rs.rcva.domain.Model.ImportMapping;
 import rs.rcva.domain.Model.ImportPreview;
 import rs.rcva.domain.Model.ImportRow;
 import rs.rcva.domain.Model.ImportRowPatch;
+import rs.rcva.domain.Model.LoadPlan;
 import rs.rcva.domain.Model.Location;
 import rs.rcva.domain.Model.OptimizationJob;
 import rs.rcva.domain.Model.OptimizationJobCreated;
@@ -149,6 +150,11 @@ final class Controllers {
         @GetMapping("/{id}/result")
         OptimizationResult result(@PathVariable long id) {
             return optimization.result(id);
+        }
+
+        @GetMapping("/{id}/trucks/{truckId}/load-plan")
+        LoadPlan loadPlan(@PathVariable long id, @PathVariable long truckId) {
+            return optimization.loadPlan(id, truckId);
         }
     }
 

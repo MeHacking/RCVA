@@ -126,6 +126,20 @@ public final class Model {
             ValidationReport validation) {
     }
 
+    public enum LoadPlanMode { ILLUSTRATIVE_LDM, DIMENSIONAL }
+
+    /**
+     * Coordinates in mm from a corner of the cargo space: x along the length, y across,
+     * z up. Length and width are as placed (after rotation); {@code rotated} is informative.
+     */
+    public record Placement(long shipmentId, int xMm, int yMm, int zMm, int lengthMm, int widthMm, int heightMm,
+            boolean rotated) {
+    }
+
+    /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan (dopuna 1, section 6) */
+    public record LoadPlan(long jobId, long truckId, LoadPlanMode mode, List<Placement> placements, List<String> warnings) {
+    }
+
     /** A place as read from the Excel file, before it becomes a Location. */
     public record PlaceGuess(String name, String postalCode, String country) {
     }
