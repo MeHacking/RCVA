@@ -36,6 +36,13 @@
       <version>5.5.1</version>
     </dependency>
 
+    <!-- Route optimization; Timefold Solver 2.7.1 (2026-10-06, Apache-2.0); core only, no Spring starter -->
+    <dependency>
+      <groupId>ai.timefold.solver</groupId>
+      <artifactId>timefold-solver-core</artifactId>
+      <version>2.7.1</version>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

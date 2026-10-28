@@ -63,6 +63,69 @@ public final class Model {
     public record BaseSettings(long baseLocationId, boolean returnToBase) {
     }
 
+    public enum JobStatus { QUEUED, RUNNING, COMPLETED, INFEASIBLE, CANCELLED, FAILED }
+
+    /**
+     * PROVEN: infeasibility proven before solving (POST returns 422, no job is created).
+     * NOT_FOUND: the solver found no feasible solution within the time limit.
+     */
+    public enum InfeasibilityKind { PROVEN, NOT_FOUND }
+
+    public enum StopType { PICKUP, DELIVERY }
+
+    /** Body of POST /optimization-jobs; null ids = all available trucks / all shipments. */
+    public record OptimizationJobRequest(Integer timeLimitSeconds, List<Long> truckIds, List<Long> shipmentIds) {
+    }
+
+    /** Body of 202 Accepted from POST /optimization-jobs */
+    public record OptimizationJobCreated(long id, JobStatus status) {
+    }
+
+    /** GET /optimization-jobs/{id}; times are ISO 8601 */
+    public record OptimizationJob(
+            long id,
+            JobStatus status,
+            InfeasibilityKind infeasibilityKind,
+            String createdAt,
+            String startedAt,
+            String finishedAt,
+            int timeLimitSeconds,
+            Long scoreHard,
+            Long scoreMedium,
+            Long scoreSoft,
+            Boolean feasible,
+            Integer trucksLowerBound) {
+    }
+
+    /** {@code legMeters}: from the previous stop, or from the base for the first stop */
+    public record RouteStop(
+            int sequence,
+            StopType type,
+            long shipmentId,
+            long locationId,
+            int loadAfterLdmTenths,
+            long legMeters) {
+    }
+
+    /** {@code totalMeters} includes the return leg to the base, which is not a stop */
+    public record RoutePlan(long truckId, int usedLdmTenths, long totalMeters, List<RouteStop> stops) {
+    }
+
+    public record ValidationReport(boolean passed, List<String> violations) {
+    }
+
+    /** GET /optimization-jobs/{id}/result; {@code validation} comes from SolutionValidator, not the solver */
+    public record OptimizationResult(
+            JobStatus status,
+            boolean feasible,
+            int trucksUsed,
+            int trucksLowerBound,
+            long totalMeters,
+            List<RoutePlan> routes,
+            List<Long> unassignedShipmentIds,
+            ValidationReport validation) {
+    }
+
     /** A place as read from the Excel file, before it becomes a Location. */
     public record PlaceGuess(String name, String postalCode, String country) {
     }
