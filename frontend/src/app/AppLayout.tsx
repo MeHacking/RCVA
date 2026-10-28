@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router'
+import { apiMode, apiModeLabel } from '../api/apiMode'
 import { Icon, type IconName } from '../components/Icon'
 import { TopBar } from './TopBar'
 
@@ -34,6 +35,9 @@ export function AppLayout() {
             </li>
           ))}
         </ul>
+        <p className="nav-footer" data-testid="data-source">
+          {apiModeLabel(apiMode())}
+        </p>
       </nav>
       <header className="app__top">
         <TopBar />
