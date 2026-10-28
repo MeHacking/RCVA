@@ -1,0 +1,5 @@
+# Shell scripts must keep LF on every OS (core.autocrlf would turn them into CRLF on Windows)
+backend/mvnw text eol=lf
+*.sh text eol=lf
+# Windows batch files keep CRLF
+*.cmd text eol=crlf
