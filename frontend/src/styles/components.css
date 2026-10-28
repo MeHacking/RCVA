@@ -608,3 +608,21 @@ input[type='file'] {
   gap: var(--space-3);
   margin-top: var(--space-2);
 }
+
+button.button--danger {
+  color: var(--accent-text);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+button.button--danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
+}
+
+/* Buttons in a table cell, including an inline "are you sure?" step */
+.confirm-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

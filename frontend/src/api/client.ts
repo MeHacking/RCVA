@@ -32,6 +32,8 @@ export interface ApiClient {
   listTrucks(): Promise<Truck[]>
   createTruck(input: TruckInput): Promise<Truck>
   updateTruck(id: number, input: TruckInput): Promise<Truck>
+  /** DELETE /trucks/{id} (204); 409 while an optimization job is queued or running */
+  deleteTruck(id: number): Promise<void>
 
   getBase(): Promise<BaseSettings>
 

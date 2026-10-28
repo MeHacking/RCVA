@@ -28,6 +28,7 @@
   --warning: #8f5a0a;
   --warning-subtle: #f8ead2;
   --danger: #c2381f;
+  --danger-hover: #a52f1a;
   --danger-subtle: #fbe6df;
   --danger-border: #eec0b4;
   --info: var(--accent);

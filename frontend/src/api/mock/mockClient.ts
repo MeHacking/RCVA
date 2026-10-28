@@ -1,6 +1,13 @@
 import type { Scenario } from '../../fixtures'
 import { ApiError, type ApiClient } from '../client'
-import type { JobStatus, OptimizationJob, OptimizationJobRequest, Truck, TruckInput } from '../types'
+import {
+  TERMINAL_JOB_STATUSES,
+  type JobStatus,
+  type OptimizationJob,
+  type OptimizationJobRequest,
+  type Truck,
+  type TruckInput,
+} from '../types'
 import { createImportStore, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
 import { buildLoadPlan } from './loadPlan'
 
@@ -141,6 +148,22 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         assertValidTruck(input)
         trucks[index] = { ...input, id }
         return trucks[index]
+      }),
+
+    deleteTruck: (id) =>
+      respond(() => {
+        const index = trucks.findIndex((t) => t.id === id)
+        if (index < 0) throw notFound(`Kamion ${id} ne postoji.`)
+        // A running job may still use the truck; finished results keep their own snapshot.
+        const running = [...jobs.values()].find((job) => !TERMINAL_JOB_STATUSES.includes(jobView(job).status))
+        if (running) {
+          throw new ApiError({
+            title: 'Kamion se koristi',
+            status: 409,
+            detail: `Optimizacija #${running.id} je u toku; kamion se može ukloniti kada se završi.`,
+          })
+        }
+        trucks.splice(index, 1)
       }),
 
     createOptimizationJob: (request: OptimizationJobRequest) =>

@@ -135,3 +135,27 @@ describe('mock trucks', () => {
     expect((await rejection(api.updateTruck(99, VALID))).status).toBe(404)
   })
 })
+
+describe('mock truck removal', () => {
+  it('removes a truck (204) and then reports 404 for it', async () => {
+    const { api } = setup('small')
+    await api.deleteTruck(3)
+    expect((await api.listTrucks()).map((t) => t.id)).toEqual([1, 2])
+    expect((await rejection(api.deleteTruck(3))).status).toBe(404)
+  })
+
+  it('refuses with 409 while a job is queued or running, allows it once the job ends', async () => {
+    const { api, advance } = setup('small')
+    await api.createOptimizationJob(REQUEST)
+    const queued = await rejection(api.deleteTruck(1))
+    expect(queued.status).toBe(409)
+    expect(queued.message).toMatch(/Optimizacija #1 je u toku/)
+
+    advance(QUEUED_MS)
+    expect((await rejection(api.deleteTruck(1))).status).toBe(409)
+
+    advance(RUNNING_MS)
+    await api.deleteTruck(1)
+    expect((await api.listTrucks()).map((t) => t.id)).toEqual([2, 3])
+  })
+})

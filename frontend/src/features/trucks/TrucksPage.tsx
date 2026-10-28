@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useApi } from '../../api/apiContext'
+import { describeError } from '../../api/client'
 import type { Truck } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
@@ -14,10 +15,34 @@ export function TrucksPage() {
   const load = useCallback(() => api.listTrucks(), [api])
   const [trucks, reload] = useAsyncData(load)
   const [editing, setEditing] = useState<Editing>(null)
+  /** truck waiting for the user to confirm removal */
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handleSaved = () => {
     setEditing(null)
     reload()
+  }
+
+  const askDelete = (truck: Truck) => {
+    setDeleteError(null)
+    setConfirmingId(truck.id)
+  }
+
+  async function confirmDelete(truck: Truck) {
+    setDeletingId(truck.id)
+    setDeleteError(null)
+    try {
+      await api.deleteTruck(truck.id)
+      if (editing?.mode === 'edit' && editing.truck.id === truck.id) setEditing(null)
+      setConfirmingId(null)
+      reload()
+    } catch (error) {
+      setDeleteError(`Kamion „${truck.name}“ nije uklonjen: ${describeError(error)}`)
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -40,6 +65,11 @@ export function TrucksPage() {
         />
       )}
 
+      {deleteError && (
+        <p role="alert" className="text--error">
+          {deleteError}
+        </p>
+      )}
       {trucks.status === 'loading' && <LoadingState label="Učitavanje kamiona…" />}
       {trucks.status === 'error' && (
         <ErrorState title="Kamioni nisu učitani" message={trucks.message} onRetry={reload} />
@@ -54,7 +84,12 @@ export function TrucksPage() {
           <TruckTable
             trucks={trucks.data}
             editingId={editing?.mode === 'edit' ? editing.truck.id : null}
+            confirmingId={confirmingId}
+            deletingId={deletingId}
             onEdit={(truck) => setEditing({ mode: 'edit', truck })}
+            onAskDelete={askDelete}
+            onConfirmDelete={(truck) => void confirmDelete(truck)}
+            onCancelDelete={() => setConfirmingId(null)}
           />
         ))}
     </section>
@@ -64,11 +99,21 @@ export function TrucksPage() {
 function TruckTable({
   trucks,
   editingId,
+  confirmingId,
+  deletingId,
   onEdit,
+  onAskDelete,
+  onConfirmDelete,
+  onCancelDelete,
 }: {
   trucks: Truck[]
   editingId: number | null
+  confirmingId: number | null
+  deletingId: number | null
   onEdit: (truck: Truck) => void
+  onAskDelete: (truck: Truck) => void
+  onConfirmDelete: (truck: Truck) => void
+  onCancelDelete: () => void
 }) {
   return (
     <div className="table-wrap">
@@ -100,9 +145,36 @@ function TruckTable({
               </td>
               <td>{truck.available ? 'Da' : <span className="text--muted">Ne</span>}</td>
               <td className="actions">
-                <button type="button" onClick={() => onEdit(truck)} aria-label={`Izmeni ${truck.name}`}>
-                  Izmeni
-                </button>
+                {confirmingId === truck.id ? (
+                  <span className="confirm-inline" role="group" aria-label={`Potvrda uklanjanja: ${truck.name}`}>
+                    <span>Ukloniti kamion?</span>
+                    <button
+                      type="button"
+                      className="button--danger"
+                      onClick={() => onConfirmDelete(truck)}
+                      disabled={deletingId === truck.id}
+                    >
+                      {deletingId === truck.id ? 'Uklanjanje…' : 'Da, ukloni'}
+                    </button>
+                    <button type="button" onClick={onCancelDelete} disabled={deletingId === truck.id}>
+                      Otkaži
+                    </button>
+                  </span>
+                ) : (
+                  <span className="confirm-inline">
+                    <button type="button" onClick={() => onEdit(truck)} aria-label={`Izmeni ${truck.name}`}>
+                      Izmeni
+                    </button>
+                    <button
+                      type="button"
+                      className="button--ghost"
+                      onClick={() => onAskDelete(truck)}
+                      aria-label={`Ukloni ${truck.name}`}
+                    >
+                      Ukloni
+                    </button>
+                  </span>
+                )}
               </td>
             </tr>
           ))}

@@ -63,3 +63,38 @@ test('requires all three dimensions or none', async ({ page }) => {
 
   await expect(page.getByText('Unesite sve tri dimenzije tovarnog prostora ili nijednu.')).toBeVisible()
 })
+
+test('removes a truck after confirming in the row; cancel keeps it', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.getByRole('button', { name: 'Ukloni Solo 1' }).click()
+  const confirm = page.getByRole('group', { name: 'Potvrda uklanjanja: Solo 1' })
+  await expect(confirm).toContainText('Ukloniti kamion?')
+  await confirm.getByRole('button', { name: 'Otkaži' }).click()
+  await expect(page.getByRole('row', { name: /Solo 1/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Ukloni Solo 1' }).click()
+  await page.getByRole('group', { name: 'Potvrda uklanjanja: Solo 1' }).getByRole('button', { name: 'Da, ukloni' }).click()
+  await expect(page.getByRole('row', { name: /Solo 1/ })).toHaveCount(0)
+  await expect(page.getByRole('table').getByRole('row')).toHaveCount(3) // header + 2
+  expect(errors).toEqual([])
+})
+
+test('closes the edit form when the edited truck is removed', async ({ page }) => {
+  await page.getByRole('button', { name: 'Izmeni Šleper 2' }).click()
+  await expect(page.getByRole('heading', { name: 'Izmena kamiona #2' })).toBeVisible()
+  await page.getByRole('button', { name: 'Ukloni Šleper 2' }).click()
+  await page.getByRole('group', { name: 'Potvrda uklanjanja: Šleper 2' }).getByRole('button', { name: 'Da, ukloni' }).click()
+  await expect(page.getByRole('heading', { name: 'Izmena kamiona #2' })).toBeHidden()
+  await expect(page.getByRole('row', { name: /Šleper 2/ })).toHaveCount(0)
+})
+
+test('refuses removal while an optimization is running', async ({ page }) => {
+  await page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  await page.getByRole('button', { name: 'Ukloni Šleper 1' }).click()
+  await page.getByRole('group', { name: 'Potvrda uklanjanja: Šleper 1' }).getByRole('button', { name: 'Da, ukloni' }).click()
+
+  await expect(page.getByRole('alert')).toContainText(
+    'Kamion „Šleper 1“ nije uklonjen: Optimizacija #1 je u toku; kamion se može ukloniti kada se završi. (HTTP 409)',
+  )
+  await expect(page.getByRole('row', { name: /Šleper 1/ })).toBeVisible()
+})
