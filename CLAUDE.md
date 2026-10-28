@@ -4,7 +4,7 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 28.10.2026, backend kostur i HTTP klijent (posle commit-a `76aa489`).
+Poslednje ažuriranje: 28.10.2026, Excel uvoz na serveru (posle commit-a `72cd64f`).
 
 ## Šta aplikacija radi
 
@@ -15,11 +15,11 @@ Rezultat se prikazuje kao spisak ruta (kasnije mapa) i kao 3D raspored robe u ka
 - Model (Spec v2): **PDP** (preuzimanje i isporuka) sa **više skladišta**, **dve faze po ruti**
   (prvo sva preuzimanja, pa sve isporuke; pretpostavka čeka potvrdu), kapacitet samo u LDM,
   pošiljke nedeljive. Izvan MVP-a: LIFO, vremenski prozori, težina kao ograničenje, više tura.
-- Backend (kostur radi): Java 21, Spring Boot 4.1.1, Maven. Planirano: Timefold Solver
+- Backend (kamioni, pošiljke, Excel uvoz): Java 21, Spring Boot 4.1.1, Maven, Apache POI. Planirano: Timefold Solver
   (skor Hard/Medium/Soft: hard = prekršaji, medium = broj kamiona, soft = metri), nezavisni
   `SolutionValidator`, OSRM za rastojanja, kasnije PostgreSQL.
-- Frontend: React + TypeScript + Vite. Radi nad mock API-jem; u režimu `server` kamione
-  čita i menja preko backend-a.
+- Frontend: React + TypeScript + Vite. Radi nad mock API-jem; u režimu `server` kamione,
+  pošiljke, lokacije i Excel uvoz radi preko backend-a.
 
 ## Izvori istine
 
@@ -66,9 +66,12 @@ RCVA/
     │   ├── api/                  kontroleri (/api/v1), ApiException, Problem Details handler
     │   ├── domain/Model.java     record-i, polje po polje kao frontend/src/api/types.ts
     │   ├── data/                 InMemoryStore + SampleData (isti podaci i id-jevi kao mock "small")
+    │   ├── imports/              Excel uvoz: RelationParser, QuantityParser, Gazetteer, ImportRows,
+    │   │                         ImportService, PoiWorkbookReader (prenos src/api/mock/import/)
     │   ├── trucks/TruckService   validacija i CRUD kamiona (poruke iste kao u mock-u)
     │   └── optimization/ActiveJobs  „ima li posla u toku“ (za 409 pri uklanjanju); sada uvek prazno
-    └── src/test/java/            JUnit 6: TruckServiceTest, ApiContractTest (MockMvc)
+    └── src/test/java/            JUnit 6: TruckServiceTest, ApiContractTest (MockMvc), imports/*
+                                  (TestWorkbooks pravi .xlsx u memoriji; binarnih test fajlova nema)
 ```
 
 ## Komande
@@ -90,17 +93,17 @@ cd backend
 ```
 
 Izvor podataka bira `VITE_API_MODE` (`src/api/apiMode.ts`, `src/api/createApiClient.ts`):
-`mock` (podrazumevano) ili `server`. U režimu `server` sa backend-a idu samo kamioni i baza;
-pošiljke, lokacije, uvoz, optimizacija i 3D raspored ostaju na mock-u, jer uvoz upisuje
-pošiljke u mock. Backend endpoint-i za pošiljke i lokacije postoje, ali ih frontend još ne
-koristi. Bočna traka uvek prikazuje izvor podataka.
+`mock` (podrazumevano) ili `server`. U režimu `server` sa backend-a idu kamioni, baza,
+pošiljke, lokacije i Excel uvoz; optimizacija i 3D raspored ostaju na mock-u. Mock
+optimizacija zato ne vidi pošiljke uvezene na server (rezultat je fiksan po scenariju).
+Bočna traka uvek prikazuje izvor podataka.
 
 Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5175) i
 `notFound` (5176). Testovi u `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog
 scenarija.
 
-Stanje (28.10.2026): frontend build i lint čisti, 164 Vitest, 40 Playwright (mock) i
-4 Playwright (server) testa prolaze; backend `mvnw verify` prolazi, 15 testova.
+Stanje (28.10.2026): frontend build i lint čisti, 165 Vitest, 40 Playwright (mock) i
+7 Playwright (server) testova prolaze; backend `mvnw verify` prolazi, 69 testova.
 
 ## Pravila rada (dogovoreno sa korisnikom)
 
@@ -138,18 +141,21 @@ Svih šest ekrana iz prompta radi nad mock API-jem:
 
 Gornja traka svuda prikazuje status poslednjeg posla i dugme „Pokreni optimizaciju“.
 
-Backend (kostur): `GET/POST /trucks`, `GET/PUT/DELETE /trucks/{id}` (validacija, 404, 409
-dok posao radi), `GET /shipments`, `GET /locations`, `GET /base`, `GET /health`. Greške kao
-Problem Details sa naslovima na srpskom i `errors` po polju. Podaci u memoriji; restart ih
-vraća na početne. Runtime licence: Apache-2.0 (Spring, Tomcat, Jackson...), MIT (SLF4J),
+Backend: `GET/POST /trucks`, `GET/PUT/DELETE /trucks/{id}` (validacija, 404, 409
+dok posao radi), `GET /shipments`, `GET /locations`, `GET /base`, `GET /health`.
+Excel uvoz po dopuni 1, odeljak 4: `POST /imports/excel` (multipart, do 10 MB),
+`PUT /imports/{id}/mapping`, `GET .../preview`, `PUT .../rows/{n}`, `POST .../commit`; ista
+pravila, poruke i testni slučajevi kao mock (`ImportParsingTest`, `ImportServiceTest`).
+Greške kao Problem Details sa naslovima na srpskom i `errors` po polju. Podaci u memoriji;
+restart ih vraća na početne. Runtime licence: Apache-2.0 (Spring, Tomcat, Jackson, Apache
+POI 5.5.1 i njegove zavisnosti), BSD-3-Clause (curvesapi, iz POI), MIT (SLF4J),
 EPL-2.0/LGPL-2.1 (Logback), EPL-2.0 (jakarta.annotation).
 
 ## Sledeći koraci
 
 1. ~~Backend kostur~~ (urađeno 28.10.2026; PostgreSQL namerno odložen).
-2. **Excel uvoz na serveru** (Apache POI), prenosom pravila iz
-   `frontend/src/api/mock/import/` zajedno sa testovima. Posle toga frontend u režimu
-   `server` može da čita i pošiljke i lokacije sa backend-a.
+2. ~~Excel uvoz na serveru~~ (urađeno 28.10.2026). Mock pravila u
+   `frontend/src/api/mock/import/` i Java pravila moraju ostati ista dok mock postoji.
 3. **Timefold optimizacija** (čeka odgovore vlasnika procesa, videti dole): PDP sa dve faze,
    provera PROVEN pre rešavanja, `SolutionValidator`, testovi 1–7, probni `DistanceProvider`.
 4. **SimpleLoadPlanner** na serveru (`GET .../load-plan`), test 8 sa pravim podacima.
@@ -203,6 +209,16 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 - **Dva izvora istih podataka**: `backend/.../SampleData.java` i
   `frontend/src/fixtures/smallScenario.ts` moraju imati iste id-jeve dok god deo frontenda
   radi na mock-u (mock optimizacija se odnosi na te id-jeve).
+- **Surefire i `@Nested`**: `-Dtest=ImportParsingTest` pokreće 0 testova; treba
+  `'-Dtest=ImportParsingTest*'` (ugnežđene klase su `ImportParsingTest$ParseRelation`...).
+- **JS i Java regex**: JS `\s` i `trim()` hvataju i neprelomljivi razmak (čest u Excel-u),
+  Java ne; zato `imports/Text.java` (`WS`, `trim`). Java `$` prihvata i kraj ispred `\n`,
+  pa se umesto JS `$` piše `\z`. Brojčane ćelije se pišu kao JS `String(number)` (`PoiWorkbookReader.number`).
+- **Provera stvarnih podataka grep-om**: `grep -F -f spisak` u Git Bash-u je jednom tiho
+  vratio prazno; proveravati reč po reč i prvo potvrditi da provera nalazi poznatu reč.
+- **Ceo broj u JSON telu**: `ImportRowPatch.ldmTenths` je `Double`, a servis proverava da je
+  ceo broj, pa `2.5` daje 400 (pokriveno testom). Kod Jackson 2 bi `2.5` u `Integer` polju
+  bilo tiho odsečeno; za Jackson 3 to nije provereno.
 - **Mock ograničenja**: rezultat optimizacije je fiksan po scenariju (nema solvera);
   geokodiranje zna desetak gradova (`src/api/mock/import/gazetteer.ts`); rastojanja u
   scenariju `small` su vazdušna linija; poslednji posao se čuva samo u memoriji.
