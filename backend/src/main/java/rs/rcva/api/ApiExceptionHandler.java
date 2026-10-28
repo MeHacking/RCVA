@@ -8,7 +8,10 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
  * Turns errors into Problem Details (application/problem+json) with the extension members
@@ -36,6 +39,22 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         problem.setTitle("Neispravan zahtev");
         problem.setDetail("Telo zahteva nije ispravan JSON ili polje ima pogrešan tip.");
+        return problem;
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    ProblemDetail missingPart(MissingServletRequestPartException e) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problem.setTitle("Fajl nedostaje");
+        problem.setDetail("Zahtev mora sadržati fajl u polju „" + e.getRequestPartName() + "“.");
+        return problem;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ProblemDetail tooLarge(MaxUploadSizeExceededException e) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONTENT_TOO_LARGE);
+        problem.setTitle("Fajl je prevelik");
+        problem.setDetail("Fajl je veći od dozvoljenih " + DataSize.ofBytes(e.getMaxUploadSize()).toMegabytes() + " MB.");
         return problem;
     }
 

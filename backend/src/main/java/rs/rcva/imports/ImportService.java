@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
 import rs.rcva.api.ApiException;
 import rs.rcva.data.InMemoryStore;
 import rs.rcva.domain.Model.GeocodeStatus;
@@ -34,6 +35,7 @@ import rs.rcva.imports.WorkbookReader.Sheet;
  * locations in the store. Port of frontend/src/api/mock/import/importStore.ts, with the
  * same messages.
  */
+@Service
 public class ImportService {
 
     static final Set<String> FIELDS = Set.of(

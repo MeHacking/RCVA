@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -16,8 +17,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import rs.rcva.imports.TestWorkbooks;
 
 /**
  * The HTTP contract the frontend relies on (frontend/src/api/types.ts, docs/specifikacija-v2-dopuna-1.md).
@@ -121,6 +124,124 @@ class ApiContractTest {
         mvc.perform(get("/api/v1/does-not-exist"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(PROBLEM));
+    }
+
+    // --- Excel import (dopuna 1, section 4); invented rows with the shapes of the real file
+
+    private static MockMultipartFile excel(String name, byte[] content) {
+        return new MockMultipartFile("file", name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", content);
+    }
+
+    @Test
+    @DirtiesContext
+    void importsAnExcelFileInFourSteps() throws Exception {
+        byte[] workbook = TestWorkbooks.xlsx(new Object[][] {
+                {"RELACIJA", "TEŽINA", "DIMENZIJE"},
+                {"BEOGRAD 34131 - LJUNGBY", "1,200 kg", "2,4m"},
+                {"12345 SODERTALJE", "2,300 kg", 3.2},
+        });
+        mvc.perform(multipart("/api/v1/imports/excel").file(excel("Relacije oktobar.xlsx", workbook)))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/v1/imports/1"))
+                .andExpect(jsonPath("$.importId").value(1))
+                .andExpect(jsonPath("$.fileName").value("Relacije oktobar.xlsx"))
+                .andExpect(jsonPath("$.sheets[0].name").value("Sheet1"))
+                .andExpect(jsonPath("$.sheets[0].rowCount").value(3))
+                .andExpect(jsonPath("$.sheets[0].previewRows[2][2]").value("3.2"));
+
+        mvc.perform(get("/api/v1/imports/1/preview"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Mapiranje nije zadato"));
+        mvc.perform(put("/api/v1/imports/1/mapping").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"sheetName":"Sheet1","headerRow":1,"columns":{"relation":0,"weight":1,"ldm":2}}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/imports/1/preview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows", hasSize(2)))
+                .andExpect(jsonPath("$.rows[0].rowNumber").value(2))
+                .andExpect(jsonPath("$.rows[0].externalId").value("Relacije-oktobar-2"))
+                .andExpect(jsonPath("$.rows[0].pickup.name").value("Beograd"))
+                .andExpect(jsonPath("$.rows[0].pickup.postalCode").value(nullValue()))
+                .andExpect(jsonPath("$.rows[0].delivery.postalCode").value("34131"))
+                .andExpect(jsonPath("$.rows[0].ldmTenths").value(24))
+                .andExpect(jsonPath("$.rows[0].weightKg").value(1200.0))
+                .andExpect(jsonPath("$.rows[0].description").value(nullValue()))
+                .andExpect(jsonPath("$.rows[0].errors", hasSize(0)))
+                .andExpect(jsonPath("$.rows[1].pickup").value(nullValue()))
+                .andExpect(jsonPath("$.rows[1].ldmTenths").value(32))
+                .andExpect(jsonPath("$.rows[1].errors[0]").value("Nedostaje mesto preuzimanja."));
+
+        mvc.perform(put("/api/v1/imports/1/rows/3").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"pickup":{"name":"Subotica","postalCode":null,"country":"rs"}}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pickup.country").value("RS"))
+                .andExpect(jsonPath("$.corrected").value(true))
+                .andExpect(jsonPath("$.errors", hasSize(0)));
+
+        mvc.perform(post("/api/v1/imports/1/commit"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(2))
+                .andExpect(jsonPath("$.skipped").value(0));
+        mvc.perform(post("/api/v1/imports/1/commit"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Uvoz je već potvrđen"));
+
+        mvc.perform(get("/api/v1/shipments"))
+                .andExpect(jsonPath("$", hasSize(7)))
+                .andExpect(jsonPath("$[6].id").value(107))
+                .andExpect(jsonPath("$[6].externalId").value("Relacije-oktobar-3"));
+        // Ljungby 34131 already exists; a place matches only with the same name and postal code.
+        mvc.perform(get("/api/v1/locations"))
+                .andExpect(jsonPath("$", hasSize(10)))
+                .andExpect(jsonPath("$[7].name").value("Beograd"))
+                .andExpect(jsonPath("$[7].geocodeStatus").value("OK"))
+                .andExpect(jsonPath("$[8].name").value("Subotica"))
+                .andExpect(jsonPath("$[8].geocodeStatus").value("MANUAL"))
+                .andExpect(jsonPath("$[9].name").value("Sodertalje"))
+                .andExpect(jsonPath("$[9].lat").value(nullValue()))
+                .andExpect(jsonPath("$[9].geocodeStatus").value("FAILED"));
+    }
+
+    @Test
+    void rejectsWrongFilesWithProblemDetails() throws Exception {
+        mvc.perform(multipart("/api/v1/imports/excel").file(excel("posiljke.csv", "a;b".getBytes())))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM))
+                .andExpect(jsonPath("$.title").value("Nepodržan tip fajla"));
+        mvc.perform(multipart("/api/v1/imports/excel").file(excel("pokvaren.xlsx", "nije zip".getBytes())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Fajl nije pročitan"));
+        mvc.perform(multipart("/api/v1/imports/excel"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Fajl nedostaje"));
+    }
+
+    @Test
+    @DirtiesContext
+    void validatesMappingAndRowCorrections() throws Exception {
+        byte[] workbook = TestWorkbooks.xlsx(new Object[][] {{"RELACIJA", "LDM"}, {"NIS - LUND", "1"}});
+        mvc.perform(multipart("/api/v1/imports/excel").file(excel("a.xlsx", workbook))).andExpect(status().isCreated());
+
+        mvc.perform(put("/api/v1/imports/1/mapping").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"sheetName":"Sheet1","headerRow":1,"columns":{"relation":0,"pickup":1}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Neispravno mapiranje kolona"))
+                .andExpect(jsonPath("$.errors.ldm").value("Kolona sa LDM je obavezna."))
+                .andExpect(jsonPath("$.errors.relation").exists());
+        mvc.perform(put("/api/v1/imports/1/mapping").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"sheetName":"Sheet1","headerRow":1,"columns":{"relation":0,"ldm":1}}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(put("/api/v1/imports/1/rows/2").contentType(MediaType.APPLICATION_JSON).content("{\"ldmTenths\":2.5}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.ldmTenths").value("LDM mora biti veći od 0."));
+        mvc.perform(put("/api/v1/imports/1/rows/9").contentType(MediaType.APPLICATION_JSON).content("{\"excluded\":true}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Red 9 ne postoji."));
+        mvc.perform(get("/api/v1/imports/7/preview"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Uvoz 7 ne postoji."));
     }
 
     @Test

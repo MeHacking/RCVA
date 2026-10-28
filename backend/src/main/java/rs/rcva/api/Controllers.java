@@ -1,8 +1,11 @@
 package rs.rcva.api;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,13 +14,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import rs.rcva.data.InMemoryStore;
 import rs.rcva.domain.Model.BaseSettings;
+import rs.rcva.domain.Model.ImportCommitResult;
+import rs.rcva.domain.Model.ImportCreated;
+import rs.rcva.domain.Model.ImportMapping;
+import rs.rcva.domain.Model.ImportPreview;
+import rs.rcva.domain.Model.ImportRow;
+import rs.rcva.domain.Model.ImportRowPatch;
 import rs.rcva.domain.Model.Location;
 import rs.rcva.domain.Model.Shipment;
 import rs.rcva.domain.Model.Truck;
 import rs.rcva.domain.Model.TruckInput;
+import rs.rcva.imports.ImportService;
 import rs.rcva.trucks.TruckService;
 
 /** REST API under /api/v1 (Specifikacija v2, section 6). */
@@ -61,6 +73,48 @@ final class Controllers {
         ResponseEntity<Void> delete(@PathVariable long id) {
             trucks.delete(id);
             return ResponseEntity.noContent().build();
+        }
+    }
+
+    /** Excel import in four steps (dopuna 1, section 4). */
+    @RestController
+    @RequestMapping("/api/v1/imports")
+    static class ImportController {
+
+        private final ImportService imports;
+
+        ImportController(ImportService imports) {
+            this.imports = imports;
+        }
+
+        @PostMapping(path = "/excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+        ResponseEntity<ImportCreated> create(@RequestParam("file") MultipartFile file) throws IOException {
+            try (InputStream content = file.getInputStream()) {
+                ImportCreated created = imports.create(file.getOriginalFilename(), content);
+                return ResponseEntity.created(URI.create("/api/v1/imports/" + created.importId())).body(created);
+            }
+        }
+
+        @PutMapping("/{id}/mapping")
+        ResponseEntity<Void> setMapping(@PathVariable long id, @RequestBody(required = false) ImportMapping mapping) {
+            imports.setMapping(id, mapping);
+            return ResponseEntity.ok().build();
+        }
+
+        @GetMapping("/{id}/preview")
+        ImportPreview preview(@PathVariable long id) {
+            return imports.preview(id);
+        }
+
+        @PutMapping("/{id}/rows/{rowNumber}")
+        ImportRow updateRow(@PathVariable long id, @PathVariable int rowNumber,
+                @RequestBody(required = false) ImportRowPatch patch) {
+            return imports.updateRow(id, rowNumber, patch);
+        }
+
+        @PostMapping("/{id}/commit")
+        ImportCommitResult commit(@PathVariable long id) {
+            return imports.commit(id);
         }
     }
 
