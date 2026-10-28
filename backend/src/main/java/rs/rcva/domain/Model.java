@@ -59,4 +59,8 @@ public final class Model {
 
     public record BaseSettings(long baseLocationId, boolean returnToBase) {
     }
+
+    /** A place as read from the Excel file, before it becomes a Location. */
+    public record PlaceGuess(String name, String postalCode, String country) {
+    }
 }
