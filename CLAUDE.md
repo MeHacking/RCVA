@@ -4,7 +4,52 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 28.10.2026, Timefold optimizacija i 3D raspored na serveru (posle commit-a `334713c`).
+Poslednje ažuriranje: 28.10.2026, pauza: čeka se odluka o arhitekturi (videti „Gde smo stali“).
+
+## Gde smo stali (28.10.2026)
+
+Rad je **pauziran na zahtev korisnika** dok ne stignu Gojkovi odgovori
+(`docs/pitanja-za-vlasnika-procesa.md`). Tada korisnik bira pravac A ili B ispod. **Ne
+počinjati ništa od ovoga bez njegove odluke.**
+
+**Zahtevi korisnika o platformi** (dogovoreno u razgovoru):
+- Aplikacija radi **na uređaju**: sada na ličnom računaru, kasnije i na telefonu, **bez
+  hostinga** i bez postavljanja na internet. Internet samo za pozive ka servisima za
+  koordinate i kilometraže.
+- Aplikacija za telefon se pravi naknadno i treba da radi **isto što i aplikacija za PC**
+  (uvoz, optimizacija, 3D), na samom telefonu.
+- Razmotreno i odbačeno: Cloudflare Tunnel + Access (traži domen, oko 10 €/god.) i
+  Tailscale (besplatan plan je samo za nekomercijalnu upotrebu). Otvaranje porta na ruteru
+  ne dolazi u obzir (nema prijave korisnika).
+
+**Otvorena odluka: A ili B** (Java backend na telefonu ne radi; Timefold i Spring nisu za
+Android):
+- **A)** PC ostaje na Javi (Spring + Timefold), a telefon se kasnije piše posebno u
+  TypeScript-u. Mana: ista logika na dva mesta (uvoz, solver, validator, 3D raspored).
+- **B)** (predlog) Jedna TypeScript aplikacija za oba uređaja: logika u frontendu, solver u
+  Web Worker-u, podaci u IndexedDB, telefon kao Capacitor (MIT) aplikacija. Java kod ostaje
+  kao referenca i test-orakl (isti slučajevi i nasumični primeri moraju dati iste
+  rezultate). Mana: sopstveni solver umesto Timefold-a; njegov kvalitet dokazati poređenjem
+  sa Timefold-om. Predloženi redosled: 1) geokodiranje i kilometraže u TS, 2) prenos
+  `RoutePlanner`-a, validatora i 3D rasporeda, 3) solver, 4) čuvanje na uređaju i
+  izvoz/uvoz fajla, 5) pakovanje (PC, pa telefon).
+- U oba slučaja podaci na PC-u i telefonu su odvojeni, osim prenosa fajlom.
+- Koraci 1 i 2 iz B koriste i putu A.
+
+**Predlog za koordinate i kilometraže** (nije početo):
+- Koordinate: javni **Nominatim**, uz poštovanje
+  [pravila](https://operations.osmfoundation.org/policies/nominatim/): najviše 1 zahtev/s
+  za celu aplikaciju, sopstveni User-Agent, svaki rezultat se trajno čuva i upit se ne
+  ponavlja, samo traženje koje pokrene korisnik (uvoz), bez automatskog dopunjavanja,
+  mogućnost isključivanja bez nove verzije, navođenje „© OpenStreetMap contributors“.
+- Kilometraže: **OpenRouteService** (besplatan ključ, profil za teretna vozila), uz
+  čuvanje rastojanja. Besplatna ograničenja se razlikuju po izvorima (500 matrica dnevno ili
+  zajednička kvota od oko 8.000 zahteva); **proveriti na nalogu pre upotrebe**, kao i uslove
+  za komercijalnu upotrebu. Ključ pravi korisnik i čuva se samo lokalno, nikad u repo-u.
+  Ako ORS ne odgovori, posao pada sa jasnom porukom (bez tihe zamene vazdušnom linijom).
+- Sopstveni OSRM odbačen: Docker i priprema mape na ličnom računaru su preteški za ovaj obim.
+- Pitanje D3 (putevi za kamione ili za automobile) je i dalje otvoreno; od toga zavisi
+  ORS profil.
 
 ## Šta aplikacija radi
 
@@ -188,9 +233,10 @@ Optimizacija na serveru:
    Testovi 1–3, 5a i 6 iz Spec v2 nisu preneti: specifikacija nije u repozitorijumu, a ovde
    su opisani samo testovi 4, 5b, 7, 8 i 9.
 4. ~~SimpleLoadPlanner na serveru~~ (urađeno 28.10.2026).
-5. **Geokodiranje i OSRM**: bez toga stvarni podaci ne mogu u optimizaciju. Zameniti
-   `HaversineDistanceProvider` i `Gazetteer`.
-6. Kasnije: mapa (Leaflet), PostgreSQL, završno testiranje (svih 9 testova).
+5. **Čeka odluku A/B** (videti „Gde smo stali“). Posle toga: geokodiranje (Nominatim) i
+   kilometraže (ORS); bez njih stvarni podaci ne mogu u optimizaciju.
+6. Kasnije: mapa (Leaflet), trajno čuvanje podataka (PostgreSQL samo na putu A; na putu B
+   IndexedDB), završno testiranje (svih 9 testova).
 
 Predlozi iz dopune 1 koji čekaju odluku: `GET /optimization-jobs/latest` (poslednji posao se
 sada gubi posle osvežavanja) i naziv i kapacitet kamiona u rezultatu (`inputSnapshot`).
