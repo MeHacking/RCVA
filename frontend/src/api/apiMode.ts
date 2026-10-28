@@ -1,8 +1,7 @@
 /**
  * Where the data comes from, chosen at build time with VITE_API_MODE:
  * - "mock" (default): everything from the in-browser mock (src/api/mock), no backend needed;
- * - "server": trucks, base, shipments, locations and the Excel import from the backend;
- *   optimization and the 3D load plan still from the mock until the backend serves them.
+ * - "server": everything from the backend (backend/, Spring Boot); VITE_MOCK_SCENARIO is ignored.
  */
 export type ApiMode = 'mock' | 'server'
 
@@ -17,6 +16,6 @@ export function apiMode(): ApiMode {
 /** Shown in the sidebar, so probni podaci are never mistaken for real ones. */
 export function apiModeLabel(mode: ApiMode): string {
   return mode === 'server'
-    ? 'Kamioni i pošiljke: server · optimizacija: probni podaci'
+    ? 'Podaci: server'
     : 'Probni podaci (bez servera)'
 }

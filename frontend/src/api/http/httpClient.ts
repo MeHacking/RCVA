@@ -1,28 +1,11 @@
 import { ApiError, type ApiClient } from '../client'
 import type { ProblemDetails } from '../types'
 
-/** The part of ApiClient the backend serves so far (backend/, Spring Boot). */
-export type ServerApi = Pick<
-  ApiClient,
-  | 'listTrucks'
-  | 'createTruck'
-  | 'updateTruck'
-  | 'deleteTruck'
-  | 'getBase'
-  | 'listShipments'
-  | 'listLocations'
-  | 'createImport'
-  | 'setImportMapping'
-  | 'getImportPreview'
-  | 'updateImportRow'
-  | 'commitImport'
->
-
 /**
  * ApiClient calls over HTTP to /api/v1 (proxied to the backend by Vite in development).
  * Non-2xx answers become ApiError with the server's Problem Details.
  */
-export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = (...args) => fetch(...args)): ServerApi {
+export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = (...args) => fetch(...args)): ApiClient {
   /** A FormData body goes as multipart (the browser sets the boundary), anything else as JSON. */
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const json = body !== undefined && !(body instanceof FormData)
@@ -59,6 +42,10 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     getImportPreview: (importId) => request('GET', `/imports/${importId}/preview`),
     updateImportRow: (importId, rowNumber, patch) => request('PUT', `/imports/${importId}/rows/${rowNumber}`, patch),
     commitImport: (importId) => request('POST', `/imports/${importId}/commit`),
+    createOptimizationJob: (jobRequest) => request('POST', '/optimization-jobs', jobRequest),
+    getOptimizationJob: (id) => request('GET', `/optimization-jobs/${id}`),
+    getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
+    getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
   }
 }
 

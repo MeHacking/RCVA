@@ -7,7 +7,7 @@ import { collectPageErrors } from '../e2e/consoleGuard.ts'
 test('trucks come from the server and the sidebar says so', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/trucks')
-  await expect(page.getByTestId('data-source')).toHaveText('Kamioni i pošiljke: server · optimizacija: probni podaci')
+  await expect(page.getByTestId('data-source')).toHaveText('Podaci: server')
   const rows = page.getByRole('table').getByRole('row')
   await expect(rows).toHaveCount(4) // header + 3 sample trucks
   await expect(rows.nth(1)).toContainText('Šleper 1')

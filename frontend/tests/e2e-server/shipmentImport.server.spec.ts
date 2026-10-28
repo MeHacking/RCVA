@@ -22,7 +22,7 @@ const summaryValue = (page: Page, label: string) =>
 test('shipments come from the server and the sidebar says so', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/shipments')
-  await expect(page.getByTestId('data-source')).toHaveText('Kamioni i pošiljke: server · optimizacija: probni podaci')
+  await expect(page.getByTestId('data-source')).toHaveText('Podaci: server')
   await expect(page.getByText(/Pošiljki: 5 · ukupno 20,9 LDM/)).toBeVisible()
   expect(errors).toEqual([])
 })

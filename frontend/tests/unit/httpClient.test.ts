@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError } from '../../src/api/client'
+import { ApiError, isProvenInfeasible } from '../../src/api/client'
 import { createHttpClient } from '../../src/api/http/httpClient'
 
 interface Call {
@@ -76,6 +76,33 @@ describe('createHttpClient', () => {
     expect((upload.get('file') as File).name).toBe('Relacije oktobar.xlsx')
     expect(calls[3].body).toEqual(mapping)
     expect(calls[5].body).toEqual({ ldmTenths: 20 })
+  })
+
+  it('calls the optimization job and load plan paths', async () => {
+    const { impl, calls } = fakeFetch(() => json(200, { ok: true }))
+    const api = createHttpClient('/api/v1', impl)
+    const jobRequest = { timeLimitSeconds: 30, truckIds: null, shipmentIds: null }
+
+    await api.createOptimizationJob(jobRequest)
+    await api.getOptimizationJob(5)
+    await api.getOptimizationResult(5)
+    await api.getLoadPlan(5, 2)
+
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      'POST /api/v1/optimization-jobs',
+      'GET /api/v1/optimization-jobs/5',
+      'GET /api/v1/optimization-jobs/5/result',
+      'GET /api/v1/optimization-jobs/5/trucks/2/load-plan',
+    ])
+    expect(calls[0].body).toEqual(jobRequest)
+  })
+
+  it('keeps infeasibilityKind and causes of a 422', async () => {
+    const problem = { title: 'Dokazano neizvodljivo', status: 422, infeasibilityKind: 'PROVEN', causes: ['Pošiljka S-401 je prevelika.'] }
+    const api = createHttpClient('/api/v1', fakeFetch(() => json(422, problem, 'application/problem+json')).impl)
+    const error = await api.createOptimizationJob({ timeLimitSeconds: 1, truckIds: null, shipmentIds: null }).catch((e: unknown) => e)
+    expect(isProvenInfeasible(error)).toBe(true)
+    expect((error as ApiError).problem.causes).toEqual(problem.causes)
   })
 
   it('turns Problem Details into ApiError with field errors', async () => {
