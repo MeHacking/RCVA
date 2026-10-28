@@ -244,6 +244,76 @@ class ApiContractTest {
                 .andExpect(jsonPath("$.detail").value("Uvoz 7 ne postoji."));
     }
 
+    // --- Optimization jobs (Spec v2, section 6; dopuna 1, section 3)
+
+    private String waitUntilFinished(long id) throws Exception {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            String body = mvc.perform(get("/api/v1/optimization-jobs/" + id)).andReturn().getResponse().getContentAsString();
+            if (!body.contains("\"QUEUED\"") && !body.contains("\"RUNNING\"")) {
+                return body;
+            }
+            Thread.sleep(200);
+        }
+        throw new AssertionError("Job " + id + " did not finish");
+    }
+
+    @Test
+    @DirtiesContext
+    void runsAJobAndReturnsAValidatedResult() throws Exception {
+        mvc.perform(post("/api/v1/optimization-jobs").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"timeLimitSeconds\":1,\"truckIds\":null,\"shipmentIds\":null}"))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("Location", "/api/v1/optimization-jobs/1"))
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("QUEUED"));
+
+        // A truck cannot be removed while the job may use it.
+        mvc.perform(delete("/api/v1/trucks/1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Optimizacija #1 je u toku; kamion se može ukloniti kada se završi."));
+
+        waitUntilFinished(1);
+        mvc.perform(get("/api/v1/optimization-jobs/1"))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.infeasibilityKind").value(nullValue()))
+                .andExpect(jsonPath("$.timeLimitSeconds").value(1))
+                .andExpect(jsonPath("$.scoreHard").value(0))
+                .andExpect(jsonPath("$.scoreMedium").value(-2))
+                .andExpect(jsonPath("$.feasible").value(true))
+                .andExpect(jsonPath("$.trucksLowerBound").value(2))
+                .andExpect(jsonPath("$.createdAt").isString());
+        mvc.perform(get("/api/v1/optimization-jobs/1/result"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.trucksUsed").value(2))
+                .andExpect(jsonPath("$.routes", hasSize(2)))
+                .andExpect(jsonPath("$.routes[0].stops[0].sequence").value(1))
+                .andExpect(jsonPath("$.routes[0].stops[0].type").value("PICKUP"))
+                .andExpect(jsonPath("$.routes[0].stops[0].legMeters").isNumber())
+                .andExpect(jsonPath("$.unassignedShipmentIds", hasSize(0)))
+                .andExpect(jsonPath("$.validation.passed").value(true))
+                .andExpect(jsonPath("$.validation.violations", hasSize(0)));
+        mvc.perform(delete("/api/v1/trucks/3")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void answersProvenInfeasibilityWith422AndCauses() throws Exception {
+        mvc.perform(post("/api/v1/optimization-jobs").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"timeLimitSeconds\":1,\"truckIds\":[1],\"shipmentIds\":null}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM))
+                .andExpect(jsonPath("$.title").value("Dokazano neizvodljivo"))
+                .andExpect(jsonPath("$.detail").value("Provera pre pokretanja je dokazala da rešenje ne postoji. Solver nije pokrenut."))
+                .andExpect(jsonPath("$.infeasibilityKind").value("PROVEN"))
+                .andExpect(jsonPath("$.causes[0]").value("Ukupno 20,9 LDM je više od kapaciteta dostupnih kamiona (13,6 LDM)."));
+        mvc.perform(post("/api/v1/optimization-jobs").contentType(MediaType.APPLICATION_JSON).content("{\"timeLimitSeconds\":0}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.timeLimitSeconds").value("Vremensko ograničenje mora biti veće od 0."));
+        mvc.perform(get("/api/v1/optimization-jobs/42/result"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Posao optimizacije 42 ne postoji."));
+    }
+
     @Test
     void reportsHealth() throws Exception {
         mvc.perform(get("/api/v1/health"))

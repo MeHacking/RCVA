@@ -31,6 +31,7 @@ public class ApiExceptionHandler {
         if (!e.errors().isEmpty()) {
             problem.setProperty("errors", new TreeMap<>(e.errors()));
         }
+        e.properties().forEach(problem::setProperty);
         return problem;
     }
 

@@ -26,10 +26,15 @@ import rs.rcva.domain.Model.ImportPreview;
 import rs.rcva.domain.Model.ImportRow;
 import rs.rcva.domain.Model.ImportRowPatch;
 import rs.rcva.domain.Model.Location;
+import rs.rcva.domain.Model.OptimizationJob;
+import rs.rcva.domain.Model.OptimizationJobCreated;
+import rs.rcva.domain.Model.OptimizationJobRequest;
+import rs.rcva.domain.Model.OptimizationResult;
 import rs.rcva.domain.Model.Shipment;
 import rs.rcva.domain.Model.Truck;
 import rs.rcva.domain.Model.TruckInput;
 import rs.rcva.imports.ImportService;
+import rs.rcva.optimization.OptimizationService;
 import rs.rcva.trucks.TruckService;
 
 /** REST API under /api/v1 (Specifikacija v2, section 6). */
@@ -115,6 +120,35 @@ final class Controllers {
         @PostMapping("/{id}/commit")
         ImportCommitResult commit(@PathVariable long id) {
             return imports.commit(id);
+        }
+    }
+
+    /** Optimization jobs (Spec v2, section 6; dopuna 1, section 3). */
+    @RestController
+    @RequestMapping("/api/v1/optimization-jobs")
+    static class OptimizationController {
+
+        private final OptimizationService optimization;
+
+        OptimizationController(OptimizationService optimization) {
+            this.optimization = optimization;
+        }
+
+        /** 202 Accepted: the job runs in the background; poll GET /optimization-jobs/{id}. */
+        @PostMapping
+        ResponseEntity<OptimizationJobCreated> create(@RequestBody(required = false) OptimizationJobRequest request) {
+            OptimizationJobCreated created = optimization.create(request);
+            return ResponseEntity.accepted().location(URI.create("/api/v1/optimization-jobs/" + created.id())).body(created);
+        }
+
+        @GetMapping("/{id}")
+        OptimizationJob get(@PathVariable long id) {
+            return optimization.get(id);
+        }
+
+        @GetMapping("/{id}/result")
+        OptimizationResult result(@PathVariable long id) {
+            return optimization.result(id);
         }
     }
 
