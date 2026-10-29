@@ -4,13 +4,14 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 28.10.2026, pauza: čeka se odluka o arhitekturi (videti „Gde smo stali“).
+Poslednje ažuriranje: 29.10.2026, stigli Gojkovi odgovori; čeka se odluka o arhitekturi
+(videti „Gde smo stali“).
 
-## Gde smo stali (28.10.2026)
+## Gde smo stali (29.10.2026)
 
-Rad je **pauziran na zahtev korisnika** dok ne stignu Gojkovi odgovori
-(`docs/pitanja-za-vlasnika-procesa.md`). Tada korisnik bira pravac A ili B ispod. **Ne
-počinjati ništa od ovoga bez njegove odluke.**
+Gojkovi odgovori su stigli 29.10.2026 (`docs/odgovori-vlasnika-procesa.md`); šta menjaju u
+modelu je u „Otvorena pitanja“. Korisnik sada bira pravac A ili B ispod. **Ne počinjati
+ništa od ovoga bez njegove odluke.**
 
 **Zahtevi korisnika o platformi** (dogovoreno u razgovoru):
 - Aplikacija radi **na uređaju**: sada na ličnom računaru, kasnije i na telefonu, **bez
@@ -58,8 +59,9 @@ Cilj je leksikografski: **prvo najmanji broj kamiona, zatim najmanja ukupna kilo
 Rezultat se prikazuje kao spisak ruta (kasnije mapa) i kao 3D raspored robe u kamionu.
 
 - Model (Spec v2): **PDP** (preuzimanje i isporuka) sa **više skladišta**, **dve faze po ruti**
-  (prvo sva preuzimanja, pa sve isporuke; pretpostavka čeka potvrdu), kapacitet samo u LDM,
-  pošiljke nedeljive. Izvan MVP-a: LIFO, vremenski prozori, težina kao ograničenje, više tura.
+  (prvo sva preuzimanja, pa sve isporuke; Gojko potvrdio), kapacitet u kodu samo u LDM,
+  pošiljke nedeljive. Po Gojkovim odgovorima težina postaje ograničenje (još nije u kodu).
+  Izvan MVP-a: LIFO (D2 otvoreno), vremenski prozori, više tura.
 - Backend (ceo API iz `frontend/src/api/client.ts`): Java 21, Spring Boot 4.1.1, Maven,
   Apache POI, Timefold Solver 2.7.1 (skor Hard/Medium/Soft: hard = LDM preko kapaciteta,
   medium = broj kamiona, soft = metri), nezavisni `SolutionValidator`. Rastojanja su za sada
@@ -73,7 +75,8 @@ Rezultat se prikazuje kao spisak ruta (kasnije mapa) i kao 3D raspored robe u ka
 |---|---|---|
 | Specifikacija v2 | **nije u repozitorijumu** | korisnik ju je dao u razgovoru; sažetak je u ovom fajlu |
 | Dopuna 1 (API ugovor prema frontendu) | `docs/specifikacija-v2-dopuna-1.md` | obavezno pročitati pre rada na backend-u |
-| Pitanja za vlasnika procesa | `docs/pitanja-za-vlasnika-procesa.md` | otvoreno; odgovori menjaju model |
+| Pitanja za vlasnika procesa | `docs/pitanja-za-vlasnika-procesa.md` | poslato 28.10.2026 |
+| Odgovori vlasnika procesa | `docs/odgovori-vlasnika-procesa.md` | stigli 29.10.2026; menjaju model |
 | Tipovi i API koje frontend očekuje | `frontend/src/api/types.ts`, `frontend/src/api/client.ts` | ugovor u kodu |
 | Licence preuzetog TeGo koda | `frontend/public/legacy/tego/NOTICE` | |
 
@@ -234,7 +237,8 @@ Optimizacija na serveru:
    su opisani samo testovi 4, 5b, 7, 8 i 9.
 4. ~~SimpleLoadPlanner na serveru~~ (urađeno 28.10.2026).
 5. **Čeka odluku A/B** (videti „Gde smo stali“). Posle toga: geokodiranje (Nominatim) i
-   kilometraže (ORS); bez njih stvarni podaci ne mogu u optimizaciju.
+   kilometraže (ORS); bez njih stvarni podaci ne mogu u optimizaciju. Uz to promene modela
+   iz Gojkovih odgovora: otvorena ruta, flota koju pravi aplikacija, težina kao ograničenje.
 6. Kasnije: mapa (Leaflet), trajno čuvanje podataka (PostgreSQL samo na putu A; na putu B
    IndexedDB), završno testiranje (svih 9 testova).
 
@@ -243,17 +247,25 @@ sada gubi posle osvežavanja) i naziv i kapacitet kamiona u rezultatu (`inputSna
 
 ## Otvorena pitanja
 
-Za vlasnika procesa (Gojko, preko Luke). Model trenutno radi na pretpostavkama: dve faze,
-polazak iz baze, povratak po `BaseSettings.returnToBase`, bez ograničenja redosleda
-(`optimization/routing/Assumptions.java`; menjaju se `RoutePlanner`, ograničenje kapaciteta
-i `SolutionValidator`):
+Gojko je odgovorio 29.10.2026 (`docs/odgovori-vlasnika-procesa.md`). Kod još radi na starim
+pretpostavkama (`optimization/routing/Assumptions.java`: dve faze, polazak iz baze, povratak
+po `BaseSettings.returnToBase`). Šta odgovori menjaju (ništa od toga nije urađeno):
 
-1. Da li kamion prvo preuzima svu robu, pa je isporučuje (dve faze po ruti)?
-2. Gde kamion polazi i gde završava rutu (baza, povratak, otvorena ruta)?
-3. Postoje li ograničenja redosleda magacina ili isporuka?
+- **Potvrđeno, bez promene**: dve faze po ruti (A1), jedna tura po kamionu (A4), bez
+  obaveznog redosleda (A3), pošiljka se nikad ne deli (C5), LDM i čitanje težine (C1, C2),
+  bez rokova (D1) i bez ograničenja puteva (D3) u prvoj verziji.
+- **Otvorena ruta (A2)**: ruta počinje u prvom magacinu (bira ga optimizacija) i završava se
+  kod poslednje isporuke; nema puta iz baze ni povratka. Menjaju se `RoutePlanner`,
+  `SolutionValidator` i uloga `BaseSettings`.
+- **Flota (B1)**: kamioni se ne unose; aplikacija pravi „Kamion 1“, „Kamion 2“... kao
+  standardnu ceradu, a korisnik kasnije menja nazive i dimenzije i dodaje vozače.
+- **Težina (B2)**: postaje ograničenje (ukupna težina ≤ nosivost kamiona); kamion dobija
+  nosivost.
 
-Sva pitanja za Gojka (model, kamioni, Excel podaci), napisana za slanje:
-`docs/pitanja-za-vlasnika-procesa.md`. Kada odgovori stignu, upisati ih ovde i u Spec.
+Otvoreno posle odgovora (detalji u odeljku „Otvoreno“ u dokumentu odgovora): nosivost
+cerade („mislim 13 t“, uobičajeno je oko 24 t), da li redosled utovara po istovaru (D2) važi
+već u prvoj verziji, da li je broj kamiona ograničen, početna tačka iz prethodne nedelje,
+uloga vozača. Specifikacija v2 nije u repozitorijumu, pa odgovori nisu upisani u nju.
 Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 
 ## Zamke (naučeno u radu)
