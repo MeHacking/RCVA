@@ -22,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "tests/unit"]
+  "include": ["src", "tests/unit", "tests/oracle"]
 }
