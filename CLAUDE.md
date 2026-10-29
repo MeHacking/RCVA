@@ -4,14 +4,40 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 29.10.2026, stigli Gojkovi odgovori; čeka se odluka o arhitekturi
-(videti „Gde smo stali“).
+Poslednje ažuriranje: 29.10.2026, izabran pravac B; proba TS solvera uspela (videti „Gde
+smo stali“).
 
 ## Gde smo stali (29.10.2026)
 
 Gojkovi odgovori su stigli 29.10.2026 (`docs/odgovori-vlasnika-procesa.md`); šta menjaju u
-modelu je u „Otvorena pitanja“. Korisnik sada bira pravac A ili B ispod. **Ne počinjati
-ništa od ovoga bez njegove odluke.**
+modelu je u „Otvorena pitanja“. **Korisnik je izabrao pravac B** i rad se nastavlja na njemu
+u sledećoj sesiji. Prvi korak je bila proba: sopstveni TS solver na sadašnjem modelu (polazak
+iz baze, povratak po podešavanju, kapacitet samo u LDM), da bi poređenje sa Timefold-om bilo
+pošteno.
+
+**Proba solvera (urađeno 29.10.2026)**:
+- `frontend/src/domain/optimization/`: `routePlanner.ts` (prenos Java `RoutePlanner`-a, isti
+  redosled pri izjednačenju, pa iste dužine), `solver.ts` (isti skor kao `RoutingConstraints`:
+  početni raspored, pa simulirano kaljenje samo na soft nivou; potezi: premeštanje, zamena,
+  zamena tovara dva kamiona, ruin & recreate, pražnjenje kamiona), `random.ts` (seed).
+- Testovi (`tests/unit/solver.test.ts`, `routePlanner.test.ts`): test 7, test skora (2 kamiona
+  pobeđuju 3), 60 malih primera upoređenih sa svim kombinacijama, isti seed daje isti rezultat.
+  Provereno na pokvarenom kodu: bez ograničenja broja kamiona pada 8 testova; bez ruin &
+  recreate i pražnjenja pada poređenje sa svim kombinacijama.
+- **Poređenje sa Timefold-om** (`npm run test:oracle`, 31 primer: test 7 i 30 nasumičnih sa
+  5–30 pošiljki): dužine ruta iste kao u Javi na svim Timefold rutama. Sa 2 s za TS i 10 s
+  za Timefold: TS bolji na 21 (na 3 jedan kamion manje), isti na 9, lošiji na 1
+  (`random-1004`, +26 km, 0,14 %). Sa istim vremenom (10 s): TS ni na jednom lošiji (test
+  prošao; tabela tog pokretanja nije sačuvana).
+
+**Sledeće na putu B** (predlog, potvrditi plan sa korisnikom pre početka):
+1. Gojkove promene modela u TS: otvorena ruta, flota koju pravi aplikacija, težina kao
+   drugi kapacitet. Orakl za novi model: poređenje sa svim kombinacijama na malim primerima
+   i nezavisni validator (Java orakl važi samo za stari model, osim ako se i Java ne izmeni).
+2. TS validator, `Feasibility` i 3D raspored (prenos iz Jave).
+3. Solver u Web Worker-u i povezivanje sa ekranima (umesto backend-a).
+4. Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
+   fajla, pakovanje (PC, pa telefon kao Capacitor aplikacija).
 
 **Zahtevi korisnika o platformi** (dogovoreno u razgovoru):
 - Aplikacija radi **na uređaju**: sada na ličnom računaru, kasnije i na telefonu, **bez
@@ -23,8 +49,8 @@ ništa od ovoga bez njegove odluke.**
   Tailscale (besplatan plan je samo za nekomercijalnu upotrebu). Otvaranje porta na ruteru
   ne dolazi u obzir (nema prijave korisnika).
 
-**Otvorena odluka: A ili B** (Java backend na telefonu ne radi; Timefold i Spring nisu za
-Android):
+**Odluka A ili B** (Java backend na telefonu ne radi; Timefold i Spring nisu za Android);
+**izabran B** 29.10.2026:
 - **A)** PC ostaje na Javi (Spring + Timefold), a telefon se kasnije piše posebno u
   TypeScript-u. Mana: ista logika na dva mesta (uvoz, solver, validator, 3D raspored).
 - **B)** (predlog) Jedna TypeScript aplikacija za oba uređaja: logika u frontendu, solver u
@@ -106,9 +132,11 @@ RCVA/
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
 │   │                             optimization, route-map, truck-3d (+ tego/)
 │   ├── src/domain/capacity.ts    donja granica broja kamiona, provere kapaciteta
+│   ├── src/domain/optimization/  TS solver (put B): routePlanner, solver, random (seed)
 │   ├── src/format/               jedini modul za formatiranje jedinica (LDM, km, kg, vreme)
 │   ├── src/styles/               tokens.css (sve boje), base, layout, components
 │   ├── public/legacy/tego/       TeGo 3D vizuelizator (klasične skripte; packwidget.js izmenjen)
+│   ├── tests/oracle/             timefold.json (Timefold rezultati) i poređenje TS solvera
 │   └── tests/unit, tests/e2e     Vitest i Playwright
 └── backend/                      Java 21, Spring Boot 4.1.1, Maven Wrapper (mvnw)
     ├── src/main/java/rs/rcva/
@@ -124,7 +152,8 @@ RCVA/
     │       │                     (redosled stanica), DistanceProvider + HaversineDistanceProvider
     │       └── solver/           Timefold: ShipmentAssignment → Vehicle, RoutingConstraints, RoutingSolver
     └── src/test/java/            JUnit 6: ApiContractTest (MockMvc), imports/*, optimization/*
-                                  (TestWorkbooks pravi .xlsx u memoriji; Test7Data je test 7)
+                                  (TestWorkbooks pravi .xlsx u memoriji; Test7Data je test 7;
+                                  oracle/TimefoldOracleTest piše tests/oracle/timefold.json)
 ```
 
 ## Komande
@@ -137,12 +166,15 @@ VITE_API_MODE=server npm run dev     # sve preko backend-a (Vite proxy /api -> :
 npm run build                        # tsc -b && vite build
 npm run lint
 npm test                             # Vitest (logika, bez DOM-a)
+npm run test:oracle                  # TS solver protiv Timefold-a, oko 5 min (ORACLE_MS=2000 za kraće)
 npm run test:e2e                     # Playwright/Chromium nad mock-om; dev serveri 5174-5176
 npm run test:e2e:server              # Playwright nad pravim backend-om (sam ga diže; treba Java 21)
 
 cd backend
 ./mvnw spring-boot:run               # http://localhost:8080/api/v1/health (Windows: mvnw.cmd)
 ./mvnw test                          # ili verify
+# ponovo napraviti orakl (oko 6 min; samo ako se menja model ili generator):
+./mvnw test -Dtest=TimefoldOracleTest -Doracle.out=../frontend/tests/oracle/timefold.json
 ```
 
 Izvor podataka bira `VITE_API_MODE` (`src/api/apiMode.ts`, `src/api/createApiClient.ts`):
@@ -157,8 +189,10 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `notFound` (5176). Testovi u `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog
 scenarija.
 
-Stanje (28.10.2026): frontend build i lint čisti, 167 Vitest, 40 Playwright (mock) i
-9 Playwright (server) testova prolaze; backend `mvnw verify` prolazi, 99 testova.
+Stanje (29.10.2026): frontend tsc i lint čisti, 183 Vitest testa prolaze, `test:oracle`
+prolazi. Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
+pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
+`-Doracle.out` ne radi.
 
 ## Pravila rada (dogovoreno sa korisnikom)
 
@@ -236,9 +270,8 @@ Optimizacija na serveru:
    Testovi 1–3, 5a i 6 iz Spec v2 nisu preneti: specifikacija nije u repozitorijumu, a ovde
    su opisani samo testovi 4, 5b, 7, 8 i 9.
 4. ~~SimpleLoadPlanner na serveru~~ (urađeno 28.10.2026).
-5. **Čeka odluku A/B** (videti „Gde smo stali“). Posle toga: geokodiranje (Nominatim) i
-   kilometraže (ORS); bez njih stvarni podaci ne mogu u optimizaciju. Uz to promene modela
-   iz Gojkovih odgovora: otvorena ruta, flota koju pravi aplikacija, težina kao ograničenje.
+5. ~~Odluka A/B~~ (izabran B 29.10.2026) i ~~proba TS solvera~~ (urađeno 29.10.2026).
+   Dalje na putu B: videti „Sledeće na putu B“ u „Gde smo stali“.
 6. Kasnije: mapa (Leaflet), trajno čuvanje podataka (PostgreSQL samo na putu A; na putu B
    IndexedDB), završno testiranje (svih 9 testova).
 
@@ -319,6 +352,12 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 - **Ceo broj u JSON telu**: `ImportRowPatch.ldmTenths` je `Double`, a servis proverava da je
   ceo broj, pa `2.5` daje 400 (pokriveno testom). Kod Jackson 2 bi `2.5` u `Integer` polju
   bilo tiho odsečeno; za Jackson 3 to nije provereno.
+- **TS solver**: late acceptance zaglavi čim pretraga stane (cela istorija jednaka trenutnom
+  skoru), pa se lošiji soft više ne prihvata; zato simulirano kaljenje. Samo premeštanje i
+  zamena ne nalaze optimum ni na 6 pošiljki (treba „zameni, pa premesti treću“); to rešava
+  ruin & recreate. `State.withAdded` sme samo za pošiljku koja nije na kamionu.
+- **Vitest sakriva `console.log` testova koji prođu**; zato `test:oracle` ima
+  `--silent=false` (tabela poređenja).
 - **Mock ograničenja**: rezultat optimizacije je fiksan po scenariju (nema solvera);
   geokodiranje zna desetak gradova (`src/api/mock/import/gazetteer.ts`); rastojanja u
   scenariju `small` su vazdušna linija; poslednji posao se čuva samo u memoriji.
