@@ -30,10 +30,31 @@ zanemaruje.
 - Testovi: planer protiv grube sile za 5 kombinacija pravila, i na primerima sa zajedničkim
   magacinima i mestima istovara; utovar pozadi se proverava nezavisno, par po par po
   stanicama. Test 7 u novom modelu: 2 kamiona, 900 000 m (3 kamiona 470 000 m); sa 8 t i
-  6 t na kamionima od 13 t: 3 kamiona, 470 000 m. 60 malih primera sa težinom i novim
-  pravilima protiv svih kombinacija. Provereno na pokvarenom kodu (zanemaren `lifo`,
-  zanemarena težina, zanemarena pravila, bez ruin & recreate): svaka greška obara testove.
-- Orakl (stari model) daje iste rezultate kao pre izmene.
+  6 t na kamionima od 13 t (nosivost zadata u testu): 3 kamiona, 470 000 m. 60 malih
+  primera sa težinom i novim pravilima protiv svih kombinacija. Provereno na pokvarenom kodu
+  (zanemaren `lifo`, zanemarena težina, zanemarena pravila, bez ruin & recreate): svaka
+  greška obara testove.
+- Orakl (stari model) daje iste rezultate kao pre izmene: sa 2 s isti brojevi kao 29.10.,
+  sa 10 s `test:oracle` prolazi (ni na jednom primeru lošiji od Timefold-a).
+
+**Nova pitanja za Gojka (30.10.2026)**, napravljena posle primera tabele koji je poslao.
+Tekst je u razgovoru, ne u repozitorijumu, jer navodi stvarne redove; **još nisu poslata**.
+Teme: tačna nosivost cerade; da li se cerada može utovariti i sa strane; red sa dva mesta
+istovara (koliko robe ide na koje mesto); red bez mesta utovara (nastavak prethodnog ili
+posebna pošiljka); poštanski broj napisan uz mesto utovara, a pripada mestu istovara; da li
+je mesto (grad) dovoljno ili će biti adrese; utovar u više zemalja i istovar u Švedskoj i
+Norveškoj u istom kamionu (granice, carina); da li sve iz tabele mora iste nedelje i koliko
+kamiona najviše ima; uloga vozača.
+
+**Sledeće na putu B** (predlog, potvrditi plan sa korisnikom pre početka):
+1. ~~Gojkove promene modela u TS~~ (urađeno 30.10.2026, videti gore).
+2. TS validator (nezavisan od planera: utovar pozadi, LDM, težina, otvorena ruta),
+   `Feasibility` sa težinom (PROVEN: pošiljka teža od kamiona) i 3D raspored po redosledu
+   istovara (ono što se prvo istovara pozadi), prenos iz Jave.
+3. Solver u Web Worker-u i povezivanje sa ekranima (umesto backend-a); tu i težina u tipu
+   `Truck`, ekranu kamiona i `capacity.ts`, i flota koju pravi aplikacija.
+4. Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
+   fajla, pakovanje (PC, pa telefon kao Capacitor aplikacija).
 
 ## Ranije (29.10.2026)
 
@@ -57,15 +78,6 @@ pošteno.
   za Timefold: TS bolji na 21 (na 3 jedan kamion manje), isti na 9, lošiji na 1
   (`random-1004`, +26 km, 0,14 %). Sa istim vremenom (10 s): TS ni na jednom lošiji (test
   prošao; tabela tog pokretanja nije sačuvana).
-
-**Sledeće na putu B** (predlog, potvrditi plan sa korisnikom pre početka):
-1. ~~Gojkove promene modela u TS~~ (urađeno 30.10.2026, videti gore).
-2. TS validator (nezavisan od planera: utovar pozadi, LDM, težina, otvorena ruta),
-   `Feasibility` sa težinom (PROVEN: pošiljka teža od kamiona) i 3D raspored po redosledu
-   istovara (ono što se prvo istovara pozadi), prenos iz Jave.
-3. Solver u Web Worker-u i povezivanje sa ekranima (umesto backend-a).
-4. Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
-   fajla, pakovanje (PC, pa telefon kao Capacitor aplikacija).
 
 **Zahtevi korisnika o platformi** (dogovoreno u razgovoru):
 - Aplikacija radi **na uređaju**: sada na ličnom računaru, kasnije i na telefonu, **bez
