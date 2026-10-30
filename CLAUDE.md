@@ -4,10 +4,37 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 29.10.2026, izabran pravac B; proba TS solvera uspela (videti „Gde
-smo stali“).
+Poslednje ažuriranje: 30.10.2026, Gojkov model u TS solveru (otvorena ruta, utovar pozadi,
+težina, standardna flota); videti „Gde smo stali“.
 
-## Gde smo stali (29.10.2026)
+## Gde smo stali (30.10.2026)
+
+**Gojkov model u TS solveru (urađeno 30.10.2026, korak 1 na putu B)**. Odluke korisnika
+30.10.2026, privremene dok Gojko ne potvrdi: **utovar samo pozadi** (D2 važi već sada),
+**nosivost cerade 13 t**, broj kamiona neograničen, početna tačka iz prethodne nedelje se
+zanemaruje.
+- `routePlanner.ts`: `RouteRules` (`start`, `end`, `lifo`). `baseRules(base, returnToBase)`
+  je stari model (isti kao Java, za orakl); `OPEN_ROUTE_REAR_LOADING` je Gojkov model
+  (ruta počinje u prvom magacinu, završava se kod poslednje isporuke, utovar pozadi).
+  Fiksan `start` kasnije služi i za početnu tačku iz prethodne nedelje.
+- Utovar pozadi: uvek postoji najkraća ruta u kojoj je redosled isporuka obrnut redosled
+  preuzimanja (pošiljke sa iste stanice se slobodno raspoređuju), pa planer traži samo jedan
+  redosled (`exactLifo`, Held-Karp iznutra ka spolja; iznad 9 pošiljki najbliži sused i
+  2-opt). Utovar pozadi nikad ne čini skup neizvodljivim, samo produžava rutu.
+- `solver.ts`: `SolverInput.rules`, `weightKg` po pošiljci i `capacityKg` po kamionu
+  (`Infinity` = bez ograničenja, kao u Javi); hard = LDM desetine + kg preko kapaciteta.
+- `src/domain/fleet.ts`: `STANDARD_TRUCK` (13,6 LDM, 13 000 kg, 13600 × 2480 × 2700 mm) i
+  `standardFleet(n)` („Kamion 1“...). API tip `Truck`, ekrani i `capacity.ts` još nemaju
+  težinu (korak 3, povezivanje sa ekranima).
+- Testovi: planer protiv grube sile za 5 kombinacija pravila, i na primerima sa zajedničkim
+  magacinima i mestima istovara; utovar pozadi se proverava nezavisno, par po par po
+  stanicama. Test 7 u novom modelu: 2 kamiona, 900 000 m (3 kamiona 470 000 m); sa 8 t i
+  6 t na kamionima od 13 t: 3 kamiona, 470 000 m. 60 malih primera sa težinom i novim
+  pravilima protiv svih kombinacija. Provereno na pokvarenom kodu (zanemaren `lifo`,
+  zanemarena težina, zanemarena pravila, bez ruin & recreate): svaka greška obara testove.
+- Orakl (stari model) daje iste rezultate kao pre izmene.
+
+## Ranije (29.10.2026)
 
 Gojkovi odgovori su stigli 29.10.2026 (`docs/odgovori-vlasnika-procesa.md`); šta menjaju u
 modelu je u „Otvorena pitanja“. **Korisnik je izabrao pravac B** i rad se nastavlja na njemu
@@ -31,10 +58,10 @@ pošteno.
   prošao; tabela tog pokretanja nije sačuvana).
 
 **Sledeće na putu B** (predlog, potvrditi plan sa korisnikom pre početka):
-1. Gojkove promene modela u TS: otvorena ruta, flota koju pravi aplikacija, težina kao
-   drugi kapacitet. Orakl za novi model: poređenje sa svim kombinacijama na malim primerima
-   i nezavisni validator (Java orakl važi samo za stari model, osim ako se i Java ne izmeni).
-2. TS validator, `Feasibility` i 3D raspored (prenos iz Jave).
+1. ~~Gojkove promene modela u TS~~ (urađeno 30.10.2026, videti gore).
+2. TS validator (nezavisan od planera: utovar pozadi, LDM, težina, otvorena ruta),
+   `Feasibility` sa težinom (PROVEN: pošiljka teža od kamiona) i 3D raspored po redosledu
+   istovara (ono što se prvo istovara pozadi), prenos iz Jave.
 3. Solver u Web Worker-u i povezivanje sa ekranima (umesto backend-a).
 4. Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
    fajla, pakovanje (PC, pa telefon kao Capacitor aplikacija).
@@ -132,6 +159,7 @@ RCVA/
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
 │   │                             optimization, route-map, truck-3d (+ tego/)
 │   ├── src/domain/capacity.ts    donja granica broja kamiona, provere kapaciteta
+│   ├── src/domain/fleet.ts       standardna cerada i flota koju pravi aplikacija
 │   ├── src/domain/optimization/  TS solver (put B): routePlanner, solver, random (seed)
 │   ├── src/format/               jedini modul za formatiranje jedinica (LDM, km, kg, vreme)
 │   ├── src/styles/               tokens.css (sve boje), base, layout, components
@@ -189,7 +217,7 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `notFound` (5176). Testovi u `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog
 scenarija.
 
-Stanje (29.10.2026): frontend tsc i lint čisti, 183 Vitest testa prolaze, `test:oracle`
+Stanje (30.10.2026): frontend tsc i lint čisti, 203 Vitest testa prolaze, `test:oracle`
 prolazi. Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
@@ -280,9 +308,11 @@ sada gubi posle osvežavanja) i naziv i kapacitet kamiona u rezultatu (`inputSna
 
 ## Otvorena pitanja
 
-Gojko je odgovorio 29.10.2026 (`docs/odgovori-vlasnika-procesa.md`). Kod još radi na starim
-pretpostavkama (`optimization/routing/Assumptions.java`: dve faze, polazak iz baze, povratak
-po `BaseSettings.returnToBase`). Šta odgovori menjaju (ništa od toga nije urađeno):
+Gojko je odgovorio 29.10.2026 (`docs/odgovori-vlasnika-procesa.md`). Backend i ekrani još
+rade na starim pretpostavkama (`optimization/routing/Assumptions.java`: dve faze, polazak iz
+baze, povratak po `BaseSettings.returnToBase`). TS solver od 30.10.2026 ima otvorenu rutu,
+utovar pozadi, težinu i standardnu flotu (`OPEN_ROUTE_REAR_LOADING`, `fleet.ts`), ali još
+nije povezan sa ekranima. Šta odgovori menjaju:
 
 - **Potvrđeno, bez promene**: dve faze po ruti (A1), jedna tura po kamionu (A4), bez
   obaveznog redosleda (A3), pošiljka se nikad ne deli (C5), LDM i čitanje težine (C1, C2),
@@ -295,10 +325,13 @@ po `BaseSettings.returnToBase`). Šta odgovori menjaju (ništa od toga nije ura�
 - **Težina (B2)**: postaje ograničenje (ukupna težina ≤ nosivost kamiona); kamion dobija
   nosivost.
 
+- **Utovar pozadi (D2)**: ono što se prvo istovara mora biti pozadi; važi već u prvoj
+  verziji (odluka korisnika 30.10.2026). Utiče na redosled stanica i na 3D raspored.
+
 Otvoreno posle odgovora (detalji u odeljku „Otvoreno“ u dokumentu odgovora): nosivost
-cerade („mislim 13 t“, uobičajeno je oko 24 t), da li redosled utovara po istovaru (D2) važi
-već u prvoj verziji, da li je broj kamiona ograničen, početna tačka iz prethodne nedelje,
-uloga vozača. Specifikacija v2 nije u repozitorijumu, pa odgovori nisu upisani u nju.
+cerade („mislim 13 t“, uobičajeno je oko 24 t; privremeno 13 t), da li se cerada može
+utovariti i sa strane (ako može, D2 utiče samo na 3D raspored, a ne na rute), da li je broj
+kamiona ograničen (privremeno nije), početna tačka iz prethodne nedelje, uloga vozača. Specifikacija v2 nije u repozitorijumu, pa odgovori nisu upisani u nju.
 Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 
 ## Zamke (naučeno u radu)
@@ -352,6 +385,8 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 - **Ceo broj u JSON telu**: `ImportRowPatch.ldmTenths` je `Double`, a servis proverava da je
   ceo broj, pa `2.5` daje 400 (pokriveno testom). Kod Jackson 2 bi `2.5` u `Integer` polju
   bilo tiho odsečeno; za Jackson 3 to nije provereno.
+- **Test sa težinom koji ne proverava težinu**: kod primera sa težinom proveriti da baš
+  težina menja odgovor (npr. LDM dozvoljava 3 pošiljke po kamionu, a težina samo 2).
 - **TS solver**: late acceptance zaglavi čim pretraga stane (cela istorija jednaka trenutnom
   skoru), pa se lošiji soft više ne prihvata; zato simulirano kaljenje. Samo premeštanje i
   zamena ne nalaze optimum ni na 6 pošiljki (treba „zameni, pa premesti treću“); to rešava

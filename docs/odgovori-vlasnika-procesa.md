@@ -74,13 +74,17 @@ istovara mora biti pozadi.
 
 1. **Nosivost standardne cerade.** Odgovor je „mislim 13 tona“. Za šleper sa ceradom (13,6 m)
    uobičajena nosivost je bliža 24 tone, pa broj treba potvrditi pre nego što postane
-   ograničenje.
+   ograničenje. **Privremeno 13 t** (odluka korisnika 30.10.2026), dok Gojko ne potvrdi.
 2. **Redosled utovara (D2).** Ako se roba utovaruje redom kojim kamion obilazi magacine, a
    ono što se prvo istovara mora biti pozadi, onda redosled magacina zavisi od redosleda
    isporuka. To ograničava rute i može da poveća kilometražu. Da li ovo važi već u prvoj
    verziji, ili se roba pri utovaru može slobodno rasporediti?
+   **Privremeno: utovar samo pozadi** (odluka korisnika 30.10.2026; lako se menja). Za
+   Gojka ostaje pitanje: može li se cerada utovariti i sa strane? Ako može, pravilo utiče
+   samo na 3D raspored, a ne na rute.
 3. **Broj kamiona koje aplikacija pravi.** Da li je broj kamiona neograničen (aplikacija
-   napravi koliko treba), ili postoji najveći broj raspoloživih kamiona?
+   napravi koliko treba), ili postoji najveći broj raspoloživih kamiona? Privremeno
+   neograničen.
 4. **Početna tačka iz prethodne nedelje (A2).** Kada kamion počinje od poslednje isporuke
    prethodne ture, prvi put do magacina ulazi u kilometre. Za prvu verziju predlog je da
    se to zanemari (ruta počinje u prvom magacinu).
