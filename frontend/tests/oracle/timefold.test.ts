@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { compareScores, plannerFor, solve, type Score, type SolverInput } from '../../src/domain/optimization/solver'
+import { baseRules } from '../../src/domain/optimization/routePlanner'
 import oracle from './timefold.json'
 
 // The TypeScript solver must not be worse than Timefold on the same instances. Timefold's
@@ -24,8 +25,14 @@ interface OracleCase {
 const cases = (oracle as { cases: OracleCase[] }).cases
 const timeLimitMs = Number(import.meta.env.ORACLE_MS ?? cases[0].timefoldSeconds * 1000)
 
+/** The Java model: Spec v2 rules, weight not limited. */
 function inputOf(c: OracleCase): SolverInput {
-  return { distance: c.distance, base: c.base, returnToBase: c.returnToBase, shipments: c.shipments, trucks: c.trucks }
+  return {
+    distance: c.distance,
+    rules: baseRules(c.base, c.returnToBase),
+    shipments: c.shipments.map((s) => ({ ...s, weightKg: 0 })),
+    trucks: c.trucks.map((t) => ({ ...t, capacityKg: Infinity })),
+  }
 }
 
 function km(meters: number): string {

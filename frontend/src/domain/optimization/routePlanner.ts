@@ -1,14 +1,14 @@
-// Port of backend/.../optimization/routing/RoutePlanner.java; both must give the same
-// lengths for the same input (the Java solver is the test oracle for this one).
+// Port of backend/.../optimization/routing/RoutePlanner.java. With baseRules (the Spec v2
+// assumptions) both must give the same lengths for the same input, since the Java solver
+// is the test oracle for this one; the other rules exist only here.
 
 /**
- * Orders the stops of one truck under the "two phases per route" assumption: start at the
- * base, all pickups, then all deliveries, then back to the base if `returnToBase`. The
- * solver only decides which shipments go on which truck; this gives the shortest order
- * for that set:
- * - up to EXACT_LIMIT shipments exactly (Held-Karp dynamic programming over the pickups
- *   from the base and over the deliveries back to the base);
- * - above that with nearest neighbour plus 2-opt inside each phase (not guaranteed optimal).
+ * Orders the stops of one truck: all pickups, then all deliveries ("two phases per
+ * route"), with start, end and loading order given by RouteRules. The solver only decides
+ * which shipments go on which truck; this gives the shortest order for that set:
+ * - up to EXACT_LIMIT shipments exactly (Held-Karp dynamic programming; see exact and
+ *   exactLifo);
+ * - above that with nearest neighbour plus 2-opt (not guaranteed optimal).
  *
  * Shipments and locations are indices into the arrays and the distance matrix given to the
  * constructor. Results are cached per set of shipments.
@@ -24,11 +24,33 @@ export interface Route {
   meters: number
 }
 
-export interface RoutePlannerInput {
+export interface RouteRules {
+  /** location every route starts from; null: a route starts at its first pickup (open route) */
+  start: number | null
+  /** location every route ends at; null: a route ends at its last delivery */
+  end: number | null
+  /**
+   * Loaded from the rear only (D2): what is unloaded first must be loaded last, so a
+   * shipment picked up at an earlier stop is never delivered at an earlier stop.
+   * Shipments picked up (or delivered) at the same stop may be arranged freely.
+   */
+  lifo: boolean
+}
+
+/** Spec v2 assumptions, as in the Java RoutePlanner: from the base, back to it if asked. */
+export function baseRules(base: number, returnToBase: boolean): RouteRules {
+  return { start: base, end: returnToBase ? base : null, lifo: false }
+}
+
+/**
+ * Process owner's answers of 29.10.2026: a route starts at its first warehouse and ends
+ * at its last delivery (A2), and the truck is loaded from the rear (D2).
+ */
+export const OPEN_ROUTE_REAR_LOADING: RouteRules = { start: null, end: null, lifo: true }
+
+export interface RoutePlannerInput extends RouteRules {
   /** metres between location indices */
   distance: number[][]
-  base: number
-  returnToBase: boolean
   /** location index of each shipment's pickup */
   pickupLocation: number[]
   /** location index of each shipment's delivery */
@@ -37,8 +59,9 @@ export interface RoutePlannerInput {
 
 export class RoutePlanner {
   private readonly distance: number[][]
-  private readonly base: number
-  private readonly returnToBase: boolean
+  private readonly start: number | null
+  private readonly end: number | null
+  private readonly lifo: boolean
   private readonly pickupLocation: number[]
   private readonly deliveryLocation: number[]
   private readonly exactLimit: number
@@ -47,8 +70,9 @@ export class RoutePlanner {
   /** `exactLimit`: tests compare the heuristic with the exact order on the same data. */
   constructor(input: RoutePlannerInput, exactLimit = EXACT_LIMIT) {
     this.distance = input.distance
-    this.base = input.base
-    this.returnToBase = input.returnToBase
+    this.start = input.start
+    this.end = input.end
+    this.lifo = input.lifo
     this.pickupLocation = [...input.pickupLocation]
     this.deliveryLocation = [...input.deliveryLocation]
     this.exactLimit = exactLimit
@@ -70,10 +94,14 @@ export class RoutePlanner {
     return this.planSorted(sortedCopy(shipments))
   }
 
-  /** Length of a route with this order, by the same rules (used by tests and the heuristic). */
+  /**
+   * Length of a route with this order (used by tests and the heuristic). It does not check
+   * the loading order; with lifo that is up to the caller.
+   */
   length(pickups: readonly number[], deliveries: readonly number[]): number {
-    let meters = 0
-    let at = this.base
+    if (pickups.length === 0) return 0
+    let at = this.pickupLocation[pickups[0]]
+    let meters = this.startCost(at)
     for (const s of pickups) {
       meters += this.distance[at][this.pickupLocation[s]]
       at = this.pickupLocation[s]
@@ -87,11 +115,16 @@ export class RoutePlanner {
 
   private planSorted(sorted: number[]): Route {
     if (sorted.length === 0) return { pickups: [], deliveries: [], meters: 0 }
+    if (this.lifo) return sorted.length <= this.exactLimit ? this.exactLifo(sorted) : this.heuristicLifo(sorted)
     return sorted.length <= this.exactLimit ? this.exact(sorted) : this.heuristic(sorted)
   }
 
+  private startCost(location: number): number {
+    return this.start === null ? 0 : this.distance[this.start][location]
+  }
+
   private endCost(location: number): number {
-    return this.returnToBase ? this.distance[location][this.base] : 0
+    return this.end === null ? 0 : this.distance[location][this.end]
   }
 
   private exact(shipments: number[]): Route {
@@ -101,9 +134,9 @@ export class RoutePlanner {
     const d = shipments.map((s) => this.deliveryLocation[s])
     const dist = this.distance
 
-    // toPickup[mask][i]: from the base through the pickups in mask, ending at pickup i
+    // toPickup[mask][i]: from the start through the pickups in mask, ending at pickup i
     const toPickup = table(1 << n, n)
-    for (let i = 0; i < n; i++) toPickup[1 << i][i] = dist[this.base][p[i]]
+    for (let i = 0; i < n; i++) toPickup[1 << i][i] = this.startCost(p[i])
     for (let mask = 1; mask <= full; mask++) {
       for (let i = 0; i < n; i++) {
         const cost = toPickup[mask][i]
@@ -180,8 +213,91 @@ export class RoutePlanner {
     return { pickups, deliveries, meters: best }
   }
 
+  /**
+   * With lifo there is always a shortest route whose deliveries are the pickups reversed:
+   * order the load from the front by pickup stop, and within a stop by the last delivery
+   * first; then the deliveries are that order reversed, with the same stops as before.
+   * So it is enough to find one order of the shipments. Held-Karp from the inside out:
+   * inner[mask][i] is the shortest path from pickup i through the pickups and deliveries
+   * of mask to delivery i, where i is picked up first and delivered last.
+   */
+  private exactLifo(shipments: number[]): Route {
+    const n = shipments.length
+    const full = (1 << n) - 1
+    const p = shipments.map((s) => this.pickupLocation[s])
+    const d = shipments.map((s) => this.deliveryLocation[s])
+    const dist = this.distance
+
+    const inner = table(1 << n, n)
+    for (let i = 0; i < n; i++) inner[1 << i][i] = dist[p[i]][d[i]]
+    for (let mask = 1; mask < full; mask++) {
+      for (let i = 0; i < n; i++) {
+        const cost = inner[mask][i]
+        if (cost === Infinity) continue
+        for (let j = 0; j < n; j++) {
+          if ((mask & (1 << j)) === 0) {
+            const next = mask | (1 << j)
+            inner[next][j] = Math.min(inner[next][j], dist[p[j]][p[i]] + cost + dist[d[i]][d[j]])
+          }
+        }
+      }
+    }
+
+    let best = Infinity
+    let outer = -1
+    for (let i = 0; i < n; i++) {
+      const cost = this.startCost(p[i]) + inner[full][i] + this.endCost(d[i])
+      if (cost < best) {
+        best = cost
+        outer = i
+      }
+    }
+
+    // Walk the table back from the outermost shipment inwards.
+    const pickups: number[] = []
+    let mask = full
+    let current = outer
+    for (;;) {
+      pickups.push(shipments[current])
+      const rest = mask & ~(1 << current)
+      if (rest === 0) break
+      for (let j = 0; j < n; j++) {
+        if ((rest & (1 << j)) !== 0 && dist[p[current]][p[j]] + inner[rest][j] + dist[d[j]][d[current]] === inner[mask][current]) {
+          mask = rest
+          current = j
+          break
+        }
+      }
+    }
+    return { pickups, deliveries: [...pickups].reverse(), meters: best }
+  }
+
+  /** Nearest neighbour over the pickups, deliveries in reverse, then 2-opt on that one order. */
+  private heuristicLifo(shipments: number[]): Route {
+    const order = this.nearestNeighbour(shipments, this.start, this.pickupLocation)
+    const lengthOf = () => this.length(order, [...order].reverse())
+    let best = lengthOf()
+    let improved = true
+    while (improved) {
+      improved = false
+      for (let i = 0; i < order.length - 1; i++) {
+        for (let j = i + 1; j < order.length; j++) {
+          reverse(order, i, j)
+          const candidate = lengthOf()
+          if (candidate < best) {
+            best = candidate
+            improved = true
+          } else {
+            reverse(order, i, j)
+          }
+        }
+      }
+    }
+    return { pickups: order, deliveries: [...order].reverse(), meters: best }
+  }
+
   private heuristic(shipments: number[]): Route {
-    const pickups = this.nearestNeighbour(shipments, this.base, this.pickupLocation)
+    const pickups = this.nearestNeighbour(shipments, this.start, this.pickupLocation)
     const deliveries = this.nearestNeighbour(
       shipments,
       this.pickupLocation[pickups[pickups.length - 1]],
@@ -209,10 +325,12 @@ export class RoutePlanner {
     return { pickups, deliveries, meters: best }
   }
 
-  private nearestNeighbour(shipments: number[], start: number, location: number[]): number[] {
+  /** With no start (open route) the first shipment of the list goes first. */
+  private nearestNeighbour(shipments: number[], start: number | null, location: number[]): number[] {
     const left = [...shipments]
     const order: number[] = []
-    let at = start
+    if (start === null) order.push(...left.splice(0, 1))
+    let at = start ?? location[order[0]]
     while (left.length > 0) {
       // The first of equally near ones, as Java's Stream.min over the same list.
       let nearest = 0

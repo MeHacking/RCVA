@@ -1,10 +1,11 @@
-import { RoutePlanner, type Route } from './routePlanner'
+import { RoutePlanner, type Route, type RouteRules } from './routePlanner'
 import { SeededRandom } from './random'
 
 // Replaces the Timefold model in backend/.../optimization/solver/: the solver decides only
 // which truck carries which shipment; RoutePlanner gives the order of stops for that set.
-// Same score as RoutingConstraints.java, compared level by level:
-//   hard   = minus LDM tenths over a truck's capacity
+// Same score as RoutingConstraints.java, compared level by level, plus weight (B2), which
+// the Java model does not have:
+//   hard   = minus LDM tenths and kilograms over a truck's capacity (0 means feasible)
 //   medium = minus the number of trucks with at least one shipment
 //   soft   = minus the metres of all routes
 // Search: a construction heuristic (largest shipments first, each where it costs least),
@@ -16,6 +17,7 @@ import { SeededRandom } from './random'
 
 export interface SolverShipment {
   ldmTenths: number
+  weightKg: number
   /** location index into `distance` */
   pickup: number
   delivery: number
@@ -24,13 +26,14 @@ export interface SolverShipment {
 export interface SolverTruck {
   id: number
   capacityLdmTenths: number
+  /** Infinity: weight is not limited (the Java model) */
+  capacityKg: number
 }
 
 export interface SolverInput {
   /** metres between location indices */
   distance: number[][]
-  base: number
-  returnToBase: boolean
+  rules: RouteRules
   shipments: SolverShipment[]
   trucks: SolverTruck[]
 }
@@ -83,8 +86,7 @@ export function scoreOf(input: SolverInput, truckOfShipment: number[], planner =
 export function plannerFor(input: SolverInput): RoutePlanner {
   return new RoutePlanner({
     distance: input.distance,
-    base: input.base,
-    returnToBase: input.returnToBase,
+    ...input.rules,
     pickupLocation: input.shipments.map((s) => s.pickup),
     deliveryLocation: input.shipments.map((s) => s.delivery),
   })
@@ -152,6 +154,7 @@ class State {
   readonly truckOf: number[]
   readonly members: number[][]
   readonly load: number[]
+  readonly weight: number[]
   readonly input: SolverInput
   private readonly meters: number[]
   private readonly planner: RoutePlanner
@@ -162,6 +165,7 @@ class State {
     this.truckOf = new Array<number>(input.shipments.length).fill(-1)
     this.members = input.trucks.map(() => [])
     this.load = input.trucks.map(() => 0)
+    this.weight = input.trucks.map(() => 0)
     this.meters = input.trucks.map(() => 0)
   }
 
@@ -169,6 +173,7 @@ class State {
     this.truckOf[shipment] = truck
     this.members[truck].push(shipment)
     this.load[truck] += this.input.shipments[shipment].ldmTenths
+    this.weight[truck] += this.input.shipments[shipment].weightKg
     this.refresh(truck)
   }
 
@@ -177,6 +182,7 @@ class State {
     const list = this.members[truck]
     list.splice(list.indexOf(shipment), 1)
     this.load[truck] -= this.input.shipments[shipment].ldmTenths
+    this.weight[truck] -= this.input.shipments[shipment].weightKg
     this.truckOf[shipment] = -1
     this.refresh(truck)
     return truck
@@ -189,9 +195,10 @@ class State {
 
   /** Score contribution of one truck. */
   truckScore(truck: number): Score {
-    const over = this.load[truck] - this.input.trucks[truck].capacityLdmTenths
+    const { capacityLdmTenths, capacityKg } = this.input.trucks[truck]
+    const over = Math.max(0, this.load[truck] - capacityLdmTenths) + Math.max(0, this.weight[truck] - capacityKg)
     return {
-      hard: over > 0 ? -over : 0,
+      hard: -over,
       medium: this.members[truck].length > 0 ? -1 : 0,
       soft: -this.meters[truck],
     }
@@ -217,9 +224,26 @@ class State {
     return { hard: after.hard - before.hard, medium: after.medium - before.medium, soft: after.soft - before.soft }
   }
 
+  /** Whether `shipment` fits on `truck` next to its current load. */
+  fits(shipment: number, truck: number): boolean {
+    const s = this.input.shipments[shipment]
+    const t = this.input.trucks[truck]
+    return this.load[truck] + s.ldmTenths <= t.capacityLdmTenths && this.weight[truck] + s.weightKg <= t.capacityKg
+  }
+
   private refresh(truck: number): void {
     this.meters[truck] = this.planner.meters(this.members[truck])
   }
+}
+
+/**
+ * Size of a shipment as the larger of its LDM and weight shares of the largest capacities
+ * (by LDM alone when weight is not limited, as in the Java model).
+ */
+function sizeOf(input: SolverInput): (shipment: number) => number {
+  const maxLdm = Math.max(...input.trucks.map((t) => t.capacityLdmTenths))
+  const maxKg = Math.max(...input.trucks.map((t) => t.capacityKg))
+  return (s) => Math.max(input.shipments[s].ldmTenths / maxLdm, input.shipments[s].weightKg / maxKg)
 }
 
 /** Largest shipments first, each on the truck where it costs least (opening a truck costs a medium point). */
@@ -227,7 +251,8 @@ function construct(input: SolverInput, planner: RoutePlanner): State {
   const state = new State(input, planner)
   // Among equally good empty trucks the larger one wins, so a mixed fleet fills big trucks first.
   const trucks = input.trucks.map((_, t) => t).sort((a, b) => input.trucks[b].capacityLdmTenths - input.trucks[a].capacityLdmTenths)
-  const order = input.shipments.map((_, s) => s).sort((a, b) => input.shipments[b].ldmTenths - input.shipments[a].ldmTenths)
+  const size = sizeOf(input)
+  const order = input.shipments.map((_, s) => s).sort((a, b) => size(b) - size(a))
   for (const s of order) {
     let bestTruck = -1
     let bestDelta: Score | null = null
@@ -323,15 +348,15 @@ function swapMove(state: State, random: SeededRandom): (() => void) | null {
 
 /**
  * Moves every shipment of one used truck onto the other used trucks (largest first, each
- * where it adds the fewest metres without going over capacity). Applies only if all fit.
+ * where it adds the fewest metres without going over LDM or weight). Applies only if all fit.
  */
 function emptyTruckMove(state: State, random: SeededRandom): (() => void) | null {
   const used = state.members.flatMap((list, t) => (list.length > 0 ? [t] : []))
   if (used.length < 2) return null
   const emptied = used[random.nextInt(used.length)]
   const shipments = [...state.members[emptied]]
-  const input = state.input
-  shipments.sort((a, b) => input.shipments[b].ldmTenths - input.shipments[a].ldmTenths)
+  const size = sizeOf(state.input)
+  shipments.sort((a, b) => size(b) - size(a))
   const moved: number[] = []
   const undo = () => {
     for (const s of moved) state.move(s, emptied)
@@ -341,7 +366,7 @@ function emptyTruckMove(state: State, random: SeededRandom): (() => void) | null
     let bestTruck = -1
     let bestSoft = -Infinity
     for (const t of used) {
-      if (t === emptied || state.load[t] + input.shipments[s].ldmTenths > input.trucks[t].capacityLdmTenths) continue
+      if (t === emptied || !state.fits(s, t)) continue
       const delta = state.withAdded(s, t)
       if (delta.soft > bestSoft) {
         bestSoft = delta.soft
