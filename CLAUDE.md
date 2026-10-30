@@ -11,7 +11,8 @@ težina, standardna flota); videti „Gde smo stali“.
 
 **Gojkov model u TS solveru (urađeno 30.10.2026, korak 1 na putu B)**. Odluke korisnika
 30.10.2026, privremene dok Gojko ne potvrdi: **utovar samo pozadi** (D2 važi već sada),
-**nosivost cerade 13 t**, broj kamiona neograničen, početna tačka iz prethodne nedelje se
+**nosivost cerade 24 t** (Gojko je rekao „mislim 13 t“, ali primer tabele ima pošiljke
+teže od toga), broj kamiona neograničen, početna tačka iz prethodne nedelje se
 zanemaruje.
 - `routePlanner.ts`: `RouteRules` (`start`, `end`, `lifo`). `baseRules(base, returnToBase)`
   je stari model (isti kao Java, za orakl); `OPEN_ROUTE_REAR_LOADING` je Gojkov model
@@ -23,7 +24,7 @@ zanemaruje.
   2-opt). Utovar pozadi nikad ne čini skup neizvodljivim, samo produžava rutu.
 - `solver.ts`: `SolverInput.rules`, `weightKg` po pošiljci i `capacityKg` po kamionu
   (`Infinity` = bez ograničenja, kao u Javi); hard = LDM desetine + kg preko kapaciteta.
-- `src/domain/fleet.ts`: `STANDARD_TRUCK` (13,6 LDM, 13 000 kg, 13600 × 2480 × 2700 mm) i
+- `src/domain/fleet.ts`: `STANDARD_TRUCK` (13,6 LDM, 24 000 kg, 13600 × 2480 × 2700 mm) i
   `standardFleet(n)` („Kamion 1“...). API tip `Truck`, ekrani i `capacity.ts` još nemaju
   težinu (korak 3, povezivanje sa ekranima).
 - Testovi: planer protiv grube sile za 5 kombinacija pravila, i na primerima sa zajedničkim
@@ -329,7 +330,7 @@ nije povezan sa ekranima. Šta odgovori menjaju:
   verziji (odluka korisnika 30.10.2026). Utiče na redosled stanica i na 3D raspored.
 
 Otvoreno posle odgovora (detalji u odeljku „Otvoreno“ u dokumentu odgovora): nosivost
-cerade („mislim 13 t“, uobičajeno je oko 24 t; privremeno 13 t), da li se cerada može
+cerade („mislim 13 t“, uobičajeno je oko 24 t; privremeno 24 t), da li se cerada može
 utovariti i sa strane (ako može, D2 utiče samo na 3D raspored, a ne na rute), da li je broj
 kamiona ograničen (privremeno nije), početna tačka iz prethodne nedelje, uloga vozača. Specifikacija v2 nije u repozitorijumu, pa odgovori nisu upisani u nju.
 Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.

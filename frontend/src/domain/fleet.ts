@@ -3,12 +3,13 @@
 // dimensions later.
 
 /**
- * Standard curtain-sider (cerada). capacityKg is the process owner's "I think 13 tonnes",
- * not yet confirmed (about 24 t is usual for a 13,6 m trailer).
+ * Standard curtain-sider (cerada). capacityKg is not confirmed: the process owner said
+ * "I think 13 tonnes", but the sample sheet has single shipments heavier than that, so
+ * the usual 24 t for a 13,6 m trailer is used until he answers.
  */
 export const STANDARD_TRUCK = {
   capacityLdmTenths: 136,
-  capacityKg: 13_000,
+  capacityKg: 24_000,
   innerLengthMm: 13_600,
   innerWidthMm: 2_480,
   innerHeightMm: 2_700,

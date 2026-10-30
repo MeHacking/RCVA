@@ -74,7 +74,8 @@ istovara mora biti pozadi.
 
 1. **Nosivost standardne cerade.** Odgovor je „mislim 13 tona“. Za šleper sa ceradom (13,6 m)
    uobičajena nosivost je bliža 24 tone, pa broj treba potvrditi pre nego što postane
-   ograničenje. **Privremeno 13 t** (odluka korisnika 30.10.2026), dok Gojko ne potvrdi.
+   ograničenje. **Privremeno 24 t** (odluka korisnika 30.10.2026), dok Gojko ne potvrdi:
+   primer tabele ima pojedinačne pošiljke teže od 13 t, pa bi sa 13 t plan bio nemoguć.
 2. **Redosled utovara (D2).** Ako se roba utovaruje redom kojim kamion obilazi magacine, a
    ono što se prvo istovara mora biti pozadi, onda redosled magacina zavisi od redosleda
    isporuka. To ograničava rute i može da poveća kilometražu. Da li ovo važi već u prvoj

@@ -111,10 +111,10 @@ describe('solve', () => {
   })
 
   it('uses as few trucks of a standard fleet as LDM and weight allow', () => {
-    // 6 shipments of 4,0 LDM and 4,5 t: 13,6 LDM takes 3 per truck, but 13 t only 2
+    // 6 shipments of 4,0 LDM and 9 t: 13,6 LDM takes 3 per truck, but 24 t only 2
     const input: SolverInput = {
       ...test7Input(OPEN_ROUTE_REAR_LOADING),
-      shipments: [1, 3, 5, 7, 1, 3].map((pickup) => ({ ldmTenths: 40, weightKg: 4500, pickup, delivery: pickup + 1 })),
+      shipments: [1, 3, 5, 7, 1, 3].map((pickup) => ({ ldmTenths: 40, weightKg: 9000, pickup, delivery: pickup + 1 })),
       trucks: standardFleet(6),
     }
     const result = solve(input, { seed: 1, stepLimit: 3000 })
