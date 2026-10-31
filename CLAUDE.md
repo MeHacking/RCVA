@@ -4,10 +4,35 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 30.10.2026, Gojkov model u TS solveru (otvorena ruta, utovar pozadi,
-težina, standardna flota); videti „Gde smo stali“.
+Poslednje ažuriranje: 31.10.2026, TS validator, provera izvodljivosti sa težinom i 3D
+raspored za utovar pozadi (korak 2 na putu B); videti „Gde smo stali“.
 
-## Gde smo stali (30.10.2026)
+## Gde smo stali (31.10.2026)
+
+**Korak 2 na putu B (urađeno 31.10.2026)**, sve u `frontend/src/domain/optimization/`, još
+nije povezano sa ekranima:
+- `job.ts`: `JobInput` (prenos `JobInput.java`): pošiljke iz API-ja, `JobTruck` sa
+  `capacityKg`, `locationIds` + matrica rastojanja, `rules` (indeksi u `locationIds`);
+  `toSolverInput`. **Pošiljka bez težine se računa kao 0 kg.**
+- `feasibility.ts`: `provenCauses` (PROVEN) i `trucksLowerBound` sa težinom: pošiljka veća
+  od najvećeg kamiona, teža od najveće nosivosti, ili ne staje ni u jedan kamion po oba
+  merila zajedno; ukupno LDM i ukupno kg prema floti. Donja granica je veća od granica po
+  LDM i po kg. `domain/capacity.ts` (upozorenja na Pregledu) još nema težinu.
+- `validator.ts`: prenos `SolutionValidator`-a, nezavisan od planera i solvera; proverava i
+  dve faze (uvek), težinu, otvorenu rutu (prva deonica 0 m, kraj samo ako je zadat) i utovar
+  pozadi par po par po mestima (niz uzastopnih stanica iste vrste na istoj lokaciji).
+- `result.ts`: `toOptimizationResult` pravi API rezultat iz ruta solvera (kao `toResult` u
+  `RoutingSolver.java`) i dodaje izveštaj validatora; samo za izvodljiva rešenja.
+- `loadPlan.ts`: `rearLoadedPlan`, kao `SimpleLoadPlanner`, ali redom obrnutim od istovara:
+  x = 0 je prednji zid, vrata su na x = dužina, pa ono što se prvo istovara stoji kod vrata.
+  Mock (`src/api/mock/loadPlan.ts`) i Java i dalje ređaju po redu preuzimanja (stari model).
+- Testovi: `feasibility.test.ts` (12), `validator.test.ts` (10: 40 rešenja solvera sa oba
+  skupa pravila, gde validator prolazi tačno kada je skor izvodljiv i dužine su iste kao u
+  solveru; svaka vrsta greške sa tačnom porukom), `loadPlan.test.ts` (4). Provereno na
+  pokvarenom kodu: bez težine, bez utovara pozadi, bez dve faze, sa zanemarenom otvorenom
+  rutom ili krajem, i raspored po redu utovara; svaka greška obara testove.
+
+## Ranije (30.10.2026)
 
 **Gojkov model u TS solveru (urađeno 30.10.2026, korak 1 na putu B)**. Odluke korisnika
 30.10.2026, privremene dok Gojko ne potvrdi: **utovar samo pozadi** (D2 važi već sada),
@@ -48,9 +73,8 @@ kamiona najviše ima; uloga vozača.
 
 **Sledeće na putu B** (predlog, potvrditi plan sa korisnikom pre početka):
 1. ~~Gojkove promene modela u TS~~ (urađeno 30.10.2026, videti gore).
-2. TS validator (nezavisan od planera: utovar pozadi, LDM, težina, otvorena ruta),
-   `Feasibility` sa težinom (PROVEN: pošiljka teža od kamiona) i 3D raspored po redosledu
-   istovara (ono što se prvo istovara pozadi), prenos iz Jave.
+2. ~~TS validator, `Feasibility` sa težinom i 3D raspored po redosledu istovara~~ (urađeno
+   31.10.2026, videti gore).
 3. Solver u Web Worker-u i povezivanje sa ekranima (umesto backend-a); tu i težina u tipu
    `Truck`, ekranu kamiona i `capacity.ts`, i flota koju pravi aplikacija.
 4. Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
@@ -173,7 +197,8 @@ RCVA/
 │   │                             optimization, route-map, truck-3d (+ tego/)
 │   ├── src/domain/capacity.ts    donja granica broja kamiona, provere kapaciteta
 │   ├── src/domain/fleet.ts       standardna cerada i flota koju pravi aplikacija
-│   ├── src/domain/optimization/  TS solver (put B): routePlanner, solver, random (seed)
+│   ├── src/domain/optimization/  put B: routePlanner, solver, random (seed), job (ulaz posla),
+│   │                             feasibility (PROVEN), validator, result (API rezultat), loadPlan
 │   ├── src/format/               jedini modul za formatiranje jedinica (LDM, km, kg, vreme)
 │   ├── src/styles/               tokens.css (sve boje), base, layout, components
 │   ├── public/legacy/tego/       TeGo 3D vizuelizator (klasične skripte; packwidget.js izmenjen)
@@ -230,8 +255,8 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `notFound` (5176). Testovi u `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog
 scenarija.
 
-Stanje (30.10.2026): frontend tsc i lint čisti, 203 Vitest testa prolaze, `test:oracle`
-prolazi. Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
+Stanje (31.10.2026): frontend tsc i lint čisti, 229 Vitest testova prolazi; `test:oracle`
+prošao 30.10.2026 (solver posle toga nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
 
