@@ -37,6 +37,11 @@ export interface Truck {
   id: number
   name: string
   capacityLdmTenths: number
+  /**
+   * NOT IN SPEC v2: payload in kg, a constraint since the process owner's answer B2.
+   * null = weight is not limited (older data; the backend does not have it).
+   */
+  capacityKg: number | null
   /** unavailable trucks are not sent to the solver */
   available: boolean
   innerLengthMm: number | null

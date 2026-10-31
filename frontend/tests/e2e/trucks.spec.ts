@@ -54,6 +54,20 @@ test('adds a truck without dimensions', async ({ page }) => {
   await expect(row).toContainText('nije uneto')
 })
 
+test('saves a payload, and shows an empty one as not limited', async ({ page }) => {
+  await expect(page.getByRole('row', { name: /Šleper 1/ })).toContainText('bez ograničenja')
+  await page.getByRole('button', { name: 'Izmeni Šleper 1' }).click()
+  const payload = page.getByLabel('Nosivost (kg)')
+  await payload.fill('24 t')
+  await page.getByRole('button', { name: 'Sačuvaj' }).click()
+  await expect(page.getByText('Unesite pozitivan ceo broj kilograma, npr. 24000.')).toBeVisible()
+  await expect(payload).toHaveAttribute('aria-invalid', 'true')
+
+  await payload.fill('24000')
+  await page.getByRole('button', { name: 'Sačuvaj' }).click()
+  await expect(page.getByRole('row', { name: /Šleper 1/ })).toContainText('24000')
+})
+
 test('requires all three dimensions or none', async ({ page }) => {
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Naziv').fill('X')

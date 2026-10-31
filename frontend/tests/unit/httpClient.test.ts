@@ -22,12 +22,16 @@ function fakeFetch(respond: (call: Call) => Response) {
 const json = (status: number, body: unknown, type = 'application/json') =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': type } })
 
-const TRUCK = { name: 'Solo 2', capacityLdmTenths: 70, available: true, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null }
+const TRUCK = { name: 'Solo 2', capacityLdmTenths: 70, capacityKg: 12_000, available: true, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null }
 
 describe('createHttpClient', () => {
   it('calls the REST paths with the right methods and bodies', async () => {
     const { impl, calls } = fakeFetch((call) =>
-      call.method === 'DELETE' ? new Response(null, { status: 204 }) : json(call.method === 'POST' ? 201 : 200, { id: 4, ...TRUCK }),
+      call.method === 'DELETE'
+        ? new Response(null, { status: 204 })
+        : call.method === 'GET' && call.url.endsWith('/trucks')
+          ? json(200, [{ id: 4, ...TRUCK }])
+          : json(call.method === 'POST' ? 201 : 200, { id: 4, ...TRUCK }),
     )
     const api = createHttpClient('/api/v1', impl)
 
@@ -103,6 +107,13 @@ describe('createHttpClient', () => {
     const error = await api.createOptimizationJob({ timeLimitSeconds: 1, truckIds: null, shipmentIds: null }).catch((e: unknown) => e)
     expect(isProvenInfeasible(error)).toBe(true)
     expect((error as ApiError).problem.causes).toEqual(problem.causes)
+  })
+
+  it('reads a truck without payload from the backend as not limited', async () => {
+    const fromServer: Partial<typeof TRUCK> = { ...TRUCK }
+    delete fromServer.capacityKg
+    const api = createHttpClient('/api/v1', fakeFetch(() => json(200, [{ id: 4, ...fromServer }])).impl)
+    expect(await api.listTrucks()).toEqual([{ id: 4, ...TRUCK, capacityKg: null }])
   })
 
   it('turns Problem Details into ApiError with field errors', async () => {

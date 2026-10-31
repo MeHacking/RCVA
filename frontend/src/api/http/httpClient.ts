@@ -1,5 +1,5 @@
 import { ApiError, type ApiClient } from '../client'
-import type { ProblemDetails } from '../types'
+import type { ProblemDetails, Truck } from '../types'
 
 /**
  * ApiClient calls over HTTP to /api/v1 (proxied to the backend by Vite in development).
@@ -26,9 +26,9 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
   }
 
   return {
-    listTrucks: () => request('GET', '/trucks'),
-    createTruck: (input) => request('POST', '/trucks', input),
-    updateTruck: (id, input) => request('PUT', `/trucks/${id}`, input),
+    listTrucks: () => request<ServerTruck[]>('GET', '/trucks').then((trucks) => trucks.map(withPayload)),
+    createTruck: (input) => request<ServerTruck>('POST', '/trucks', input).then(withPayload),
+    updateTruck: (id, input) => request<ServerTruck>('PUT', `/trucks/${id}`, input).then(withPayload),
     deleteTruck: (id) => request('DELETE', `/trucks/${id}`),
     getBase: () => request('GET', '/base'),
     listShipments: () => request('GET', '/shipments'),
@@ -47,6 +47,13 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
     getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
   }
+}
+
+/** The backend has no payload yet (B2 is only on the device): missing means not limited. */
+type ServerTruck = Omit<Truck, 'capacityKg'> & { capacityKg?: number | null }
+
+function withPayload(truck: ServerTruck): Truck {
+  return { ...truck, capacityKg: truck.capacityKg ?? null }
 }
 
 async function readProblem(response: Response): Promise<ProblemDetails> {

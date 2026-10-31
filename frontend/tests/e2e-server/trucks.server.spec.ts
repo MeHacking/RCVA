@@ -19,6 +19,8 @@ test('a truck added in the UI is stored on the server (survives a reload)', asyn
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Naziv').fill('Server kamion')
   await page.getByLabel('Kapacitet (LDM)').fill('8,5')
+  // The backend does not store a payload, so the form does not ask for one.
+  await expect(page.getByLabel('Nosivost (kg)')).toHaveCount(0)
   await page.getByRole('button', { name: 'Sačuvaj' }).click()
   await expect(page.getByRole('row', { name: /Server kamion/ })).toContainText('8,5')
 

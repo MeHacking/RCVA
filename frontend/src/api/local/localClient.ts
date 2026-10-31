@@ -116,13 +116,14 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       id: nextTruckId++,
       name: '',
       capacityLdmTenths: STANDARD_TRUCK.capacityLdmTenths,
+      capacityKg: STANDARD_TRUCK.capacityKg,
       available: true,
       innerLengthMm: STANDARD_TRUCK.innerLengthMm,
       innerWidthMm: STANDARD_TRUCK.innerWidthMm,
       innerHeightMm: STANDARD_TRUCK.innerHeightMm,
     }))
     const jobTrucks: JobTruck[] = [
-      ...own.map((t) => ({ id: t.id, name: t.name, capacityLdmTenths: t.capacityLdmTenths, capacityKg: Infinity })),
+      ...own.map((t) => ({ id: t.id, name: t.name, capacityLdmTenths: t.capacityLdmTenths, capacityKg: t.capacityKg ?? Infinity })),
       ...added.map((t) => ({ id: t.id, name: 'Standardna cerada', capacityLdmTenths: t.capacityLdmTenths, capacityKg: STANDARD_TRUCK.capacityKg })),
     ]
     const causes = provenCauses(chosenShipments, jobTrucks)

@@ -8,6 +8,9 @@ export function assertValidTruck(input: TruckInput): void {
   if (!Number.isInteger(input.capacityLdmTenths) || input.capacityLdmTenths <= 0) {
     errors.capacityLdmTenths = 'Kapacitet mora biti veći od 0.'
   }
+  if (input.capacityKg !== null && (!Number.isInteger(input.capacityKg) || input.capacityKg <= 0)) {
+    errors.capacityKg = 'Nosivost mora biti pozitivan ceo broj kilograma.'
+  }
   for (const field of ['innerLengthMm', 'innerWidthMm', 'innerHeightMm'] as const) {
     const value = input[field]
     if (value !== null && (!Number.isInteger(value) || value <= 0)) errors[field] = 'Mora biti pozitivan ceo broj.'

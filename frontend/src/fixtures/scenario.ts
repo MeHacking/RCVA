@@ -65,11 +65,13 @@ export function truck(
   capacityLdmTenths: number,
   innerMm: readonly [number, number, number] | null,
   available = true,
+  capacityKg: number | null = null,
 ): Truck {
   return {
     id,
     name,
     capacityLdmTenths,
+    capacityKg,
     available,
     innerLengthMm: innerMm?.[0] ?? null,
     innerWidthMm: innerMm?.[1] ?? null,

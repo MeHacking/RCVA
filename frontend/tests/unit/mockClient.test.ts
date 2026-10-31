@@ -100,6 +100,7 @@ describe('mock trucks', () => {
   const VALID: TruckInput = {
     name: 'Novi',
     capacityLdmTenths: 136,
+    capacityKg: null,
     available: true,
     innerLengthMm: null,
     innerWidthMm: null,
@@ -121,6 +122,15 @@ describe('mock trucks', () => {
     const created = await api.createTruck(VALID)
     expect(created.id).toBe(4)
     expect(await api.listTrucks()).toHaveLength(4)
+  })
+
+  it('rejects a payload that is not a positive whole number of kg', async () => {
+    const { api } = setup('small')
+    for (const capacityKg of [0, -1, 2.5]) {
+      const error = await rejection(api.updateTruck(1, { ...VALID, capacityKg }))
+      expect(error.problem.errors).toEqual({ capacityKg: 'Nosivost mora biti pozitivan ceo broj kilograma.' })
+    }
+    expect((await api.updateTruck(1, { ...VALID, capacityKg: 24_000 })).capacityKg).toBe(24_000)
   })
 
   it('rejects capacity 0 with 400 and a field error', async () => {

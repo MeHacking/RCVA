@@ -4,7 +4,7 @@ import { describeError } from '../../api/client'
 import type { Truck } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
-import { formatDimensionsMm, formatLdm } from '../../format/units'
+import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { TruckForm } from './TruckForm'
 
@@ -125,6 +125,9 @@ function TruckTable({
             <th scope="col" className="num">
               Kapacitet (LDM)
             </th>
+            <th scope="col" className="num">
+              Nosivost (kg)
+            </th>
             <th scope="col">Tovarni prostor (D × Š × V)</th>
             <th scope="col">Dostupan</th>
             <th scope="col">
@@ -138,6 +141,9 @@ function TruckTable({
               <td>{truck.id}</td>
               <td>{truck.name}</td>
               <td className="num">{formatLdm(truck.capacityLdmTenths)}</td>
+              <td className="num">
+                {truck.capacityKg === null ? <span className="text--muted">bez ograničenja</span> : formatKg(truck.capacityKg)}
+              </td>
               <td>
                 {formatDimensionsMm(truck.innerLengthMm, truck.innerWidthMm, truck.innerHeightMm) ?? (
                   <span className="text--muted">nije uneto</span>

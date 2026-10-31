@@ -116,6 +116,31 @@ describe('local optimization', () => {
     expect(runSolver).not.toHaveBeenCalled()
   })
 
+  it('gives the solver each truck payload, and proves a shipment too heavy for every truck', async () => {
+    const small = SCENARIOS.small
+    const heavy: Scenario = {
+      ...small,
+      trucks: small.trucks.map((t) => ({ ...t, capacityKg: t.id === 1 ? 5000 : null })),
+    }
+    const given: number[][] = []
+    const spy: SolverRunner = (input, options) => {
+      given.push(input.trucks.map((t) => t.capacityKg))
+      return steps(input, options)
+    }
+    const api = setup(heavy, spy)
+    await settle(api, (await api.createOptimizationJob(REQUEST)).id)
+    // Šleper 1 carries at most 5 t, Šleper 2 has no payload, the standard trucks 24 t.
+    expect(given[0]).toEqual([5000, Infinity, 24_000, 24_000, 24_000, 24_000, 24_000])
+
+    const tooHeavy: Scenario = {
+      ...heavy,
+      trucks: heavy.trucks.map((t) => ({ ...t, capacityKg: 20_000 })),
+      shipments: small.shipments.map((s) => (s.id === 101 ? { ...s, weightKg: 30_000 } : s)),
+    }
+    const error = await rejection(setup(tooHeavy).createOptimizationJob(REQUEST))
+    expect(error.problem.causes).toEqual(['Pošiljka S-101 (30000 kg) je teža od najveće nosivosti kamiona (24000 kg).'])
+  })
+
   it('answers 409 for shipments without coordinates', async () => {
     const error = await rejection(setup('test7').createOptimizationJob(REQUEST))
     expect(error.status).toBe(409)

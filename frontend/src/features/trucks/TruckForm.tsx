@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from 'react'
 import { useApi } from '../../api/apiContext'
+import { apiMode } from '../../api/apiMode'
 import { ApiError, describeError } from '../../api/client'
 import type { Truck } from '../../api/types'
 import {
@@ -17,6 +18,9 @@ interface TruckFormProps {
   onSaved: (truck: Truck) => void
   onCancel: () => void
 }
+
+// The backend does not store a payload (B2 is only on the device), so the field would be lost there.
+const PAYLOAD_SUPPORTED = apiMode() !== 'server'
 
 export function TruckForm({ truck, onSaved, onCancel }: TruckFormProps) {
   const api = useApi()
@@ -86,6 +90,20 @@ export function TruckForm({ truck, onSaved, onCancel }: TruckFormProps) {
         />
         {fieldError('capacityLdm')}
       </div>
+
+      {PAYLOAD_SUPPORTED && (
+        <div className="field">
+          <label htmlFor={`${id}-capacityKg`}>Nosivost (kg)</label>
+          <input
+            {...fieldProps('capacityKg')}
+            inputMode="numeric"
+            placeholder="prazno = bez ograničenja"
+            value={values.capacityKg}
+            onChange={(e) => set('capacityKg', e.target.value)}
+          />
+          {fieldError('capacityKg')}
+        </div>
+      )}
 
       <fieldset className="field" aria-describedby={errors.dimensions ? `${id}-dimensions-error` : undefined}>
         <legend>Tovarni prostor u mm (opciono, za 3D prikaz)</legend>

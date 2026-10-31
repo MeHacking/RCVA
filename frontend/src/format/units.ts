@@ -49,6 +49,11 @@ export function parseLdmTenths(input: string): number | null {
   return Number(match[1]) * 10 + Number(match[2] ?? '0')
 }
 
+/** Parses a positive whole number of kilograms; empty input is "not given" (null). */
+export function parseKg(input: string): number | null | 'invalid' {
+  return parseMm(input)
+}
+
 /** Parses a positive whole number of millimetres; empty input is "not given" (null). */
 export function parseMm(input: string): number | null | 'invalid' {
   const trimmed = input.trim()

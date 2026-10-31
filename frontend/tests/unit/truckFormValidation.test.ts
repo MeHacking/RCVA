@@ -9,6 +9,7 @@ import {
 const VALID: TruckFormValues = {
   name: '  Šleper 9 ',
   capacityLdm: '13,6',
+  capacityKg: '24000',
   innerLengthMm: '13600',
   innerWidthMm: '2480',
   innerHeightMm: '2700',
@@ -22,6 +23,7 @@ describe('validateTruckForm', () => {
       input: {
         name: 'Šleper 9',
         capacityLdmTenths: 136,
+        capacityKg: 24000,
         available: true,
         innerLengthMm: 13600,
         innerWidthMm: 2480,
@@ -65,12 +67,32 @@ describe('validateTruckForm', () => {
   })
 })
 
+describe('payload', () => {
+  it('leaves an empty payload unlimited', () => {
+    const result = validateTruckForm({ ...VALID, capacityKg: '  ' })
+    expect(result.ok && result.input.capacityKg).toBeNull()
+  })
+
+  it.each(['0', '-5', '1,5', '24 t'])('rejects payload %j', (capacityKg) => {
+    expect(validateTruckForm({ ...VALID, capacityKg })).toEqual({
+      ok: false,
+      errors: { capacityKg: 'Unesite pozitivan ceo broj kilograma, npr. 24000.' },
+    })
+  })
+
+  it('shows an unlimited truck with an empty field', () => {
+    const values = truckToFormValues({ id: 1, name: 'A', capacityLdmTenths: 10, capacityKg: null, available: true, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null })
+    expect(values.capacityKg).toBe('')
+  })
+})
+
 describe('truckToFormValues', () => {
   it('round-trips an existing truck through the form', () => {
     const truck = {
       id: 1,
       name: 'Solo 1',
       capacityLdmTenths: 70,
+      capacityKg: 12000,
       available: false,
       innerLengthMm: null,
       innerWidthMm: null,
@@ -84,8 +106,9 @@ describe('truckToFormValues', () => {
 
 describe('apiErrorsToForm', () => {
   it('maps API field names onto form fields', () => {
-    expect(apiErrorsToForm({ capacityLdmTenths: 'x', innerLengthMm: 'y', unknown: 'z' })).toEqual({
+    expect(apiErrorsToForm({ capacityLdmTenths: 'x', capacityKg: 'w', innerLengthMm: 'y', unknown: 'z' })).toEqual({
       capacityLdm: 'x',
+      capacityKg: 'w',
       innerLengthMm: 'y',
     })
   })
