@@ -1,5 +1,6 @@
 import type { OptimizationResult, RoutePlan, Shipment, StopType, Truck } from '../api/types'
 import { trucksLowerBound } from '../domain/capacity'
+import { haversineMeters } from '../domain/optimization/distance'
 
 /** Distance in whole metres between two locations */
 export type DistanceFn = (fromLocationId: number, toLocationId: number) => number
@@ -20,16 +21,10 @@ export function planarDistance(coordinatesKm: Record<number, readonly [number, n
 
 /** Great-circle distance from lat/lon; a mock stand-in for OSRM road distances. */
 export function haversineDistance(latLon: Record<number, readonly [number, number]>): DistanceFn {
-  const R_KM = 6371
-  const rad = (deg: number) => (deg * Math.PI) / 180
-  return (from, to) => {
-    const [lat1, lon1] = latLon[from]
-    const [lat2, lon2] = latLon[to]
-    const a =
-      Math.sin(rad(lat2 - lat1) / 2) ** 2 +
-      Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2
-    return Math.round(2 * R_KM * Math.asin(Math.sqrt(a)) * 1000)
-  }
+  return (from, to) => haversineMeters(
+    { lat: latLon[from][0], lon: latLon[from][1] },
+    { lat: latLon[to][0], lon: latLon[to][1] },
+  )
 }
 
 

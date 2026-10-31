@@ -131,6 +131,11 @@ export interface OptimizationResult {
   unassignedShipmentIds: number[]
   /** filled in by the independent SolutionValidator, not by the solver */
   validation: ValidationReport
+  /**
+   * NOT IN SPEC v2: routes start at their first pickup and end at their last delivery
+   * (process owner's answer A2), without the base. Missing (mock, server) = false.
+   */
+  openRoute?: boolean
 }
 
 export type LoadPlanMode = 'ILLUSTRATIVE_LDM' | 'DIMENSIONAL'

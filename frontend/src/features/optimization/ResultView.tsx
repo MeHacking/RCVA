@@ -54,7 +54,9 @@ function Summary({ job, result }: { job: OptimizationJob; result: OptimizationRe
       <div className="stat">
         <dt>Ukupna kilometraža</dt>
         <dd className="stat__value">{formatKm(result.totalMeters)}</dd>
-        <dd className="stat__hint">uključuje povratak u bazu</dd>
+        <dd className="stat__hint">
+          {result.openRoute ? 'od prvog utovara do poslednjeg istovara' : 'uključuje povratak u bazu'}
+        </dd>
       </div>
       <div className="stat">
         <dt>Skor (Hard/Medium/Soft)</dt>

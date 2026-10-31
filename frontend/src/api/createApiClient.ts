@@ -1,12 +1,15 @@
 import { isScenarioName, SCENARIOS } from '../fixtures'
 import { apiMode } from './apiMode'
 import type { ApiClient } from './client'
+import { runInWorker } from '../domain/optimization/solverRunner'
 import { createHttpClient } from './http/httpClient'
+import { createLocalApiClient } from './local/localClient'
 import { createMockApiClient } from './mock/mockClient'
 
 /**
  * The single place that decides which ApiClient the app uses (see apiMode.ts): the
- * backend over HTTP in "server" mode, otherwise the in-browser mock with a fixture scenario.
+ * backend over HTTP in "server" mode, otherwise a fixture scenario, either in the mock or
+ * as the starting data of the application on the device ("local").
  */
 export function createApiClient(): ApiClient {
   if (apiMode() === 'server') return createHttpClient()
@@ -14,5 +17,8 @@ export function createApiClient(): ApiClient {
   if (!isScenarioName(name)) {
     throw new Error(`Unknown VITE_MOCK_SCENARIO "${name}". Allowed: ${Object.keys(SCENARIOS).join(', ')}`)
   }
-  return createMockApiClient({ scenario: SCENARIOS[name] })
+  const scenario = SCENARIOS[name]
+  return apiMode() === 'local'
+    ? createLocalApiClient({ scenario, runSolver: runInWorker })
+    : createMockApiClient({ scenario })
 }

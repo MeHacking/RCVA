@@ -30,6 +30,8 @@ export interface TruckRow {
   /** last stop -> base; not a stop in the API, derived as total minus legs */
   returnLegMeters: number
   baseName: string
+  /** starts at the first pickup and ends at the last delivery, without the base */
+  openRoute: boolean
 }
 
 export interface UnassignedRow {
@@ -65,6 +67,7 @@ export function buildTruckRows(result: OptimizationResult, ref: ReferenceData): 
       })),
       returnLegMeters: route.totalMeters - legs,
       baseName: names.location(ref.base.baseLocationId),
+      openRoute: result.openRoute ?? false,
     }
   })
 }
