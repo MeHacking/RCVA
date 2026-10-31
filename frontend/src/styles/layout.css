@@ -298,7 +298,40 @@
   color: var(--text-muted);
 }
 
-/* Route map (list phase) */
+/* Route map: Leaflet map, then the stop lists */
+
+.route-map-panel {
+  margin: 0 0 var(--space-4);
+}
+
+.route-map {
+  height: var(--map-height);
+  border-radius: var(--radius-sm);
+  /* Leaflet's panes and controls use z-index up to 1000; keep them under the sticky top bar. */
+  isolation: isolate;
+  background: var(--surface-muted);
+}
+
+/* Leaflet 1.9 blends tiles with plus-lighter (against seams at fractional zoom); inside the
+   isolated map that washes them out completely. The map zooms in whole steps instead. */
+.route-map.leaflet-container img.leaflet-tile {
+  mix-blend-mode: normal;
+}
+
+.route-map-panel__caption {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.route-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  vertical-align: baseline;
+  box-shadow: 0 0 0 1px var(--surface);
+}
 
 .route-filter {
   display: flex;

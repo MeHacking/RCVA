@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { OptimizationJob, OptimizationResult } from '../../api/types'
 import { LdmBar } from '../../components/LdmBar'
@@ -9,9 +10,12 @@ import { completedJob, isLastJobBusy, useLastJob, type LastJobState } from '../o
 import { buildTruckRows, type TruckRow } from '../optimization/resultRows'
 import { StopList } from '../optimization/StopList'
 import { useReferenceData } from '../optimization/useReferenceData'
+import { buildMapModel, routeColor } from './mapModel'
 import { parseRouteMapParams } from './routeMapParams'
 
-// This phase: routes as stop lists. The geographic map (Leaflet) comes later.
+// The routes on a map (straight lines from stop to stop), then as stop lists. Leaflet is
+// loaded only when this screen shows a result.
+const RouteMap = lazy(() => import('./RouteMap'))
 
 export function RouteMapPage() {
   const { state } = useLastJob()
@@ -52,6 +56,7 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
   const rows = buildTruckRows(result, reference.data)
   const selected = truckId === null ? null : (rows.find((row) => row.truckId === truckId) ?? null)
   const visible = selected ? [selected] : rows
+  const model = buildMapModel(result, reference.data, visible.map((row) => row.truckId))
 
   const selectTruck = (id: number | null) =>
     setSearchParams((previous) => {
@@ -63,10 +68,6 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
 
   return (
     <>
-      <Notice tone="info" title="Prikaz na geografskoj mapi dolazi u kasnijoj fazi">
-        <p>Za sada su rute prikazane kao redosled stanica, sa kilometražom po deonici i teretom na kamionu.</p>
-      </Notice>
-
       {jobId !== null && jobId !== job.id && (
         <Notice tone="warning" title={`Posao #${jobId} nije dostupan`} role="status">
           <p>Aplikacija čuva samo poslednji posao; prikazane su rute posla #{job.id}.</p>
@@ -89,6 +90,7 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
             aria-pressed={selected?.truckId === row.truckId}
             onClick={() => selectTruck(row.truckId)}
           >
+            <RouteSwatch color={routeColor(result, row.truckId)} />
             {row.truckName}
           </button>
         ))}
@@ -97,19 +99,41 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
         </span>
       </div>
 
+      <figure className="panel route-map-panel">
+        <Suspense fallback={<LoadingState label="Učitavanje mape…" />}>
+          <RouteMap model={model} />
+        </Suspense>
+        <figcaption className="text--muted route-map-panel__caption">
+          Linije spajaju stanice redom obilaska pravom linijom; kilometraža je u spisku stanica. Puna tačka je
+          preuzimanje, prazna isporuka{result.openRoute ? '' : ', tamna baza'}.
+        </figcaption>
+      </figure>
+      {model.missing.length > 0 && (
+        <Notice tone="warning" title={`Mesta bez koordinata nisu na mapi (${model.missing.length})`} role="status">
+          <p>{model.missing.join(', ')}</p>
+        </Notice>
+      )}
+
       {visible.map((row) => (
-        <RouteCard key={row.truckId} jobId={job.id} row={row} />
+        <RouteCard key={row.truckId} jobId={job.id} row={row} color={routeColor(result, row.truckId)} />
       ))}
     </>
   )
 }
 
-function RouteCard({ jobId, row }: { jobId: number; row: TruckRow }) {
+function RouteSwatch({ color }: { color: number }) {
+  return <span className="route-swatch" style={{ background: `var(--route-${color})` }} aria-hidden="true" />
+}
+
+function RouteCard({ jobId, row, color }: { jobId: number; row: TruckRow; color: number }) {
   const headingId = `route-${row.truckId}-title`
   return (
     <article className="panel route-card" aria-labelledby={headingId}>
       <header className="route-card__header">
-        <h2 id={headingId}>{row.truckName}</h2>
+        <h2 id={headingId}>
+          <RouteSwatch color={color} />
+          {row.truckName}
+        </h2>
         <span className="route-card__km">{formatKm(row.totalMeters)}</span>
         <LdmBar usedLdmTenths={row.usedLdmTenths} capacityLdmTenths={row.capacityLdmTenths} />
         <Link className="route-card__link" to={`/truck-3d?job=${jobId}&truck=${row.truckId}`}>

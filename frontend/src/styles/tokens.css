@@ -80,4 +80,16 @@
   --control-height: 2rem;
   --sidebar-width: 13.5rem;
   --topbar-height: 3.25rem;
+
+  /* Routes on the map, one per truck in result order (read by Leaflet through getComputedStyle):
+     dark enough to read on the map tiles, the first is the brand cherry. */
+  --route-1: var(--black-cherry);
+  --route-2: #1f5f8b;
+  --route-3: #2f6b3a;
+  --route-4: #b5560f;
+  --route-5: #6a3d8f;
+  --route-6: #17716d;
+  --route-7: #8a5a2b;
+  --route-8: #3f4f66;
+  --map-height: 26rem;
 }
