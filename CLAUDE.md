@@ -4,18 +4,45 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 31.10.2026, koordinate preko Nominatim-a i ekran Podešavanja u
-režimu `local` (korak 4b na putu B); videti „Gde smo stali“.
+Poslednje ažuriranje: 31.10.2026, kilometraže po putu preko OpenRouteService-a u režimu
+`local` (korak 4c na putu B); videti „Gde smo stali“.
 
 ## Gde smo stali (31.10.2026)
 
 **Korak 4 na putu B**, redosled dogovoren 31.10.2026 (korisnik: „radi kako misliš da
-treba“): **4a** čuvanje na uređaju (urađeno, videti niže; ide prvo jer Nominatim traži da se
-rezultati trajno čuvaju), **4b** koordinate (urađeno, videti niže), **4c** kilometraže (ORS `driving-hgv` kao podešavanje, ključ samo u bazi na
-uređaju, traže se samo parovi koji nisu zapamćeni, bez ORS-a posao je FAILED sa porukom;
-proveriti ograničenje veličine matrice na nalogu), **4d** izvoz/uvoz JSON fajla sa verzijom
-formata. Posle toga: upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani
-režim `local`. Pitanja za Gojka (30.10.2026) još nisu poslata.
+treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže (sva tri urađena,
+videti niže). **Dogovoreno dalje (31.10.2026): mapa (Leaflet direktno, BSD-2-Clause;
+proveriti licencu i verziju pre instalacije; prva verzija: oznake i prave linije od stanice
+do stanice, podloga sa OSM servera po njihovim pravilima), pa 4d** izvoz/uvoz JSON fajla sa
+verzijom formata (bez ORS ključa u fajlu). Posle toga: upozorenja na Pregledu sa težinom i
+neograničenom flotom, podrazumevani režim `local`, pakovanje. Pitanja za Gojka (30.10.2026)
+još nisu poslata. Korisnik još nije napravio ORS ključ, pa prave kilometraže nisu probane.
+
+**Korak 4c (urađeno 31.10.2026)**:
+- `src/api/local/openRouteService.ts`: `createOrsDistances` (Matrix v2, `POST
+  /v2/matrix/{profil}`, ključ u `Authorization`, `[lon, lat]`, `metrics: distance`, `units:
+  m`, metri zaokruženi). Ograničenja nisu nađena u zvaničnoj dokumentaciji, samo na ORS
+  forumu: 3500 ruta i 50 mesta po zahtevu, pa `chunks` deli veću matricu (25 × 25); zahtevi
+  idu jedan po jedan, 1,5 s razmaka (40 u minuti). CORS proveren 31.10.2026 (OPTIONS, bez
+  ključa): `Access-Control-Allow-Origin: *`. Greške (mreža, 401/403 ključ, 429 kvota, 5xx,
+  loša matrica) su `RoadDistanceError` sa porukom.
+- `localClient.ts`: sa ključem u podešavanjima posao traži samo parove mesta koji nisu u
+  `LocalData.distanceCache` (ključ: profil + obe koordinate na 6 decimala, sa smerom;
+  čuva se i „nema puta“) i odmah ih upisuje; bez ključa vazdušna linija. ORS se pita tek
+  posle provera 400/409/422. Ako ORS ne odgovori, posao se ne pravi (502 „Kilometraže nisu
+  dostupne“), bez tihe zamene vazdušnom linijom; „nema puta“ daje 409 sa spiskom parova.
+  Odgovor na `POST` sada uvek vraća `QUEUED` (posao je možda već počeo dok se upisivao).
+- `OptimizationResult.distanceSource` (NOT IN SPEC v2: `driving-hgv`, `driving-car` ili
+  `airline`); Rezultati ispod kilometraže pišu izvor i „© openrouteservice.org by HeiGIT,
+  © OpenStreetMap contributors“. Podešavanja: ključ (polje za lozinku) i „Putevi za“
+  (teretna vozila ili automobili, jer je D3 otvoreno).
+- Rastojanja po putu nisu simetrična: planer to već podržava (Held-Karp sa smerom, 2-opt
+  računa celu dužinu); novi test u `routePlanner.test.ts` sa nesimetričnim rastojanjima
+  protiv grube sile, za svih 5 pravila (pada kada se smer u Held-Karp-u obrne).
+- Testovi: `openRouteService.test.ts` (6), 7 novih u `localClient.test.ts`, e2e
+  `tests/e2e/local/roadDistances.local.spec.ts` (bez ključa, sa ključem i kešom posle
+  osvežavanja, 429). Provereno na pokvarenom kodu (15 izmena): svaka obara testove.
+  Nijedan test ne šalje pravi zahtev.
 
 **Korak 4b (urađeno 31.10.2026)**:
 - `src/api/local/nominatim.ts`: `createNominatimGeocoder` (jedan upit odjednom, najmanje
@@ -347,8 +374,8 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
 na lokalni.
 
-Stanje (31.10.2026, posle koraka 4b): frontend tsc, lint i build čisti, 269 Vitest testova,
-Playwright 46 (mock 41 + local 5) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
+Stanje (31.10.2026, posle koraka 4c): frontend tsc, lint i build čisti, 287 Vitest testova,
+Playwright 49 (mock 41 + local 8) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
 toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
