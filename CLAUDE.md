@@ -8,14 +8,30 @@ Poslednje ažuriranje: 31.10.2026, mapa ruta (Leaflet); videti „Gde smo stali�
 
 ## Gde smo stali (31.10.2026)
 
-**Korak 4 na putu B**, redosled dogovoren 31.10.2026 (korisnik: „radi kako misliš da
-treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže i **mapa** (sve
-urađeno, videti niže). **Sledeće: 4d** izvoz/uvoz JSON fajla sa verzijom formata (bez ORS
-ključa u fajlu; to je i jedina rezervna kopija podataka iz IndexedDB-a). Posle toga:
-upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani režim `local`,
-pakovanje. Kasnije, ako korisnik hoće: linije na mapi po stvarnom putu (ORS Directions,
-dodatna kvota). Pitanja za Gojka (30.10.2026) još nisu poslata. Korisnik još nije napravio
-ORS ključ, pa prave kilometraže nisu probane.
+**Početak sledeće sesije** (dogovoreno 31.10.2026): **korak 4d, izvoz i uvoz podataka u
+fajl**. Predlog koji je korisnik video (pre rada samo potvrditi pitanje zamene/spajanja):
+- Na ekranu Podešavanja „Izvezi podatke“: jedan JSON fajl (`rcva-GGGG-MM-DD.json`) sa
+  brojem verzije formata: pošiljke, mesta, kamioni, poslednji poslovi sa rezultatima,
+  podešavanja, `geocodeCache` i `distanceCache`. **ORS ključ nikad ne ide u fajl.**
+- „Uvezi podatke“: prvo cela provera fajla (format, verzija, oblik podataka), pa pregled
+  sadržaja (broj pošiljki, kamiona, rezultata) i potvrda; tek tada se podaci menjaju.
+  Neispravan fajl ne menja ništa. Zapamćene koordinate i kilometraže prelaze sa fajlom, pa
+  drugi uređaj ne pita Nominatim i ORS ponovo.
+- **Otvoreno pitanje za korisnika**: uvoz **zamenjuje** sve podatke (predlog: jednostavno,
+  bez duplikata, za rezervnu kopiju i prenos na drugi uređaj) ili ih **spaja** (složenije,
+  ko ima prednost; može kasnije). Korisnik nije odgovorio.
+- To je jedina rezervna kopija podataka iz IndexedDB-a (brisanje podataka sajta briše sve).
+
+Posle 4d: upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani režim
+`local`, pakovanje (PC, pa telefon kao Capacitor). Kasnije, ako korisnik hoće: linije na
+mapi po stvarnom putu (ORS Directions, dodatna kvota). Pitanja za Gojka (30.10.2026) još
+nisu poslata. Korisnik još nije napravio ORS ključ, pa prave kilometraže nisu probane.
+Korisnik je 31.10.2026 pogledao aplikaciju u režimu `local` (`VITE_API_MODE=local npm run
+dev`, http://localhost:5173).
+
+**Korak 4 na putu B do sada** (redosled dogovoren 31.10.2026, korisnik: „radi kako misliš
+da treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže i **mapa**
+(sve urađeno, videti niže); ostaje 4d.
 
 **Mapa ruta (urađeno 31.10.2026)**:
 - `leaflet` 1.9.4 (BSD-2-Clause, bez zavisnosti; 2.0 je još alfa) i `@types/leaflet`
