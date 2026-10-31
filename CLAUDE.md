@@ -9,6 +9,13 @@ optimizacijom u Web Worker-u i nosivost kamiona (korak 3 na putu B); videti „G
 
 ## Gde smo stali (31.10.2026)
 
+**Početak sledeće sesije** (dogovoreno 31.10.2026): korak 4 na putu B, prvo predložiti plan
+i sačekati potvrdu. Redosled: geokodiranje (Nominatim, pravila u „Predlog za koordinate i
+kilometraže“ niže), kilometraže (ORS; korisnik pravi besplatan ključ, čuva se samo lokalno),
+čuvanje na uređaju (IndexedDB), izvoz/uvoz fajla. Usput, ako korisnik hoće: upozorenja na
+Pregledu sa težinom i neograničenom flotom. Pitanja za Gojka (30.10.2026) još nisu poslata.
+Sav rad do 31.10.2026 je push-ovan na `origin/main`.
+
 **Korak 3 na putu B (urađeno 31.10.2026)**:
 - **Režim `local`** (`src/api/local/localClient.ts`): isti `ApiClient`, ali sve radi u
   pregledaču. Početni podaci su iz scenarija (`VITE_MOCK_SCENARIO`, u memoriji; čuvanje na
