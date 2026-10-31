@@ -4,10 +4,39 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 31.10.2026, TS validator, provera izvodljivosti sa težinom i 3D
-raspored za utovar pozadi (korak 2 na putu B); videti „Gde smo stali“.
+Poslednje ažuriranje: 31.10.2026, režim „na uređaju“ (`VITE_API_MODE=local`) sa pravom
+optimizacijom u Web Worker-u i nosivost kamiona (korak 3 na putu B); videti „Gde smo stali“.
 
 ## Gde smo stali (31.10.2026)
+
+**Korak 3 na putu B (urađeno 31.10.2026)**:
+- **Režim `local`** (`src/api/local/localClient.ts`): isti `ApiClient`, ali sve radi u
+  pregledaču. Početni podaci su iz scenarija (`VITE_MOCK_SCENARIO`, u memoriji; čuvanje na
+  uređaju je korak 4), uvoz je mock-ov. Posao: 400 / 409 (bez koordinata) / 422 PROVEN
+  (`feasibility.ts`) kao na serveru, pa solver u Web Worker-u (`solver.worker.ts`,
+  `solverRunner.ts`; vremensko ograničenje iz zahteva), validator, `openRoute: true` u
+  rezultatu, 3D raspored `rearLoadedPlan`. Poslovi idu jedan po jedan. Rastojanja su
+  vazdušna linija (`distance.ts`, ista formula kao Java) dok ne dođe ORS.
+- **Flota (B1)**: posao dobija dostupne kamione + po jedan standardni kamion po pošiljci
+  (broj kamiona neograničen); standardni kamioni koje rezultat koristi upisuju se u spisak
+  kao „Kamion N“ (prvi slobodan broj) kada se posao završi.
+- **Otvorena ruta na ekranu**: `OptimizationResult.openRoute` (NOT IN SPEC v2); `StopList`
+  tada nema bazu ni povratak, prva stanica piše „početak rute“, a rezime „od prvog utovara
+  do poslednjeg istovara“.
+- **Nosivost**: `Truck.capacityKg: number | null` (null = bez ograničenja), polje „Nosivost
+  (kg)“ (prazno = bez ograničenja) i kolona u tabeli. Backend je nema: `httpClient` čita
+  kamion bez nje kao `null`, a u režimu `server` obrazac ne prikazuje polje (inače bi se
+  uneta vrednost tiho izgubila). Fixture kamioni imaju `null` (isto kao `SampleData.java`).
+- Testovi: `localClient.test.ts` (10, solver na istoj niti sa fiksnim brojem koraka),
+  e2e `tests/e2e/local/` (pravi Worker u Chromium-u, port 5177), nosivost u
+  `truckFormValidation`, `mockClient`, `httpClient` i e2e kamiona. Provereno na pokvarenom
+  kodu (bez dodavanja kamiona, bez utovara pozadi, sa nedostupnim kamionima, bez PROVEN, bez
+  reda poslova, bez `openRoute`, bez nosivosti, baza prikazana kod otvorene rute).
+- **Još nije urađeno**: upozorenja na Pregledu (`domain/capacity.ts`) nemaju težinu i
+  računaju sa unetim kamionima, a u režimu `local` flota je neograničena; podrazumevani režim
+  je i dalje `mock`.
+
+## Ranije (31.10.2026, korak 2)
 
 **Korak 2 na putu B (urađeno 31.10.2026)**, sve u `frontend/src/domain/optimization/`, još
 nije povezano sa ekranima:
@@ -75,8 +104,8 @@ kamiona najviše ima; uloga vozača.
 1. ~~Gojkove promene modela u TS~~ (urađeno 30.10.2026, videti gore).
 2. ~~TS validator, `Feasibility` sa težinom i 3D raspored po redosledu istovara~~ (urađeno
    31.10.2026, videti gore).
-3. Solver u Web Worker-u i povezivanje sa ekranima (umesto backend-a); tu i težina u tipu
-   `Truck`, ekranu kamiona i `capacity.ts`, i flota koju pravi aplikacija.
+3. ~~Solver u Web Worker-u i povezivanje sa ekranima~~ (urađeno 31.10.2026, režim `local`;
+   ostaje Pregled sa težinom i neograničenom flotom).
 4. Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
    fajla, pakovanje (PC, pa telefon kao Capacitor aplikacija).
 
@@ -190,7 +219,8 @@ RCVA/
 ├── CLAUDE.md                     ovaj fajl
 ├── docs/                         specifikacija i dopune
 ├── frontend/                     React + TS + Vite (urađeno)
-│   ├── src/api/                  ApiClient interfejs, tipovi, mock (src/api/mock/)
+│   ├── src/api/                  ApiClient interfejs, tipovi, mock (src/api/mock/),
+│   │                             local (src/api/local/, put B), http (server)
 │   ├── src/api/mock/import/      pravila čitanja Excel-a (referenca za backend)
 │   ├── src/fixtures/             probni scenariji: small, test7, proven, notFound
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
@@ -228,6 +258,7 @@ RCVA/
 cd frontend
 npm run dev                          # http://localhost:5173, sve na mock-u, scenario "small"
 VITE_MOCK_SCENARIO=test7 npm run dev # i: proven, notFound
+VITE_API_MODE=local npm run dev      # na uređaju: prava optimizacija u pregledaču (put B)
 VITE_API_MODE=server npm run dev     # sve preko backend-a (Vite proxy /api -> :8080)
 npm run build                        # tsc -b && vite build
 npm run lint
@@ -244,7 +275,8 @@ cd backend
 ```
 
 Izvor podataka bira `VITE_API_MODE` (`src/api/apiMode.ts`, `src/api/createApiClient.ts`):
-`mock` (podrazumevano) ili `server`. U režimu `server` sve ide sa backend-a, a
+`mock` (podrazumevano; fiksan ishod po scenariju), `local` (podaci scenarija kao početak,
+prava optimizacija u pregledaču) ili `server`. U režimu `server` sve ide sa backend-a, a
 `VITE_MOCK_SCENARIO` se ne koristi. Bočna traka uvek prikazuje izvor podataka.
 
 Serverski e2e testovi dele jedan backend i izvršavaju se abecedno po fajlu:
@@ -252,11 +284,13 @@ Serverski e2e testovi dele jedan backend i izvršavaju se abecedno po fajlu:
 koordinata, a sa njima server odbija optimizaciju (409).
 
 Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5175) i
-`notFound` (5176). Testovi u `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog
-scenarija.
+`notFound` (5176), i jedan u režimu `local` nad `small` (5177). Testovi u
+`tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
+na lokalni.
 
-Stanje (31.10.2026): frontend tsc i lint čisti, 229 Vitest testova prolazi; `test:oracle`
-prošao 30.10.2026 (solver posle toga nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
+Stanje (31.10.2026): frontend tsc, lint i build čisti, 247 Vitest testova, Playwright 42
+(mock 41 + local 1) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
+toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
 
@@ -431,6 +465,8 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
   skoru), pa se lošiji soft više ne prihvata; zato simulirano kaljenje. Samo premeštanje i
   zamena ne nalaze optimum ni na 6 pošiljki (treba „zameni, pa premesti treću“); to rešava
   ruin & recreate. `State.withAdded` sme samo za pošiljku koja nije na kamionu.
+- **Playwright na novom računaru**: pregledač nije u repo-u; pre prvog e2e pokretanja
+  `npx playwright install chromium`.
 - **Vitest sakriva `console.log` testova koji prođu**; zato `test:oracle` ima
   `--silent=false` (tabela poređenja).
 - **Mock ograničenja**: rezultat optimizacije je fiksan po scenariju (nema solvera);
