@@ -4,19 +4,41 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 31.10.2026, kilometraže po putu preko OpenRouteService-a u režimu
-`local` (korak 4c na putu B); videti „Gde smo stali“.
+Poslednje ažuriranje: 31.10.2026, mapa ruta (Leaflet); videti „Gde smo stali“.
 
 ## Gde smo stali (31.10.2026)
 
 **Korak 4 na putu B**, redosled dogovoren 31.10.2026 (korisnik: „radi kako misliš da
-treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže (sva tri urađena,
-videti niže). **Dogovoreno dalje (31.10.2026): mapa (Leaflet direktno, BSD-2-Clause;
-proveriti licencu i verziju pre instalacije; prva verzija: oznake i prave linije od stanice
-do stanice, podloga sa OSM servera po njihovim pravilima), pa 4d** izvoz/uvoz JSON fajla sa
-verzijom formata (bez ORS ključa u fajlu). Posle toga: upozorenja na Pregledu sa težinom i
-neograničenom flotom, podrazumevani režim `local`, pakovanje. Pitanja za Gojka (30.10.2026)
-još nisu poslata. Korisnik još nije napravio ORS ključ, pa prave kilometraže nisu probane.
+treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže i **mapa** (sve
+urađeno, videti niže). **Sledeće: 4d** izvoz/uvoz JSON fajla sa verzijom formata (bez ORS
+ključa u fajlu; to je i jedina rezervna kopija podataka iz IndexedDB-a). Posle toga:
+upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani režim `local`,
+pakovanje. Kasnije, ako korisnik hoće: linije na mapi po stvarnom putu (ORS Directions,
+dodatna kvota). Pitanja za Gojka (30.10.2026) još nisu poslata. Korisnik još nije napravio
+ORS ključ, pa prave kilometraže nisu probane.
+
+**Mapa ruta (urađeno 31.10.2026)**:
+- `leaflet` 1.9.4 (BSD-2-Clause, bez zavisnosti; 2.0 je još alfa) i `@types/leaflet`
+  1.9.22 (MIT, sa `@types/geojson`, MIT), `--save-exact`. `npm audit`: 12 umerenih samo u
+  postojećim razvojnim alatima (eslint, minimatch); `--omit=dev` 0.
+- `features/route-map/mapModel.ts`: čist model (bez Leaflet-a) za crtanje: putanja po ruti
+  (prave linije redom obilaska; baza na početku i kraju samo kod rute sa povratkom), mesta
+  (preuzimanje puna tačka, isporuka prazna, oboje poluprovidna, baza tamna) sa opisom
+  posete, i spisak mesta bez koordinata. Boja rute = mesto u rezultatu (`--route-1..8` u
+  `tokens.css`), pa se ne menja sa filterom; ista boja je na dugmetu filtera i na kartici.
+- `RouteMap.tsx`: Leaflet direktno, učitava se lenjo (poseban deo bundle-a, oko 44 kB
+  gzip); jedna mapa po montiranju, `remove()` pri napuštanju; crta ponovo samo kad se model
+  promeni (potpis JSON), pa pomeranje mape ostaje. Podloga `tile.openstreetmap.org` po
+  pravilima OSM-a (oznaka uvek vidljiva). **Zamka**: Leaflet 1.9 stavlja
+  `mix-blend-mode: plus-lighter` na pločice, a u kontejneru sa `isolation: isolate` (treba da
+  kontrole mape ostanu ispod gornje trake) pločice potpuno izblede; zato `normal` u
+  `layout.css` i zum samo u celim koracima.
+- Testovi: `mapModel.test.ts` (6), e2e u `routeMap.spec.ts` (lažni server za pločice preko
+  `page.route`; linije, mesta, baza, oznaka OSM, boja linije = boja dugmeta, opis mesta,
+  10 promena filtera i izlazak sa ekrana bez grešaka, `mix-blend-mode`). Provereno na
+  pokvarenom kodu (bez `remove()`, boja po filtriranom spisku, bez povratka u bazu, baza na
+  otvorenoj ruti, bez spiska mesta bez koordinata, `plus-lighter`). Izgled proveren
+  snimkom ekrana sa pravom podlogom.
 
 **Korak 4c (urađeno 31.10.2026)**:
 - `src/api/local/openRouteService.ts`: `createOrsDistances` (Matrix v2, `POST
@@ -374,8 +396,8 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
 na lokalni.
 
-Stanje (31.10.2026, posle koraka 4c): frontend tsc, lint i build čisti, 287 Vitest testova,
-Playwright 49 (mock 41 + local 8) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
+Stanje (31.10.2026, posle mape): frontend tsc, lint i build čisti, 293 Vitest testa,
+Playwright 51 (mock 43 + local 8) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
 toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
@@ -411,7 +433,7 @@ Svih šest ekrana iz prompta radi nad mock API-jem:
 | Pošiljke | tabela sa izvedenim statusom, CSV izvoz (UTF-8 BOM, `;`, decimalni zarez), **uvoz Excel-a u 4 koraka** (fajl → mapiranje kolona → greške, duplikati, ručna ispravka i isključivanje reda → potvrda) |
 | Kamioni | tabela, dodavanje i izmena sa validacijom, uklanjanje sa potvrdom u redu (409 dok posao radi) |
 | Rezultati optimizacije | pokretanje sa vremenskim ograničenjem, praćenje statusa, rezime i skor, validator, tabela po kamionu sa redosledom stanica, nedodeljene pošiljke, PROVEN i NOT_FOUND |
-| Mapa ruta | za sada spisak ruta i stanica, filter po kamionu (`?truck=`) |
+| Mapa ruta | mapa (Leaflet, podloga OSM) sa rutama u bojama kamiona i mestima, filter po kamionu (`?truck=`), ispod spisak stanica |
 | 3D prikaz | TeGo vizuelizator (`TruckVisualizer`), izbor kamiona, spisak pošiljki, oznaka „Ilustrativni raspored“ |
 
 Gornja traka svuda prikazuje status poslednjeg posla i dugme „Pokreni optimizaciju“.
@@ -458,8 +480,8 @@ Optimizacija na serveru:
 4. ~~SimpleLoadPlanner na serveru~~ (urađeno 28.10.2026).
 5. ~~Odluka A/B~~ (izabran B 29.10.2026) i ~~proba TS solvera~~ (urađeno 29.10.2026).
    Dalje na putu B: videti „Sledeće na putu B“ u „Gde smo stali“.
-6. Kasnije: mapa (Leaflet), trajno čuvanje podataka (PostgreSQL samo na putu A; na putu B
-   IndexedDB), završno testiranje (svih 9 testova).
+6. ~~Mapa (Leaflet)~~ i ~~trajno čuvanje na putu B (IndexedDB)~~ (urađeno 31.10.2026).
+   Kasnije: završno testiranje (svih 9 testova).
 
 Predlozi iz dopune 1 koji čekaju odluku: `GET /optimization-jobs/latest` (na putu B postoji
 kao `getLatestOptimizationJob` u režimu `local`; backend ga nema, pa se tamo poslednji posao
