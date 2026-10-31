@@ -365,6 +365,8 @@ nije povezan sa ekranima. Šta odgovori menjaju:
 
 - **Utovar pozadi (D2)**: ono što se prvo istovara mora biti pozadi; važi već u prvoj
   verziji (odluka korisnika 30.10.2026). Utiče na redosled stanica i na 3D raspored.
+  Korisnik 31.10.2026: utovar za sada ostaje jednostavan, samo pozadi; bočni utovar i
+  slično su kasnija nadogradnja, pa Gojkov odgovor o utovaru sa strane ne blokira rad.
 
 Otvoreno posle odgovora (detalji u odeljku „Otvoreno“ u dokumentu odgovora): nosivost
 cerade („mislim 13 t“, uobičajeno je oko 24 t; privremeno 24 t), da li se cerada može
