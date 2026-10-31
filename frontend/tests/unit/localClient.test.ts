@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
 import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
-import { createLocalApiClient, KEPT_JOBS, type LocalData } from '../../src/api/local/localClient'
-import { TERMINAL_JOB_STATUSES, type OptimizationJob, type RouteStop } from '../../src/api/types'
+import { createLocalApiClient, DEFAULT_SETTINGS, KEPT_JOBS, type LocalData } from '../../src/api/local/localClient'
+import { TERMINAL_JOB_STATUSES, type OptimizationJob, type OrsProfile, type RouteStop } from '../../src/api/types'
 import type { SolverRunner } from '../../src/domain/optimization/solverRunner'
 import { runInThread } from '../../src/domain/optimization/solverRunner'
 import { SCENARIOS, type Scenario, type ScenarioName } from '../../src/fixtures'
@@ -500,28 +500,29 @@ describe('coordinates from Nominatim on the device', () => {
     const store = createMemoryStore<LocalData>()
     const fake = nominatim()
     const api = client(store, fake)
-    expect(await api.getDeviceSettings()).toEqual({ geocodingEnabled: true, contactEmail: null })
-    await api.updateDeviceSettings({ geocodingEnabled: false, contactEmail: null })
+    expect(await api.getDeviceSettings()).toEqual({ ...DEFAULT_SETTINGS, geocodingEnabled: true, contactEmail: null })
+    await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, geocodingEnabled: false, contactEmail: null })
 
     const result = await importRows(api)
     expect(fake.asked).toEqual([])
     expect(result.geocoding).toMatchObject({ failed: 3, message: 'Traženje koordinata je isključeno u podešavanjima.' })
-    expect(await client(store, fake).getDeviceSettings()).toEqual({ geocodingEnabled: false, contactEmail: null })
+    expect(await client(store, fake).getDeviceSettings()).toEqual({ ...DEFAULT_SETTINGS, geocodingEnabled: false, contactEmail: null })
   })
 
   it('sends the contact e-mail from the settings and checks it', async () => {
     const fake = nominatim()
     const api = client(createMemoryStore<LocalData>(), fake)
-    const error = await rejection(api.updateDeviceSettings({ geocodingEnabled: true, contactEmail: 'nije adresa' }))
+    const error = await rejection(api.updateDeviceSettings({ ...DEFAULT_SETTINGS, geocodingEnabled: true, contactEmail: 'nije adresa' }))
     expect(error.problem.errors).toEqual({ contactEmail: 'Unesite ispravnu e-adresu ili ostavite polje prazno.' })
-    expect(await api.updateDeviceSettings({ geocodingEnabled: true, contactEmail: ' dispecer@example.com ' })).toEqual({
+    expect(await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, geocodingEnabled: true, contactEmail: ' dispecer@example.com ' })).toEqual({
+      ...DEFAULT_SETTINGS,
       geocodingEnabled: true,
       contactEmail: 'dispecer@example.com',
     })
     await importRows(api)
     expect(fake.asked.map((u) => u.searchParams.get('email'))).toEqual(Array(3).fill('dispecer@example.com'))
     // An empty field means no e-mail.
-    expect((await api.updateDeviceSettings({ geocodingEnabled: true, contactEmail: '  ' })).contactEmail).toBeNull()
+    expect((await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, geocodingEnabled: true, contactEmail: '  ' })).contactEmail).toBeNull()
   })
 
   it('loads a snapshot stored before the settings and the cache existed', async () => {
@@ -532,8 +533,170 @@ describe('coordinates from Nominatim on the device', () => {
     delete older.geocodeCache
     const fake = nominatim()
     const api = client(createMemoryStore<LocalData>({ version: 1, data: older }), fake)
-    expect(await api.getDeviceSettings()).toEqual({ geocodingEnabled: true, contactEmail: null })
+    expect(await api.getDeviceSettings()).toEqual({ ...DEFAULT_SETTINGS, geocodingEnabled: true, contactEmail: null })
     await importRows(api)
     expect(fake.asked).toHaveLength(3)
+  })
+})
+
+describe('road distances from OpenRouteService on the device', () => {
+  type Point = { lat: number; lon: number }
+  /** The fake road: longer than the straight line, and 777 m more going west, so A to B is not B to A. */
+  const road = (from: Point, to: Point) =>
+    Math.round(150_000 * Math.abs(from.lat - to.lat) + 100_000 * Math.abs(from.lon - to.lon)) + (from.lon > to.lon ? 777 : 0)
+
+  type Answer = 'ok' | 'down' | 'noRoad'
+  function ors(answer: () => Answer = () => 'ok') {
+    const asked: { url: string; key: string; pairs: number }[] = []
+    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources: number[]; destinations: number[] }
+      asked.push({
+        url: String(input),
+        key: (init?.headers as Record<string, string>).Authorization,
+        pairs: body.sources.length * body.destinations.length,
+      })
+      if (answer() === 'down') return new Response('{}', { status: 503 })
+      const point = (i: number) => ({ lon: body.locations[i][0], lat: body.locations[i][1] })
+      const distances = body.sources.map((s) =>
+        body.destinations.map((d) => (answer() === 'noRoad' && s !== d ? null : road(point(s), point(d)))),
+      )
+      return new Response(JSON.stringify({ distances }))
+    }) as typeof globalThis.fetch
+    return { fetch, asked }
+  }
+
+  function client(store: DeviceStore<LocalData>, fake: ReturnType<typeof ors>, scenario: ScenarioName = 'small'): ApiClient {
+    return createLocalApiClient({
+      scenario: SCENARIOS[scenario],
+      runSolver: steps,
+      store,
+      ors: { fetch: fake.fetch, minIntervalMs: 0 },
+    })
+  }
+
+  /** Places of the scenario's shipments (all with coordinates in "small", each at its own point). */
+  const placesOf = (scenario: ScenarioName) =>
+    new Set(SCENARIOS[scenario].shipments.flatMap((s) => [s.pickupLocationId, s.deliveryLocationId])).size
+
+  const withKey = (api: ApiClient, orsProfile: 'driving-hgv' | 'driving-car' = 'driving-hgv') =>
+    api.updateDeviceSettings({ ...DEFAULT_SETTINGS, orsApiKey: 'test-kljuc', orsProfile })
+
+  async function solve(api: ApiClient) {
+    const { id } = await api.createOptimizationJob(REQUEST)
+    expect((await settle(api, id)).status).toBe('COMPLETED')
+    return api.getOptimizationResult(id)
+  }
+
+  it('uses great-circle distances without a key, asks nothing, and says so', async () => {
+    const fake = ors()
+    const api = client(createMemoryStore<LocalData>(), fake)
+    expect(await api.getDeviceSettings()).toEqual({
+      geocodingEnabled: true,
+      contactEmail: null,
+      orsApiKey: null,
+      orsProfile: 'driving-hgv',
+    })
+    const result = await solve(api)
+    expect(fake.asked).toEqual([])
+    expect(result.distanceSource).toBe('airline')
+  })
+
+  it('solves on road distances with a key: every leg is the road from the stop before', async () => {
+    const fake = ors()
+    const api = client(createMemoryStore<LocalData>(), fake)
+    await withKey(api)
+    const result = await solve(api)
+
+    expect(fake.asked).toHaveLength(1)
+    expect(fake.asked[0]).toMatchObject({ url: 'https://api.openrouteservice.org/v2/matrix/driving-hgv', key: 'test-kljuc' })
+    expect(result.distanceSource).toBe('driving-hgv')
+    expect(result.validation.passed).toBe(true)
+    const at = new Map((await api.listLocations()).map((l) => [l.id, l as Point]))
+    for (const route of result.routes) {
+      route.stops.forEach((stop, i) => {
+        const before = route.stops[i - 1]
+        const expected = !before || before.locationId === stop.locationId ? 0 : road(at.get(before.locationId)!, at.get(stop.locationId)!)
+        expect(stop.legMeters).toBe(expected)
+      })
+    }
+    expect(result.totalMeters).toBe(result.routes.reduce((sum, r) => sum + r.totalMeters, 0))
+  })
+
+  it('asks every pair of places only once, also after a restart, and again for another profile', async () => {
+    const store = createMemoryStore<LocalData>()
+    const first = ors()
+    const api = client(store, first)
+    await withKey(api)
+    await solve(api)
+    // One request for the n x n matrix; kept are the n x (n - 1) directed pairs of different places.
+    const n = placesOf('small')
+    expect(first.asked.map((a) => a.pairs)).toEqual([n * n])
+    expect(Object.keys(storedData(store).distanceCache ?? {})).toHaveLength(n * (n - 1))
+
+    const second = ors()
+    const again = client(store, second)
+    await solve(again)
+    expect(second.asked).toEqual([])
+
+    await withKey(again, 'driving-car')
+    expect((await solve(again)).distanceSource).toBe('driving-car')
+    expect(second.asked.map((a) => a.url)).toEqual(['https://api.openrouteservice.org/v2/matrix/driving-car'])
+  })
+
+  it('creates no job when ORS does not answer (502), keeps nothing, and works once it answers', async () => {
+    const store = createMemoryStore<LocalData>()
+    let answer: Answer = 'down'
+    const fake = ors(() => answer)
+    const api = client(store, fake)
+    await withKey(api)
+    const error = await rejection(api.createOptimizationJob(REQUEST))
+    expect(error.problem).toMatchObject({
+      title: 'Kilometraže nisu dostupne',
+      status: 502,
+      detail: 'OpenRouteService nije izračunao kilometraže (HTTP 503).',
+    })
+    expect(await api.getLatestOptimizationJob()).toBeNull()
+    expect(storedData(store).distanceCache).toEqual({})
+
+    answer = 'ok'
+    expect((await solve(api)).distanceSource).toBe('driving-hgv')
+  })
+
+  it('answers 409 when ORS finds no road, and keeps that answer, also after a restart', async () => {
+    const store = createMemoryStore<LocalData>()
+    const fake = ors(() => 'noRoad')
+    const api = client(store, fake)
+    await withKey(api)
+    const error = await rejection(api.createOptimizationJob(REQUEST))
+    expect(error.status).toBe(409)
+    const n = placesOf('small')
+    expect(error.problem.detail).toMatch(
+      new RegExp(`^OpenRouteService ne nalazi put za teretna vozila \\(${n * (n - 1)}\\): (.+ → .+, ){4}.+ → .+ i još ${n * (n - 1) - 5}\\. Proverite koordinate tih mesta\\.$`),
+    )
+    expect((await rejection(api.createOptimizationJob(REQUEST))).status).toBe(409)
+    // The job was refused, but the answers were stored before that.
+    expect((await rejection(client(store, fake).createOptimizationJob(REQUEST))).status).toBe(409)
+    expect(fake.asked).toHaveLength(1)
+  })
+
+  it('asks nothing for a job that is proven infeasible first', async () => {
+    const fake = ors()
+    const api = client(createMemoryStore<LocalData>(), fake, 'proven')
+    await withKey(api)
+    expect((await rejection(api.createOptimizationJob(REQUEST))).status).toBe(422)
+    expect(fake.asked).toEqual([])
+  })
+
+  it('checks the key and the profile in the settings', async () => {
+    const api = client(createMemoryStore<LocalData>(), ors())
+    const error = await rejection(
+      api.updateDeviceSettings({ ...DEFAULT_SETTINGS, orsApiKey: 'ima razmak', orsProfile: 'driving-bike' as OrsProfile }),
+    )
+    expect(error.problem.errors).toEqual({
+      orsApiKey: 'Ključ ne sme da sadrži razmake.',
+      orsProfile: 'Nepoznata vrsta vozila.',
+    })
+    expect((await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, orsApiKey: '  ' })).orsApiKey).toBeNull()
+    expect((await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, orsApiKey: ' abc123 ' })).orsApiKey).toBe('abc123')
   })
 })

@@ -1,6 +1,6 @@
 import type { Scenario } from '../../fixtures'
 import { STANDARD_TRUCK } from '../../domain/fleet'
-import { haversineMatrix } from '../../domain/optimization/distance'
+import { haversineMatrix, type LatLon } from '../../domain/optimization/distance'
 import { provenCauses } from '../../domain/optimization/feasibility'
 import type { JobInput, JobTruck } from '../../domain/optimization/job'
 import { toSolverInput } from '../../domain/optimization/job'
@@ -20,13 +20,16 @@ import type { PlaceWarning } from '../mock/import/importRows'
 import { assertValidTruck } from '../truckValidation'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
+import { createOrsDistances, pairKey, RoadDistanceError } from './openRouteService'
 import {
   TERMINAL_JOB_STATUSES,
   type DeviceSettings,
+  type DistanceSource,
   type InfeasibilityKind,
   type JobStatus,
   type Location,
   type OptimizationJob,
+  type OrsProfile,
   type OptimizationJobRequest,
   type OptimizationResult,
   type Shipment,
@@ -47,7 +50,11 @@ import {
 // Fleet (B1): the job may use every available truck plus as many standard trucks as it
 // needs, so the number of trucks is not limited; the standard trucks a result uses are
 // added to the trucks list as "Kamion N" when the job completes.
-// Distances are great-circle for now (no road distances yet), as on the backend.
+//
+// Distances: by road from OpenRouteService (openRouteService.ts) when the settings have
+// an ORS key, asked only for pairs of places not asked before and kept on the device;
+// without a key, great-circle (as on the backend), and the result says which. When ORS
+// does not answer, no job is created (502): never a silent switch to great-circle.
 
 export interface LocalApiOptions {
   /** the starting data, used only when the store is empty */
@@ -57,9 +64,18 @@ export interface LocalApiOptions {
   readWorkbook?: WorkbookReader
   /** how Nominatim is reached; tests give a fake fetch and no pause between requests */
   nominatim?: { fetch: typeof fetch; minIntervalMs?: number }
+  /** how OpenRouteService is reached; the same for tests */
+  ors?: { fetch: typeof fetch; minIntervalMs?: number }
 }
 
-export const DEFAULT_SETTINGS: DeviceSettings = { geocodingEnabled: true, contactEmail: null }
+export const DEFAULT_SETTINGS: DeviceSettings = {
+  geocodingEnabled: true,
+  contactEmail: null,
+  orsApiKey: null,
+  orsProfile: 'driving-hgv',
+}
+
+const PROFILE_LABELS: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna vozila', 'driving-car': 'za automobile' }
 
 /** Jobs kept on the device; older finished jobs are dropped (the screens show only the last one). */
 export const KEPT_JOBS = 10
@@ -80,6 +96,8 @@ interface LocalJob {
   /** ids of the standard trucks added for this job; only the used ones are kept */
   addedTruckIds: Set<number>
   result: OptimizationResult | null
+  /** missing in jobs stored before road distances existed */
+  distanceSource?: DistanceSource
 }
 
 /** Everything the store keeps. Fields added later are optional, so older snapshots still load. */
@@ -93,6 +111,14 @@ export interface LocalData {
   settings?: DeviceSettings
   /** Nominatim answers by `placeKey`, also "not found"; failed requests are not kept */
   geocodeCache?: Record<string, GeocodeAnswer>
+  /** ORS metres by `roadKey` (profile and both coordinates, directed); null: ORS finds no road */
+  distanceCache?: Record<string, number | null>
+}
+
+/** Coordinates written to 6 decimals (about 10 cm), so a moved place is a new pair. */
+function roadKey(profile: OrsProfile, from: LatLon, to: LatLon): string {
+  const point = (p: LatLon) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`
+  return `${profile}|${point(from)}|${point(to)}`
 }
 
 export function createLocalApiClient(options: LocalApiOptions): ApiClient {
@@ -102,6 +128,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     store,
     readWorkbook = readWorkbookInBrowser,
     nominatim = { fetch: (...args: Parameters<typeof fetch>) => fetch(...args) },
+    ors = { fetch: (...args: Parameters<typeof fetch>) => fetch(...args) },
   } = options
   // Filled from the store (or the scenario) before the first call is answered; the arrays
   // stay the same objects, since the import writes into them.
@@ -113,6 +140,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   let nextJobId = 1
   let settings: DeviceSettings = { ...DEFAULT_SETTINGS }
   let geocodeCache: Record<string, GeocodeAnswer> = {}
+  let distanceCache: Record<string, number | null> = {}
+  const roadDistances = createOrsDistances(ors)
   const geocoder = createNominatimGeocoder({
     fetch: nominatim.fetch,
     minIntervalMs: nominatim.minIntervalMs,
@@ -167,6 +196,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     nextJobId = data.nextJobId
     settings = { ...DEFAULT_SETTINGS, ...data.settings }
     geocodeCache = data.geocodeCache ?? {}
+    distanceCache = data.distanceCache ?? {}
     let interrupted = false
     for (const job of data.jobs) {
       // The page was closed while the job waited or ran; its solver is gone.
@@ -191,6 +221,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         nextJobId,
         settings,
         geocodeCache,
+        distanceCache,
       }),
     )
     saving = write.catch(() => undefined)
@@ -244,7 +275,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     return [...jobs.values()].find((job) => !TERMINAL_JOB_STATUSES.includes(job.status))
   }
 
-  function createJob(request: OptimizationJobRequest): LocalJob {
+  async function createJob(request: OptimizationJobRequest): Promise<LocalJob> {
     if (!(request.timeLimitSeconds > 0)) {
       throw badRequest({ timeLimitSeconds: 'Vremensko ograničenje mora biti veće od 0.' })
     }
@@ -284,6 +315,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         causes,
       })
     }
+    // After the checks above, so a job that cannot start costs no ORS request.
+    const { distance, source } = await jobDistances(used)
 
     const job: LocalJob = {
       id: nextJobId++,
@@ -299,17 +332,68 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         shipments: structuredClone(chosenShipments),
         trucks: jobTrucks,
         locationIds: used.map((l) => l.id),
-        distance: haversineMatrix(used.map((l) => ({ lat: l.lat as number, lon: l.lon as number }))),
+        distance,
         rules: OPEN_ROUTE_REAR_LOADING,
       },
       fleet: new Map([...own, ...added].map((t) => [t.id, structuredClone(t)])),
       addedTruckIds: new Set(added.map((t) => t.id)),
       result: null,
+      distanceSource: source,
     }
     jobs.set(job.id, job)
     dropOldJobs()
     queue = queue.then(() => run(job))
     return job
+  }
+
+  /** The distance matrix over the job's places: by road with an ORS key, otherwise great-circle. */
+  async function jobDistances(used: Location[]): Promise<{ distance: number[][]; source: DistanceSource }> {
+    const points = used.map((l) => ({ lat: l.lat as number, lon: l.lon as number }))
+    const apiKey = settings.orsApiKey
+    if (!apiKey) return { distance: haversineMatrix(points), source: 'airline' }
+
+    const profile = settings.orsProfile
+    const key = (i: number, j: number) => roadKey(profile, points[i], points[j])
+    // Two places at the same point are 0 m apart; every other pair is asked once, ever.
+    const same = (i: number, j: number) => key(i, j) === key(j, i)
+    const missing: Array<[number, number]> = []
+    points.forEach((_, i) =>
+      points.forEach((_, j) => {
+        if (!same(i, j) && !Object.hasOwn(distanceCache, key(i, j))) missing.push([i, j])
+      }),
+    )
+    if (missing.length > 0) {
+      let answers: Map<string, number | null>
+      try {
+        answers = await roadDistances(points, missing, { apiKey, profile })
+      } catch (error) {
+        if (!(error instanceof RoadDistanceError)) throw error
+        throw new ApiError({ title: 'Kilometraže nisu dostupne', status: 502, detail: error.message })
+      }
+      for (const [i, j] of missing) distanceCache[key(i, j)] = answers.get(pairKey(i, j)) as number | null
+      await persist()
+    }
+
+    const noRoad: string[] = []
+    const distance = points.map((_, i) =>
+      points.map((_, j) => {
+        if (same(i, j)) return 0
+        const meters = distanceCache[key(i, j)]
+        if (meters === null) noRoad.push(`${used[i].name} → ${used[j].name}`)
+        return meters ?? 0
+      }),
+    )
+    if (noRoad.length > 0) {
+      throw new ApiError({
+        title: 'Nema puta',
+        status: 409,
+        detail:
+          `OpenRouteService ne nalazi put ${PROFILE_LABELS[profile]} (${noRoad.length}): ` +
+          `${noRoad.slice(0, 5).join(', ')}${noRoad.length > 5 ? ` i još ${noRoad.length - 5}` : ''}. ` +
+          'Proverite koordinate tih mesta.',
+      })
+    }
+    return { distance, source: profile }
   }
 
   function dropOldJobs(): void {
@@ -331,7 +415,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           job.input,
           solution.routes.map((r) => ({ truckId: r.truckId, route: r.route })),
         )
-        job.result = { ...result, openRoute: true }
+        job.result = { ...result, openRoute: true, distanceSource: job.distanceSource }
         job.trucksLowerBound = result.trucksLowerBound
         keepUsedStandardTrucks(job, result)
         job.status = 'COMPLETED'
@@ -442,9 +526,10 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     createOptimizationJob: (request) =>
-      change(() => {
-        const job = createJob(request)
-        return { id: job.id, status: job.status }
+      change(async () => {
+        const job = await createJob(request)
+        // As created (202 on the backend); the queue may have started it already.
+        return { id: job.id, status: 'QUEUED' as const }
       }),
 
     getOptimizationJob: (id) => respond(() => view(findJob(id))),
@@ -486,11 +571,16 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
     updateDeviceSettings: (input) =>
       change(() => {
+        const errors: Record<string, string> = {}
         const contactEmail = input.contactEmail?.trim() || null
         if (contactEmail !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
-          throw badRequest({ contactEmail: 'Unesite ispravnu e-adresu ili ostavite polje prazno.' })
+          errors.contactEmail = 'Unesite ispravnu e-adresu ili ostavite polje prazno.'
         }
-        settings = { geocodingEnabled: input.geocodingEnabled, contactEmail }
+        const orsApiKey = input.orsApiKey?.trim() || null
+        if (orsApiKey !== null && /\s/.test(orsApiKey)) errors.orsApiKey = 'Ključ ne sme da sadrži razmake.'
+        if (!Object.hasOwn(PROFILE_LABELS, input.orsProfile)) errors.orsProfile = 'Nepoznata vrsta vozila.'
+        if (Object.keys(errors).length > 0) throw badRequest(errors)
+        settings = { geocodingEnabled: input.geocodingEnabled, contactEmail, orsApiKey, orsProfile: input.orsProfile }
         return settings
       }),
   }

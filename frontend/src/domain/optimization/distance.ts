@@ -1,6 +1,6 @@
 // Great-circle distance from lat/lon, the same formula as the backend's
-// HaversineDistanceProvider: a stand-in for road distances until OpenRouteService is
-// connected (path B, step 4).
+// HaversineDistanceProvider. On the device it is used only without an OpenRouteService
+// key (src/api/local/openRouteService.ts gives road distances), and the result says so.
 
 const EARTH_RADIUS_KM = 6371
 

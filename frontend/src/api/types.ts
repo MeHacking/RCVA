@@ -141,6 +141,8 @@ export interface OptimizationResult {
    * (process owner's answer A2), without the base. Missing (mock, server) = false.
    */
   openRoute?: boolean
+  /** NOT IN SPEC v2: set only on the device; the mock and the backend use great-circle distances */
+  distanceSource?: DistanceSource
 }
 
 export type LoadPlanMode = 'ILLUSTRATIVE_LDM' | 'DIMENSIONAL'
@@ -263,7 +265,16 @@ export interface DeviceSettings {
   geocodingEnabled: boolean
   /** sent to Nominatim as `email`, so its operators can reach the user; null when not given */
   contactEmail: string | null
+  /** OpenRouteService key made by the user, kept only on the device; null: great-circle distances */
+  orsApiKey: string | null
+  orsProfile: OrsProfile
 }
+
+/** NOT IN SPEC v2: OpenRouteService routing for trucks or for cars (question D3 is open) */
+export type OrsProfile = 'driving-hgv' | 'driving-car'
+
+/** NOT IN SPEC v2: where the distances of a result come from: road (ORS profile) or great-circle */
+export type DistanceSource = OrsProfile | 'airline'
 
 /** NOT IN SPEC v2: progress of the coordinate lookup while an import is committed */
 export interface ImportCommitProgress {

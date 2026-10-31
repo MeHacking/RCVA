@@ -1,4 +1,6 @@
-import type { OptimizationJob, OptimizationResult } from '../../api/types'
+import { ORS_ATTRIBUTION } from '../../api/local/openRouteService'
+import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
+import type { DistanceSource, OptimizationJob, OptimizationResult } from '../../api/types'
 import { Notice } from '../../components/Notice'
 import { ErrorState, LoadingState } from '../../components/states'
 import { formatTime } from '../../format/time'
@@ -6,6 +8,13 @@ import { formatKm, formatLdm, formatScore } from '../../format/units'
 import { buildTruckRows, buildUnassignedRows, type ReferenceData } from './resultRows'
 import { RouteTable } from './RouteTable'
 import { useReferenceData } from './useReferenceData'
+
+/** Only the application on the device says where the distances come from. */
+const DISTANCE_SOURCES: Record<DistanceSource, string> = {
+  'driving-hgv': `po putu za teretna vozila (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,
+  'driving-car': `po putu za automobile (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,
+  airline: 'vazdušna linija, ne po putu (nema ključa za OpenRouteService u Podešavanjima)',
+}
 
 export function ResultView({ job, result }: { job: OptimizationJob; result: OptimizationResult }) {
   const [reference, reload] = useReferenceData()
@@ -57,6 +66,11 @@ function Summary({ job, result }: { job: OptimizationJob; result: OptimizationRe
         <dd className="stat__hint">
           {result.openRoute ? 'od prvog utovara do poslednjeg istovara' : 'uključuje povratak u bazu'}
         </dd>
+        {result.distanceSource && (
+          <dd className="stat__hint" data-testid="distance-source">
+            {DISTANCE_SOURCES[result.distanceSource]}
+          </dd>
+        )}
       </div>
       <div className="stat">
         <dt>Skor (Hard/Medium/Soft)</dt>

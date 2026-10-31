@@ -166,6 +166,10 @@ fieldset.field {
   max-width: 34rem;
 }
 
+.settings-form__section {
+  margin-top: var(--space-6);
+}
+
 /* Tables (dense) */
 
 .table-wrap {

@@ -134,6 +134,29 @@ describe('RoutePlanner', () => {
   )
 
   it.each(RULES.map((rules) => [JSON.stringify(rules), rules] as const))(
+    'finds the shortest order like brute force when A to B is not B to A, as on roads (%s)',
+    (_, rules) => {
+      const random = new SeededRandom(23)
+      for (let round = 0; round < 60; round++) {
+        const n = 1 + (round % 5)
+        const symmetric = round % 2 === 0 ? sharedInstance(random, n) : randomInstance(random, n)
+        // Each direction gets its own detour, from 0 % to 60 %.
+        const distance = symmetric.distance.map((row) => row.map((m) => Math.round((m * (100 + random.nextInt(61))) / 100)))
+        expect(distance.some((row, i) => row.some((m, j) => m !== distance[j][i]))).toBe(true)
+        const instance = { ...symmetric, distance }
+        const planner = new RoutePlanner({ ...instance, ...rules })
+        const shipments = range(n)
+
+        const route = planner.plan(shipments)
+        expectAnOrderOf(route, shipments)
+        if (rules.lifo) expect(respectsRearLoading(route, instance.pickupLocation, instance.deliveryLocation)).toBe(true)
+        expect(planner.length(route.pickups, route.deliveries)).toBe(route.meters)
+        expect(route.meters, `round ${round}`).toBe(bruteForce(planner, instance, rules, shipments))
+      }
+    },
+  )
+
+  it.each(RULES.map((rules) => [JSON.stringify(rules), rules] as const))(
     'gives a valid heuristic order not far from the exact one (%s)',
     (_, rules) => {
       const random = new SeededRandom(11)
