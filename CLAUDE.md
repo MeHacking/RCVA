@@ -4,22 +4,45 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 31.10.2026, režim „na uređaju“ (`VITE_API_MODE=local`) sa pravom
-optimizacijom u Web Worker-u i nosivost kamiona (korak 3 na putu B); videti „Gde smo stali“.
+Poslednje ažuriranje: 31.10.2026, čuvanje na uređaju (IndexedDB) u režimu `local`
+(korak 4a na putu B); videti „Gde smo stali“.
 
 ## Gde smo stali (31.10.2026)
 
-**Početak sledeće sesije** (dogovoreno 31.10.2026): korak 4 na putu B, prvo predložiti plan
-i sačekati potvrdu. Redosled: geokodiranje (Nominatim, pravila u „Predlog za koordinate i
-kilometraže“ niže), kilometraže (ORS; korisnik pravi besplatan ključ, čuva se samo lokalno),
-čuvanje na uređaju (IndexedDB), izvoz/uvoz fajla. Usput, ako korisnik hoće: upozorenja na
-Pregledu sa težinom i neograničenom flotom. Pitanja za Gojka (30.10.2026) još nisu poslata.
-Sav rad do 31.10.2026 je push-ovan na `origin/main`.
+**Korak 4 na putu B**, redosled dogovoren 31.10.2026 (korisnik: „radi kako misliš da
+treba“): **4a** čuvanje na uređaju (urađeno, videti niže; ide prvo jer Nominatim traži da se
+rezultati trajno čuvaju), **4b** koordinate (Nominatim, pravila u „Predlog za koordinate i
+kilometraže“ niže; u pregledaču se User-Agent ne može postaviti, pa se šalje `email` iz
+podešavanja), **4c** kilometraže (ORS `driving-hgv` kao podešavanje, ključ samo u bazi na
+uređaju, traže se samo parovi koji nisu zapamćeni, bez ORS-a posao je FAILED sa porukom;
+proveriti ograničenje veličine matrice na nalogu), **4d** izvoz/uvoz JSON fajla sa verzijom
+formata. Posle toga: upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani
+režim `local`. Pitanja za Gojka (30.10.2026) još nisu poslata.
+
+**Korak 4a (urađeno 31.10.2026)**:
+- `src/api/local/deviceStore.ts`: `DeviceStore` (`load`/`save` jednog snimka sa
+  `version: 1`), `createIndexedDbStore` (baza `rcva`, object store `app`, ključ `data`) i
+  `createMemoryStore` za testove. Snimak drugog formata se ne prepisuje: svaki poziv tada
+  vraća 500 „Podaci na uređaju“ sa porukom. Bez biblioteke (ni `fake-indexeddb`): logiku
+  testira Vitest nad memorijom, a pravi IndexedDB Playwright.
+- `localClient.ts`: pošiljke, mesta, kamioni, poslednjih `KEPT_JOBS` (10) poslova sa
+  rezultatima i brojači id-jeva čuvaju se posle svake promene; promena (kamioni, posao,
+  potvrda uvoza) odgovara tek kad je upisana. Scenario je samo početak, kada je baza prazna.
+  Posao koji je čekao ili radio kada je stranica zatvorena posle ponovnog učitavanja je `FAILED`
+  (na ekranu „Greška solvera“, što nije sasvim tačan tekst). Nepotvrđen uvoz se ne čuva.
+- `ApiClient.getLatestOptimizationJob()` (NOT IN SPEC v2, predlog iz dopune 1):
+  `LastJobProvider` posle osvežavanja ponovo prati poslednji posao. Mock ga zna samo dok
+  stranica živi, `httpClient` uvek vraća `null` (backend ga nema).
+- Testovi: 8 novih u `localClient.test.ts`, e2e `tests/e2e/local/storage.local.spec.ts`
+  (kamion i rezultat posle osvežavanja, prekinut posao). Provereno na pokvarenom kodu (9
+  izmena u Vitest-u, 2 u e2e): svaka obara testove.
+- Ograničenja: dve otvorene kartice pišu ceo snimak, pa poslednji upis pobeđuje; promena
+  `VITE_MOCK_SCENARIO` ne menja već sačuvane podatke (obrisati bazu `rcva` u DevTools-u).
 
 **Korak 3 na putu B (urađeno 31.10.2026)**:
 - **Režim `local`** (`src/api/local/localClient.ts`): isti `ApiClient`, ali sve radi u
-  pregledaču. Početni podaci su iz scenarija (`VITE_MOCK_SCENARIO`, u memoriji; čuvanje na
-  uređaju je korak 4), uvoz je mock-ov. Posao: 400 / 409 (bez koordinata) / 422 PROVEN
+  pregledaču. Početni podaci su iz scenarija (`VITE_MOCK_SCENARIO`; od koraka 4a se čuvaju
+  u IndexedDB), uvoz je mock-ov. Posao: 400 / 409 (bez koordinata) / 422 PROVEN
   (`feasibility.ts`) kao na serveru, pa solver u Web Worker-u (`solver.worker.ts`,
   `solverRunner.ts`; vremensko ograničenje iz zahteva), validator, `openRoute: true` u
   rezultatu, 3D raspored `rearLoadedPlan`. Poslovi idu jedan po jedan. Rastojanja su
@@ -227,7 +250,8 @@ RCVA/
 ├── docs/                         specifikacija i dopune
 ├── frontend/                     React + TS + Vite (urađeno)
 │   ├── src/api/                  ApiClient interfejs, tipovi, mock (src/api/mock/),
-│   │                             local (src/api/local/, put B), http (server)
+│   │                             local (src/api/local/, put B; deviceStore = IndexedDB),
+│   │                             http (server)
 │   ├── src/api/mock/import/      pravila čitanja Excel-a (referenca za backend)
 │   ├── src/fixtures/             probni scenariji: small, test7, proven, notFound
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
@@ -295,8 +319,8 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
 na lokalni.
 
-Stanje (31.10.2026): frontend tsc, lint i build čisti, 247 Vitest testova, Playwright 42
-(mock 41 + local 1) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
+Stanje (31.10.2026, posle koraka 4a): frontend tsc, lint i build čisti, 255 Vitest testova,
+Playwright 44 (mock 41 + local 3) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
 toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
@@ -382,8 +406,9 @@ Optimizacija na serveru:
 6. Kasnije: mapa (Leaflet), trajno čuvanje podataka (PostgreSQL samo na putu A; na putu B
    IndexedDB), završno testiranje (svih 9 testova).
 
-Predlozi iz dopune 1 koji čekaju odluku: `GET /optimization-jobs/latest` (poslednji posao se
-sada gubi posle osvežavanja) i naziv i kapacitet kamiona u rezultatu (`inputSnapshot`).
+Predlozi iz dopune 1 koji čekaju odluku: `GET /optimization-jobs/latest` (na putu B postoji
+kao `getLatestOptimizationJob` u režimu `local`; backend ga nema, pa se tamo poslednji posao
+gubi posle osvežavanja) i naziv i kapacitet kamiona u rezultatu (`inputSnapshot`).
 
 ## Otvorena pitanja
 
