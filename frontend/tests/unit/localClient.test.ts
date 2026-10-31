@@ -369,3 +369,171 @@ describe('local storage on the device', () => {
     expect(error.problem.detail).toBe('Čuvanje na uređaju nije uspelo (upis): disk je pun.')
   })
 })
+
+describe('coordinates from Nominatim on the device', () => {
+  // Invented places; the fake Nominatim knows Primerovo and Teststad.
+  const COORDINATES: Record<string, { lat: string; lon: string }> = {
+    Primerovo: { lat: '45.1', lon: '20.1' },
+    Teststad: { lat: '57.1', lon: '12.1' },
+  }
+  const ROWS = [
+    ['RELACIJA', 'TEŽINA', 'DIMENZIJE'],
+    ['PRIMEROVO - TESTSTAD 11111', '1,200 kg', '2,4m'],
+    ['PRIMEROVO - DRUGSTAD 22222', '800 kg', '1,2m'],
+  ]
+  const MAPPING = { sheetName: 'Sheet1', headerRow: 1, columns: { relation: 0, weight: 1, ldm: 2 } }
+
+  type Answer = 'ok' | 'down'
+  function nominatim(answer: () => Answer = () => 'ok') {
+    const asked: URL[] = []
+    const fetch = (async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      asked.push(url)
+      if (answer() === 'down') throw new TypeError('Failed to fetch')
+      const place = COORDINATES[url.searchParams.get('q') ?? '']
+      return new Response(JSON.stringify(place ? [{ ...place, display_name: url.searchParams.get('q') }] : []))
+    }) as typeof globalThis.fetch
+    return { fetch, asked, names: () => asked.map((u) => u.searchParams.get('q')) }
+  }
+
+  function client(store: DeviceStore<LocalData>, fake: ReturnType<typeof nominatim>, rows = ROWS): ApiClient {
+    return createLocalApiClient({
+      scenario: SCENARIOS.small,
+      runSolver: steps,
+      store,
+      readWorkbook: async () => [{ sheet: 'Sheet1', data: rows }],
+      nominatim: { fetch: fake.fetch, minIntervalMs: 0 },
+    })
+  }
+
+  // Shipment ids come from the file name, so every import gets its own name (no duplicates).
+  let files = 0
+  async function importRows(api: ApiClient, onProgress?: (p: { done: number; total: number }) => void) {
+    const { importId } = await api.createImport(new File(['fake'], `Relacije-${++files}.xlsx`))
+    await api.setImportMapping(importId, MAPPING)
+    return api.commitImport(importId, { onProgress })
+  }
+
+  const place = async (api: ApiClient, name: string) => (await api.listLocations()).find((l) => l.name === name)
+
+  it('asks once per new place while committing, and writes the coordinates', async () => {
+    const fake = nominatim()
+    const api = client(createMemoryStore<LocalData>(), fake)
+    const progress: string[] = []
+    const result = await importRows(api, (p) => progress.push(`${p.done}/${p.total}`))
+
+    expect(fake.names()).toEqual(['Primerovo', 'Teststad', 'Drugstad'])
+    expect(progress).toEqual(['0/3', '1/3', '2/3', '3/3'])
+    expect(result).toEqual({ created: 2, skipped: 0, geocoding: { found: 2, notFound: 1, failed: 0, message: null } })
+    expect(await place(api, 'Teststad')).toMatchObject({ lat: 57.1, lon: 12.1, geocodeStatus: 'OK', postalCode: '11111' })
+    expect(await place(api, 'Drugstad')).toMatchObject({ lat: null, lon: null, geocodeStatus: 'FAILED' })
+  })
+
+  it('never asks the same place again, also "not found" and after a restart', async () => {
+    const store = createMemoryStore<LocalData>()
+    const first = nominatim()
+    await importRows(client(store, first))
+    expect(first.asked).toHaveLength(3)
+
+    // New places (Teststad without a postal code is another place) and Drugstad, which has
+    // no coordinates, are looked up again, but only in what is kept: "found" and "not found".
+    const second = nominatim()
+    const rows = [ROWS[0], ['DRUGSTAD - PRIMEROVO', '1 kg', '1m'], ['DRUGSTAD - TESTSTAD', '1 kg', '1m']]
+    const api = client(store, second, rows)
+    // The preview warns only about what Nominatim did not find before, and asks nothing.
+    const { importId } = await api.createImport(new File(['fake'], 'Pregled.xlsx'))
+    await api.setImportMapping(importId, MAPPING)
+    const preview = await api.getImportPreview(importId)
+    const drugstad = 'Nominatim ranije nije pronašao „Drugstad“; pošiljka će imati status „Nejasna lokacija“.'
+    expect(preview.rows.map((r) => r.warnings)).toEqual([[drugstad], [drugstad]])
+    const result = await importRows(api)
+    expect(second.asked).toEqual([])
+    expect(result.geocoding).toEqual({ found: 1, notFound: 1, failed: 0, message: null })
+    expect(Object.keys(storedData(store).geocodeCache ?? {}).sort()).toEqual(['drugstad|', 'primerovo|', 'teststad|'])
+  })
+
+  it('stops asking when Nominatim does not answer, keeps nothing, and asks again on the next import', async () => {
+    const store = createMemoryStore<LocalData>()
+    let answer: Answer = 'down'
+    const fake = nominatim(() => answer)
+    const api = client(store, fake)
+    const result = await importRows(api)
+    expect(fake.asked).toHaveLength(1)
+    expect(result).toMatchObject({
+      created: 2,
+      geocoding: {
+        found: 0,
+        notFound: 0,
+        failed: 3,
+        message: 'Nominatim nije dostupan (nema veze sa internetom ili je zahtev odbijen).',
+      },
+    })
+    expect(await place(api, 'Primerovo')).toMatchObject({ lat: null, geocodeStatus: 'FAILED' })
+    expect(storedData(store).geocodeCache).toEqual({})
+
+    answer = 'ok'
+    const next = await importRows(api)
+    expect(next.geocoding).toEqual({ found: 2, notFound: 1, failed: 0, message: null })
+    expect(await place(api, 'Primerovo')).toMatchObject({ lat: 45.1, lon: 20.1, geocodeStatus: 'OK' })
+  })
+
+  it('stores every answer at once, so a reload in the middle of an import does not ask again', async () => {
+    const store = createMemoryStore<LocalData>()
+    let calls = 0
+    const hanging = {
+      ...nominatim(),
+      // The second request never answers, as if the page were closed while waiting.
+      fetch: (async (input: RequestInfo | URL) =>
+        ++calls === 1 ? nominatim().fetch(input) : new Promise<Response>(() => {})) as typeof fetch,
+    }
+    void importRows(client(store, hanging))
+    await vi.waitFor(() => expect(storedData(store).geocodeCache).toEqual({ 'primerovo|': expect.anything() }))
+    expect(calls).toBe(2)
+    expect(storedData(store).shipments).toHaveLength(SCENARIOS.small.shipments.length)
+
+    const fake = nominatim()
+    await importRows(client(store, fake))
+    expect(fake.names()).toEqual(['Teststad', 'Drugstad'])
+  })
+
+  it('asks nothing when switched off in the settings, and keeps the settings', async () => {
+    const store = createMemoryStore<LocalData>()
+    const fake = nominatim()
+    const api = client(store, fake)
+    expect(await api.getDeviceSettings()).toEqual({ geocodingEnabled: true, contactEmail: null })
+    await api.updateDeviceSettings({ geocodingEnabled: false, contactEmail: null })
+
+    const result = await importRows(api)
+    expect(fake.asked).toEqual([])
+    expect(result.geocoding).toMatchObject({ failed: 3, message: 'Traženje koordinata je isključeno u podešavanjima.' })
+    expect(await client(store, fake).getDeviceSettings()).toEqual({ geocodingEnabled: false, contactEmail: null })
+  })
+
+  it('sends the contact e-mail from the settings and checks it', async () => {
+    const fake = nominatim()
+    const api = client(createMemoryStore<LocalData>(), fake)
+    const error = await rejection(api.updateDeviceSettings({ geocodingEnabled: true, contactEmail: 'nije adresa' }))
+    expect(error.problem.errors).toEqual({ contactEmail: 'Unesite ispravnu e-adresu ili ostavite polje prazno.' })
+    expect(await api.updateDeviceSettings({ geocodingEnabled: true, contactEmail: ' dispecer@example.com ' })).toEqual({
+      geocodingEnabled: true,
+      contactEmail: 'dispecer@example.com',
+    })
+    await importRows(api)
+    expect(fake.asked.map((u) => u.searchParams.get('email'))).toEqual(Array(3).fill('dispecer@example.com'))
+    // An empty field means no e-mail.
+    expect((await api.updateDeviceSettings({ geocodingEnabled: true, contactEmail: '  ' })).contactEmail).toBeNull()
+  })
+
+  it('loads a snapshot stored before the settings and the cache existed', async () => {
+    const store = createMemoryStore<LocalData>()
+    await client(store, nominatim()).listTrucks()
+    const older: Partial<LocalData> = storedData(store)
+    delete older.settings
+    delete older.geocodeCache
+    const fake = nominatim()
+    const api = client(createMemoryStore<LocalData>({ version: 1, data: older }), fake)
+    expect(await api.getDeviceSettings()).toEqual({ geocodingEnabled: true, contactEmail: null })
+    await importRows(api)
+    expect(fake.asked).toHaveLength(3)
+  })
+})

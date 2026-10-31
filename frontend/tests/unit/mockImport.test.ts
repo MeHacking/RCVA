@@ -101,7 +101,12 @@ describe('mock Excel import', () => {
     const excluded = await api.updateImportRow(importId, 4, { excluded: true })
     expect(excluded).toMatchObject({ excluded: true, corrected: false })
 
-    expect(await api.commitImport(importId)).toEqual({ created: 4, skipped: 1 })
+    // Vaxjo and Sodertalje are not in the gazetteer; two places were already known with coordinates.
+    expect(await api.commitImport(importId)).toEqual({
+      created: 4,
+      skipped: 1,
+      geocoding: { found: 4, notFound: 2, failed: 0, message: null },
+    })
     expect((await rejection(api.commitImport(importId))).status).toBe(409)
 
     const shipments = await api.listShipments()

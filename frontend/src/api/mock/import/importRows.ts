@@ -75,8 +75,21 @@ export function readRows(sheetRows: string[][], mapping: ImportMapping, idPrefix
   return result
 }
 
+/** A warning for a place known to have no coordinates, before the import is committed. */
+export type PlaceWarning = (place: PlaceGuess) => string | null
+
+/** The mock's: places outside the gazetteer. */
+export const gazetteerWarning: PlaceWarning = (place) =>
+  geocode(place.name)
+    ? null
+    : `„${place.name}“ nije pronađeno pri probnom geokodiranju; pošiljka će imati status „Nejasna lokacija“.`
+
 /** Validates all rows together, since duplicate IDs depend on the other rows. */
-export function toImportRows(rows: RowState[], existingIds: ReadonlySet<string>): ImportRow[] {
+export function toImportRows(
+  rows: RowState[],
+  existingIds: ReadonlySet<string>,
+  placeWarning: PlaceWarning = gazetteerWarning,
+): ImportRow[] {
   const rowsById = new Map<string, number[]>()
   for (const row of rows.filter((r) => !r.excluded)) {
     rowsById.set(row.externalId, [...(rowsById.get(row.externalId) ?? []), row.rowNumber])
@@ -102,9 +115,8 @@ export function toImportRows(rows: RowState[], existingIds: ReadonlySet<string>)
 
     if (row.weightWarning) warnings.push(row.weightWarning)
     for (const place of [row.pickup, row.delivery]) {
-      if (place?.name && !geocode(place.name)) {
-        warnings.push(`„${place.name}“ nije pronađeno pri probnom geokodiranju; pošiljka će imati status „Nejasna lokacija“.`)
-      }
+      const warning = place?.name ? placeWarning(place) : null
+      if (warning) warnings.push(warning)
     }
 
     return {

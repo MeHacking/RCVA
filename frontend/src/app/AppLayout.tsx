@@ -10,6 +10,8 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: IconName }> = 
   { to: '/optimization', label: 'Rezultati optimizacije', icon: 'results' },
   { to: '/truck-3d', label: '3D prikaz kamiona', icon: 'cube' },
   { to: '/route-map', label: 'Mapa ruta', icon: 'map' },
+  // Only the application on the device has settings.
+  ...(apiMode() === 'local' ? [{ to: '/settings', label: 'Podešavanja', icon: 'settings' as const }] : []),
 ]
 
 export function AppLayout() {

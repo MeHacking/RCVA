@@ -77,6 +77,7 @@ export function ImportPage() {
           <p>
             Fajl „{state.fileName}“ je uvezen; preskočeno redova: {state.result.skipped}.
           </p>
+          {state.result.geocoding && <GeocodingSummary {...state.result.geocoding} />}
           <p className="notice__actions">
             <Link to="/shipments">Pogledaj pošiljke</Link>
             <button type="button" onClick={() => setState({ step: 'file' })}>
@@ -86,5 +87,20 @@ export function ImportPage() {
         </Notice>
       )}
     </section>
+  )
+}
+
+/** Places looked up while committing; those without coordinates cannot be optimized yet. */
+function GeocodingSummary({ found, notFound, failed, message }: NonNullable<ImportCommitResult['geocoding']>) {
+  if (found + notFound + failed === 0) return <p>Sva mesta su već imala koordinate.</p>
+  return (
+    <>
+      <p>
+        Koordinate novih mesta: pronađeno {found}, nije pronađeno {notFound}
+        {failed > 0 && `, nije traženo ${failed}`}.
+        {notFound + failed > 0 && ' Pošiljke sa tim mestima su „Nejasna lokacija“ i ne ulaze u optimizaciju.'}
+      </p>
+      {message && <p className="text--warning">{message} Mesta bez koordinata se ponovo traže pri sledećem uvozu.</p>}
+    </>
   )
 }

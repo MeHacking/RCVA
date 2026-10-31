@@ -250,6 +250,25 @@ export interface ImportRowPatch {
 export interface ImportCommitResult {
   created: number
   skipped: number
+  /**
+   * NOT IN SPEC v2 (the backend does not send it): places looked up for coordinates while
+   * committing, and the first error when a lookup failed.
+   */
+  geocoding?: { found: number; notFound: number; failed: number; message: string | null }
+}
+
+/** NOT IN SPEC v2: settings of the application on the device ("local" mode only) */
+export interface DeviceSettings {
+  /** look up the coordinates of new places with Nominatim when an import is committed */
+  geocodingEnabled: boolean
+  /** sent to Nominatim as `email`, so its operators can reach the user; null when not given */
+  contactEmail: string | null
+}
+
+/** NOT IN SPEC v2: progress of the coordinate lookup while an import is committed */
+export interface ImportCommitProgress {
+  done: number
+  total: number
 }
 
 /** Error body, RFC 9457 Problem Details with extension members */

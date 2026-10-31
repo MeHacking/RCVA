@@ -48,6 +48,12 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     getLatestOptimizationJob: async () => null,
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
     getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
+    // Settings exist only in the application on the device.
+    getDeviceSettings: async () => null,
+    updateDeviceSettings: () =>
+      Promise.reject(
+        new ApiError({ title: 'Ne postoji', status: 404, detail: 'Podešavanja postoje samo u aplikaciji na uređaju.' }),
+      ),
   }
 }
 

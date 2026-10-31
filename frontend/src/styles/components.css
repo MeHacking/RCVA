@@ -161,7 +161,8 @@ fieldset.field {
   margin-bottom: var(--space-4);
 }
 
-.truck-form {
+.truck-form,
+.settings-form {
   max-width: 34rem;
 }
 

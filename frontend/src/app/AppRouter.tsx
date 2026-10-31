@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { OptimizationPage } from '../features/optimization/OptimizationPage'
 import { RouteMapPage } from '../features/route-map/RouteMapPage'
+import { SettingsPage } from '../features/settings/SettingsPage'
 import { ImportPage } from '../features/shipments/import/ImportPage'
 import { ShipmentsPage } from '../features/shipments/ShipmentsPage'
 import { Truck3dPage } from '../features/truck-3d/Truck3dPage'
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
       { path: 'optimization', element: <OptimizationPage /> },
       { path: 'truck-3d', element: <Truck3dPage /> },
       { path: 'route-map', element: <RouteMapPage /> },
+      { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

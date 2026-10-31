@@ -1,5 +1,7 @@
 import type {
   BaseSettings,
+  DeviceSettings,
+  ImportCommitProgress,
   ImportCommitResult,
   ImportCreated,
   ImportMapping,
@@ -58,7 +60,17 @@ export interface ApiClient {
   getImportPreview(importId: number): Promise<ImportPreview>
   /** NOT IN SPEC v2: PUT /imports/{id}/rows/{rowNumber}, manual correction of one row */
   updateImportRow(importId: number, rowNumber: number, patch: ImportRowPatch): Promise<ImportRow>
-  commitImport(importId: number): Promise<ImportCommitResult>
+  /**
+   * POST /imports/{id}/commit. NOT IN SPEC v2: `onProgress` follows the coordinate lookup
+   * of the places (the application on the device asks Nominatim, one place per second);
+   * over HTTP it is never called.
+   */
+  commitImport(importId: number, options?: { onProgress?: (progress: ImportCommitProgress) => void }): Promise<ImportCommitResult>
+
+  /** NOT IN SPEC v2: settings of the application on the device; null for the mock and the backend */
+  getDeviceSettings(): Promise<DeviceSettings | null>
+  /** NOT IN SPEC v2: 400 with `errors.contactEmail` for a bad e-mail; 404 where there are no settings */
+  updateDeviceSettings(settings: DeviceSettings): Promise<DeviceSettings>
 }
 
 export class ApiError extends Error {

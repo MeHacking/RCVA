@@ -46,6 +46,16 @@ const PATHS = {
       <path d="M15 6v14" />
     </>
   ),
+  settings: (
+    <>
+      <path d="M4 6h9M17 6h3" />
+      <circle cx="15" cy="6" r="2" />
+      <path d="M4 12h3M11 12h9" />
+      <circle cx="9" cy="12" r="2" />
+      <path d="M4 18h11M19 18h1" />
+      <circle cx="17" cy="18" r="2" />
+    </>
+  ),
   play: <path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none" />,
   info: (
     <>

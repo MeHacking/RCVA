@@ -211,7 +211,13 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
     setImportMapping: (importId, mapping) => respond(() => imports.setMapping(importId, mapping)),
     getImportPreview: (importId) => respond(() => imports.preview(importId)),
     updateImportRow: (importId, rowNumber, patch) => respond(() => imports.updateRow(importId, rowNumber, patch)),
-    commitImport: (importId) => respond(() => imports.commit(importId)),
+    commitImport: (importId, commitOptions) => respond(() => imports.commit(importId, commitOptions?.onProgress)),
+
+    getDeviceSettings: () => respond(() => null),
+    updateDeviceSettings: () =>
+      respond(() => {
+        throw notFound('Podešavanja postoje samo u aplikaciji na uređaju.')
+      }),
   }
 }
 

@@ -10,11 +10,19 @@ import { OPEN_ROUTE_REAR_LOADING } from '../../domain/optimization/routePlanner'
 import { isFeasible, type Score } from '../../domain/optimization/solver'
 import type { SolverRunner } from '../../domain/optimization/solverRunner'
 import { ApiError, type ApiClient } from '../client'
-import { createImportStore, readWorkbookInBrowser, type WorkbookReader } from '../mock/import/importStore'
+import {
+  createImportStore,
+  readWorkbookInBrowser,
+  type PlaceLocator,
+  type WorkbookReader,
+} from '../mock/import/importStore'
+import type { PlaceWarning } from '../mock/import/importRows'
 import { assertValidTruck } from '../truckValidation'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
+import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
 import {
   TERMINAL_JOB_STATUSES,
+  type DeviceSettings,
   type InfeasibilityKind,
   type JobStatus,
   type Location,
@@ -29,7 +37,9 @@ import {
 // runs here. Shipments, locations, trucks and the last jobs are kept on the device
 // (`DeviceStore`, IndexedDB in the browser) and written after every change; a fixture
 // scenario is only the start, when nothing is stored yet. The Excel import is the mock's,
-// and an import that is not committed yet is not kept. A job
+// and an import that is not committed yet is not kept; committing it looks up the
+// coordinates of its places with Nominatim (nominatim.ts), and every answer is kept, so
+// a place is never asked twice. A job
 // really solves: the checks before solving (422 PROVEN), the TS solver in a Web Worker,
 // the independent validator and the rear-loaded 3D plan, with the process owner's model
 // (open routes, loading from the rear, weight).
@@ -45,7 +55,11 @@ export interface LocalApiOptions {
   runSolver: SolverRunner
   store: DeviceStore<LocalData>
   readWorkbook?: WorkbookReader
+  /** how Nominatim is reached; tests give a fake fetch and no pause between requests */
+  nominatim?: { fetch: typeof fetch; minIntervalMs?: number }
 }
+
+export const DEFAULT_SETTINGS: DeviceSettings = { geocodingEnabled: true, contactEmail: null }
 
 /** Jobs kept on the device; older finished jobs are dropped (the screens show only the last one). */
 export const KEPT_JOBS = 10
@@ -68,7 +82,7 @@ interface LocalJob {
   result: OptimizationResult | null
 }
 
-/** Everything the store keeps. */
+/** Everything the store keeps. Fields added later are optional, so older snapshots still load. */
 export interface LocalData {
   shipments: Shipment[]
   locations: Location[]
@@ -76,19 +90,60 @@ export interface LocalData {
   jobs: LocalJob[]
   nextTruckId: number
   nextJobId: number
+  settings?: DeviceSettings
+  /** Nominatim answers by `placeKey`, also "not found"; failed requests are not kept */
+  geocodeCache?: Record<string, GeocodeAnswer>
 }
 
 export function createLocalApiClient(options: LocalApiOptions): ApiClient {
-  const { scenario, runSolver, store, readWorkbook = readWorkbookInBrowser } = options
+  const {
+    scenario,
+    runSolver,
+    store,
+    readWorkbook = readWorkbookInBrowser,
+    nominatim = { fetch: (...args: Parameters<typeof fetch>) => fetch(...args) },
+  } = options
   // Filled from the store (or the scenario) before the first call is answered; the arrays
   // stay the same objects, since the import writes into them.
   const trucks: Truck[] = []
   const shipments: Shipment[] = []
   const locations: Location[] = []
-  const imports = createImportStore({ shipments, locations, readWorkbook })
   const jobs = new Map<number, LocalJob>()
   let nextTruckId = 1
   let nextJobId = 1
+  let settings: DeviceSettings = { ...DEFAULT_SETTINGS }
+  let geocodeCache: Record<string, GeocodeAnswer> = {}
+  const geocoder = createNominatimGeocoder({
+    fetch: nominatim.fetch,
+    minIntervalMs: nominatim.minIntervalMs,
+    contactEmail: () => settings.contactEmail,
+  })
+
+  const locate: PlaceLocator = async (place) => {
+    if (!settings.geocodingEnabled) {
+      return { kind: 'failed', message: 'Traženje koordinata je isključeno u podešavanjima.' }
+    }
+    const key = placeKey(place)
+    let answer = geocodeCache[key]
+    if (!answer) {
+      try {
+        answer = await geocoder.geocode(place)
+      } catch (error) {
+        if (error instanceof GeocodeError) return { kind: 'failed', message: error.message }
+        throw error
+      }
+      geocodeCache[key] = answer
+      // Kept at once, so a reload in the middle of an import does not ask again.
+      await persist()
+    }
+    return answer.found ? { kind: 'found', lat: answer.lat, lon: answer.lon } : { kind: 'notFound' }
+  }
+  // The preview asks nothing; it only knows what an earlier import was answered.
+  const placeWarning: PlaceWarning = (place) =>
+    geocodeCache[placeKey(place)]?.found === false
+      ? `Nominatim ranije nije pronašao „${place.name}“; pošiljka će imati status „Nejasna lokacija“.`
+      : null
+  const imports = createImportStore({ shipments, locations, readWorkbook, locate, placeWarning })
   // Jobs run one at a time, in the order they were created (as on the backend).
   let queue: Promise<void> = Promise.resolve()
   // Writes go one after another; each writes the state as it is when its turn comes.
@@ -110,6 +165,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     trucks.push(...data.trucks)
     nextTruckId = data.nextTruckId
     nextJobId = data.nextJobId
+    settings = { ...DEFAULT_SETTINGS, ...data.settings }
+    geocodeCache = data.geocodeCache ?? {}
     let interrupted = false
     for (const job of data.jobs) {
       // The page was closed while the job waited or ran; its solver is gone.
@@ -125,7 +182,16 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
   function persist(): Promise<void> {
     const write = saving.then(() =>
-      store.save({ shipments, locations, trucks, jobs: [...jobs.values()], nextTruckId, nextJobId }),
+      store.save({
+        shipments,
+        locations,
+        trucks,
+        jobs: [...jobs.values()],
+        nextTruckId,
+        nextJobId,
+        settings,
+        geocodeCache,
+      }),
     )
     saving = write.catch(() => undefined)
     return write
@@ -414,7 +480,19 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     setImportMapping: (importId, mapping) => respond(() => imports.setMapping(importId, mapping)),
     getImportPreview: (importId) => respond(() => imports.preview(importId)),
     updateImportRow: (importId, rowNumber, patch) => respond(() => imports.updateRow(importId, rowNumber, patch)),
-    commitImport: (importId) => change(() => imports.commit(importId)),
+    commitImport: (importId, commitOptions) => change(() => imports.commit(importId, commitOptions?.onProgress)),
+
+    getDeviceSettings: () => respond(() => settings),
+
+    updateDeviceSettings: (input) =>
+      change(() => {
+        const contactEmail = input.contactEmail?.trim() || null
+        if (contactEmail !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+          throw badRequest({ contactEmail: 'Unesite ispravnu e-adresu ili ostavite polje prazno.' })
+        }
+        settings = { geocodingEnabled: input.geocodingEnabled, contactEmail }
+        return settings
+      }),
   }
 }
 
