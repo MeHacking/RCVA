@@ -3,13 +3,14 @@ import { apiMode } from './apiMode'
 import type { ApiClient } from './client'
 import { runInWorker } from '../domain/optimization/solverRunner'
 import { createHttpClient } from './http/httpClient'
-import { createLocalApiClient } from './local/localClient'
+import { createIndexedDbStore } from './local/deviceStore'
+import { createLocalApiClient, type LocalData } from './local/localClient'
 import { createMockApiClient } from './mock/mockClient'
 
 /**
  * The single place that decides which ApiClient the app uses (see apiMode.ts): the
  * backend over HTTP in "server" mode, otherwise a fixture scenario, either in the mock or
- * as the starting data of the application on the device ("local").
+ * as the starting data of the application on the device ("local", kept in IndexedDB).
  */
 export function createApiClient(): ApiClient {
   if (apiMode() === 'server') return createHttpClient()
@@ -19,6 +20,6 @@ export function createApiClient(): ApiClient {
   }
   const scenario = SCENARIOS[name]
   return apiMode() === 'local'
-    ? createLocalApiClient({ scenario, runSolver: runInWorker })
+    ? createLocalApiClient({ scenario, runSolver: runInWorker, store: createIndexedDbStore<LocalData>() })
     : createMockApiClient({ scenario })
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
-import { createLocalApiClient } from '../../src/api/local/localClient'
+import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
+import { createLocalApiClient, KEPT_JOBS, type LocalData } from '../../src/api/local/localClient'
 import { TERMINAL_JOB_STATUSES, type OptimizationJob, type RouteStop } from '../../src/api/types'
 import type { SolverRunner } from '../../src/domain/optimization/solverRunner'
 import { runInThread } from '../../src/domain/optimization/solverRunner'
@@ -11,9 +12,29 @@ const REQUEST = { timeLimitSeconds: 60, truckIds: null, shipmentIds: null }
 /** The real solver on this thread, with a step limit instead of the job's time limit. */
 const steps: SolverRunner = (input) => runInThread(input, { seed: 1, stepLimit: 3000 })
 
-function setup(scenario: ScenarioName | Scenario, runSolver: SolverRunner = steps): ApiClient {
-  return createLocalApiClient({ scenario: typeof scenario === 'string' ? SCENARIOS[scenario] : scenario, runSolver })
+// Invented workbook: one row whose places the mock gazetteer knows.
+const SHEET = [
+  ['RELACIJA', 'TEŽINA', 'DIMENZIJE'],
+  ['BEOGRAD 34131 - LJUNGBY', '1,200 kg', '2,4m'],
+]
+
+function setup(
+  scenario: ScenarioName | Scenario,
+  runSolver: SolverRunner = steps,
+  store: DeviceStore<LocalData> = createMemoryStore<LocalData>(),
+): ApiClient {
+  return createLocalApiClient({
+    scenario: typeof scenario === 'string' ? SCENARIOS[scenario] : scenario,
+    runSolver,
+    store,
+    readWorkbook: async () => [{ sheet: 'Sheet1', data: SHEET }],
+  })
 }
+
+/** The last write of a job is not waited for by anybody; let it finish. */
+const written = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+const storedData = (store: { snapshot(): unknown }) => (store.snapshot() as { data: LocalData }).data
 
 async function settle(api: ApiClient, id: number): Promise<OptimizationJob> {
   for (let i = 0; i < 100; i++) {
@@ -218,5 +239,133 @@ describe('local optimization', () => {
       expect(atDoors.shipmentId).toBe(firstUnloaded)
     }
     expect((await rejection(api.getLoadPlan(id, 3))).status).toBe(404)
+  })
+})
+
+describe('local storage on the device', () => {
+  const TRUCK = {
+    name: 'Cerada 7',
+    capacityLdmTenths: 136,
+    capacityKg: 24_000,
+    available: true,
+    innerLengthMm: 13_600,
+    innerWidthMm: 2480,
+    innerHeightMm: 2700,
+  }
+
+  it('starts from the scenario once and stores it at once', async () => {
+    const store = createMemoryStore<LocalData>()
+    await setup('small', steps, store).listTrucks()
+    expect(store.snapshot()).toMatchObject({ version: 1, data: { trucks: SCENARIOS.small.trucks, jobs: [] } })
+
+    // The stored data wins over the scenario from then on.
+    expect(await setup('notFound', steps, store).listShipments()).toEqual(SCENARIOS.small.shipments)
+  })
+
+  it('keeps truck changes and the next ids across a restart', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const created = await api.createTruck(TRUCK)
+    await api.updateTruck(1, { ...TRUCK, name: 'Šleper A' })
+    await api.deleteTruck(2)
+
+    const after = setup('small', steps, store)
+    expect((await after.listTrucks()).map((t) => t.name)).toEqual(['Šleper A', 'Solo 1', 'Cerada 7'])
+    expect((await after.createTruck(TRUCK)).id).toBe(created.id + 1)
+  })
+
+  it('keeps a finished job with its result, 3D plan and added trucks', async () => {
+    const store = createMemoryStore<LocalData>()
+    // The solver answers later, as the Web Worker does, so the job is stored while running first.
+    const later: SolverRunner = async (input, options) => {
+      await written()
+      return steps(input, options)
+    }
+    const api = setup('notFound', later, store)
+    expect(await api.getLatestOptimizationJob()).toBeNull()
+    const { id } = await api.createOptimizationJob(REQUEST)
+    const job = await settle(api, id)
+    const result = await api.getOptimizationResult(id)
+    await written()
+
+    const after = setup('notFound', steps, store)
+    expect(await after.getLatestOptimizationJob()).toEqual(job)
+    expect(await after.getOptimizationResult(id)).toEqual(result)
+    const truckId = result.routes[0].truckId
+    expect(await after.getLoadPlan(id, truckId)).toEqual(await api.getLoadPlan(id, truckId))
+    expect((await after.listTrucks()).map((t) => t.name)).toEqual(['Šleper 1', 'Šleper 2', 'Kamion 1'])
+    expect((await after.createOptimizationJob(REQUEST)).id).toBe(id + 1)
+  })
+
+  it('marks a job that waited or ran when the page closed as FAILED, and stores that', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', () => new Promise(() => {}), store)
+    const running = await api.createOptimizationJob(REQUEST)
+    const queued = await api.createOptimizationJob(REQUEST)
+    await written()
+    expect((await api.getOptimizationJob(running.id)).status).toBe('RUNNING')
+    expect(storedData(store).jobs.map((j) => j.status)).toEqual(['RUNNING', 'QUEUED'])
+
+    const after = setup('small', steps, store)
+    for (const id of [running.id, queued.id]) {
+      const job = await after.getOptimizationJob(id)
+      expect(job.status).toBe('FAILED')
+      expect(job.finishedAt).not.toBeNull()
+    }
+    expect(storedData(store).jobs.map((j) => j.status)).toEqual(['FAILED', 'FAILED'])
+    // Nothing waits or runs any more, so a truck can be removed.
+    await after.deleteTruck(1)
+  })
+
+  it(`keeps only the last ${KEPT_JOBS} jobs`, async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    let last = 0
+    for (let i = 0; i < KEPT_JOBS + 2; i++) {
+      last = (await api.createOptimizationJob(REQUEST)).id
+      await settle(api, last)
+    }
+    expect((await rejection(api.getOptimizationJob(1))).status).toBe(404)
+    expect((await rejection(api.getOptimizationJob(2))).status).toBe(404)
+    expect((await api.getOptimizationJob(3)).status).toBe('COMPLETED')
+    expect((await api.getLatestOptimizationJob())?.id).toBe(last)
+    await written()
+    expect(storedData(store).jobs).toHaveLength(KEPT_JOBS)
+  })
+
+  it('keeps committed import rows and their new places', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const { importId } = await api.createImport(new File(['fake'], 'Relacije.xlsx'))
+    await api.setImportMapping(importId, { sheetName: 'Sheet1', headerRow: 1, columns: { relation: 0, weight: 1, ldm: 2 } })
+    await api.commitImport(importId)
+    const shipments = await api.listShipments()
+    expect(shipments).toHaveLength(SCENARIOS.small.shipments.length + 1)
+
+    const after = setup('small', steps, store)
+    expect(await after.listShipments()).toEqual(shipments)
+    expect(await after.listLocations()).toEqual(await api.listLocations())
+  })
+
+  it('answers every call with a clear error when the stored data cannot be used, and keeps it', async () => {
+    const stored = { version: 99, data: {} }
+    const store = createMemoryStore<LocalData>(stored)
+    const api = setup('small', steps, store)
+    expect((await rejection(api.listTrucks())).problem).toEqual({
+      title: 'Podaci na uređaju',
+      status: 500,
+      detail: 'Podaci na uređaju su u formatu 99, a aplikacija zna samo format 1.',
+    })
+    expect((await rejection(api.createTruck(TRUCK))).status).toBe(500)
+    expect(store.snapshot()).toEqual(stored)
+  })
+
+  it('answers a change only once it is stored', async () => {
+    const failing: DeviceStore<LocalData> = {
+      load: async () => null,
+      save: () => Promise.reject(new DeviceStoreError('Čuvanje na uređaju nije uspelo (upis): disk je pun.')),
+    }
+    const error = await rejection(setup('small', steps, failing).createTruck(TRUCK))
+    expect(error.problem.detail).toBe('Čuvanje na uređaju nije uspelo (upis): disk je pun.')
   })
 })

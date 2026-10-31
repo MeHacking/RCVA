@@ -44,6 +44,8 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     commitImport: (importId) => request('POST', `/imports/${importId}/commit`),
     createOptimizationJob: (jobRequest) => request('POST', '/optimization-jobs', jobRequest),
     getOptimizationJob: (id) => request('GET', `/optimization-jobs/${id}`),
+    // The backend has no such endpoint yet (see ApiClient), so a reload forgets the job.
+    getLatestOptimizationJob: async () => null,
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
     getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
   }

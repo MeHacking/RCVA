@@ -12,10 +12,12 @@ import type { SolverRunner } from '../../domain/optimization/solverRunner'
 import { ApiError, type ApiClient } from '../client'
 import { createImportStore, readWorkbookInBrowser, type WorkbookReader } from '../mock/import/importStore'
 import { assertValidTruck } from '../truckValidation'
+import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import {
   TERMINAL_JOB_STATUSES,
   type InfeasibilityKind,
   type JobStatus,
+  type Location,
   type OptimizationJob,
   type OptimizationJobRequest,
   type OptimizationResult,
@@ -24,8 +26,10 @@ import {
 } from '../types'
 
 // The application on the device (path B): the same API as the backend, but everything
-// runs here. Shipments, locations and trucks start from a fixture scenario and live in
-// memory (storage on the device comes later); the Excel import is the mock's. A job
+// runs here. Shipments, locations, trucks and the last jobs are kept on the device
+// (`DeviceStore`, IndexedDB in the browser) and written after every change; a fixture
+// scenario is only the start, when nothing is stored yet. The Excel import is the mock's,
+// and an import that is not committed yet is not kept. A job
 // really solves: the checks before solving (422 PROVEN), the TS solver in a Web Worker,
 // the independent validator and the rear-loaded 3D plan, with the process owner's model
 // (open routes, loading from the rear, weight).
@@ -36,10 +40,15 @@ import {
 // Distances are great-circle for now (no road distances yet), as on the backend.
 
 export interface LocalApiOptions {
+  /** the starting data, used only when the store is empty */
   scenario: Scenario
   runSolver: SolverRunner
+  store: DeviceStore<LocalData>
   readWorkbook?: WorkbookReader
 }
+
+/** Jobs kept on the device; older finished jobs are dropped (the screens show only the last one). */
+export const KEPT_JOBS = 10
 
 interface LocalJob {
   id: number
@@ -59,20 +68,93 @@ interface LocalJob {
   result: OptimizationResult | null
 }
 
+/** Everything the store keeps. */
+export interface LocalData {
+  shipments: Shipment[]
+  locations: Location[]
+  trucks: Truck[]
+  jobs: LocalJob[]
+  nextTruckId: number
+  nextJobId: number
+}
+
 export function createLocalApiClient(options: LocalApiOptions): ApiClient {
-  const { scenario, runSolver, readWorkbook = readWorkbookInBrowser } = options
-  const trucks: Truck[] = structuredClone(scenario.trucks)
-  const shipments = structuredClone(scenario.shipments)
-  const locations = structuredClone(scenario.locations)
+  const { scenario, runSolver, store, readWorkbook = readWorkbookInBrowser } = options
+  // Filled from the store (or the scenario) before the first call is answered; the arrays
+  // stay the same objects, since the import writes into them.
+  const trucks: Truck[] = []
+  const shipments: Shipment[] = []
+  const locations: Location[] = []
   const imports = createImportStore({ shipments, locations, readWorkbook })
   const jobs = new Map<number, LocalJob>()
-  let nextTruckId = Math.max(0, ...trucks.map((t) => t.id)) + 1
+  let nextTruckId = 1
   let nextJobId = 1
   // Jobs run one at a time, in the order they were created (as on the backend).
   let queue: Promise<void> = Promise.resolve()
+  // Writes go one after another; each writes the state as it is when its turn comes.
+  let saving: Promise<void> = Promise.resolve()
+  const ready = restore()
+
+  async function restore(): Promise<void> {
+    const stored = await store.load()
+    const data = stored ?? {
+      shipments: structuredClone(scenario.shipments),
+      locations: structuredClone(scenario.locations),
+      trucks: structuredClone(scenario.trucks),
+      jobs: [],
+      nextTruckId: Math.max(0, ...scenario.trucks.map((t) => t.id)) + 1,
+      nextJobId: 1,
+    }
+    shipments.push(...data.shipments)
+    locations.push(...data.locations)
+    trucks.push(...data.trucks)
+    nextTruckId = data.nextTruckId
+    nextJobId = data.nextJobId
+    let interrupted = false
+    for (const job of data.jobs) {
+      // The page was closed while the job waited or ran; its solver is gone.
+      if (!TERMINAL_JOB_STATUSES.includes(job.status)) {
+        job.status = 'FAILED'
+        job.finishedAt = new Date().toISOString()
+        interrupted = true
+      }
+      jobs.set(job.id, job)
+    }
+    if (!stored || interrupted) await persist()
+  }
+
+  function persist(): Promise<void> {
+    const write = saving.then(() =>
+      store.save({ shipments, locations, trucks, jobs: [...jobs.values()], nextTruckId, nextJobId }),
+    )
+    saving = write.catch(() => undefined)
+    return write
+  }
+
+  /** For changes made while a job runs, when nobody waits for the answer. */
+  function persistInBackground(): void {
+    persist().catch((error: unknown) => console.error('Saving on the device failed', error))
+  }
 
   async function respond<T>(produce: () => T | Promise<T>): Promise<T> {
-    return structuredClone(await produce())
+    try {
+      await ready
+      return structuredClone(await produce())
+    } catch (error) {
+      if (error instanceof DeviceStoreError) {
+        throw new ApiError({ title: 'Podaci na uređaju', status: 500, detail: error.message })
+      }
+      throw error
+    }
+  }
+
+  /** A change: answered only once it is stored. */
+  function change<T>(produce: () => T | Promise<T>): Promise<T> {
+    return respond(async () => {
+      const value = await produce()
+      await persist()
+      return value
+    })
   }
 
   function findJob(id: number): LocalJob {
@@ -159,13 +241,22 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       result: null,
     }
     jobs.set(job.id, job)
+    dropOldJobs()
     queue = queue.then(() => run(job))
     return job
+  }
+
+  function dropOldJobs(): void {
+    const ids = [...jobs.keys()].sort((a, b) => b - a)
+    for (const id of ids.slice(KEPT_JOBS)) {
+      if (TERMINAL_JOB_STATUSES.includes((jobs.get(id) as LocalJob).status)) jobs.delete(id)
+    }
   }
 
   async function run(job: LocalJob): Promise<void> {
     job.status = 'RUNNING'
     job.startedAt = new Date().toISOString()
+    persistInBackground()
     try {
       const solution = await runSolver(toSolverInput(job.input), { timeLimitMs: job.timeLimitSeconds * 1000 })
       job.score = solution.score
@@ -187,6 +278,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       job.status = 'FAILED'
     }
     job.finishedAt = new Date().toISOString()
+    persistInBackground()
   }
 
   /** The application makes the trucks (B1): used standard trucks join the list as "Kamion N". */
@@ -252,7 +344,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     getBase: () => respond(() => scenario.base),
 
     createTruck: (input) =>
-      respond(() => {
+      change(() => {
         assertValidTruck(input)
         const created: Truck = { ...input, id: nextTruckId++ }
         trucks.push(created)
@@ -260,7 +352,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     updateTruck: (id, input) =>
-      respond(() => {
+      change(() => {
         const index = trucks.findIndex((t) => t.id === id)
         if (index < 0) throw notFound(`Kamion ${id} ne postoji.`)
         assertValidTruck(input)
@@ -269,7 +361,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     deleteTruck: (id) =>
-      respond(() => {
+      change(() => {
         const index = trucks.findIndex((t) => t.id === id)
         if (index < 0) throw notFound(`Kamion ${id} ne postoji.`)
         const running = activeJob()
@@ -284,12 +376,18 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     createOptimizationJob: (request) =>
-      respond(() => {
+      change(() => {
         const job = createJob(request)
         return { id: job.id, status: job.status }
       }),
 
     getOptimizationJob: (id) => respond(() => view(findJob(id))),
+
+    getLatestOptimizationJob: () =>
+      respond(() => {
+        const latest = Math.max(0, ...jobs.keys())
+        return latest > 0 ? view(findJob(latest)) : null
+      }),
 
     getOptimizationResult: (id) => respond(() => completedResult(findJob(id))),
 
@@ -316,7 +414,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     setImportMapping: (importId, mapping) => respond(() => imports.setMapping(importId, mapping)),
     getImportPreview: (importId) => respond(() => imports.preview(importId)),
     updateImportRow: (importId, rowNumber, patch) => respond(() => imports.updateRow(importId, rowNumber, patch)),
-    commitImport: (importId) => respond(() => imports.commit(importId)),
+    commitImport: (importId) => change(() => imports.commit(importId)),
   }
 }
 

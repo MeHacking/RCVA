@@ -40,6 +40,12 @@ export interface ApiClient {
   /** 202 on success; 422 with infeasibilityKind PROVEN when infeasibility is proven up front */
   createOptimizationJob(request: OptimizationJobRequest): Promise<OptimizationJobCreated>
   getOptimizationJob(id: number): Promise<OptimizationJob>
+  /**
+   * NOT IN SPEC v2 (proposed in dopuna 1 as GET /optimization-jobs/latest): the most
+   * recently created job, so the screens find it again after a page reload; null when
+   * there is none. The backend does not have it yet, so over HTTP it is always null.
+   */
+  getLatestOptimizationJob(): Promise<OptimizationJob | null>
   /** Only for COMPLETED jobs; 409 otherwise */
   getOptimizationResult(id: number): Promise<OptimizationResult>
   /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */

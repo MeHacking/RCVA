@@ -9,12 +9,33 @@ const DEFAULT_TIME_LIMIT_SECONDS = 60
 
 /**
  * Tracks the most recently started optimization job for the whole app (top bar, results).
- * Kept in memory only: a page reload forgets it, since the API has no "list jobs" endpoint.
+ * After a page reload it asks the API for the latest job; only the application on the
+ * device remembers it (the mock and the backend do not, see getLatestOptimizationJob).
  */
 export function LastJobProvider({ children }: { children: ReactNode }) {
   const api = useApi()
   const [state, setState] = useState<LastJobState>({ kind: 'idle' })
   const trackedJobId = state.kind === 'tracking' ? state.jobId : null
+
+  useEffect(() => {
+    let cancelled = false
+    api.getLatestOptimizationJob().then(
+      (job) => {
+        // A job started in the meantime wins.
+        if (!cancelled && job) {
+          setState((previous) =>
+            previous.kind === 'idle' ? { kind: 'tracking', jobId: job.id, job: null, result: null, pollError: null } : previous,
+          )
+        }
+      },
+      (error: unknown) => {
+        if (!cancelled) console.error('Finding the latest optimization job failed', error)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [api])
 
   const start = useCallback(
     async (timeLimitSeconds = DEFAULT_TIME_LIMIT_SECONDS) => {

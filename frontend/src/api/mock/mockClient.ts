@@ -191,6 +191,12 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
 
     getOptimizationJob: (id) => respond(() => jobView(findJob(id))),
 
+    getLatestOptimizationJob: () =>
+      respond(() => {
+        const latest = Math.max(0, ...jobs.keys())
+        return latest > 0 ? jobView(findJob(latest)) : null
+      }),
+
     getOptimizationResult: (id) => respond(() => completedResult(id)),
 
     getLoadPlan: (jobId, truckId) =>
