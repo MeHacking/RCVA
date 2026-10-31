@@ -4,20 +4,47 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 31.10.2026, čuvanje na uređaju (IndexedDB) u režimu `local`
-(korak 4a na putu B); videti „Gde smo stali“.
+Poslednje ažuriranje: 31.10.2026, koordinate preko Nominatim-a i ekran Podešavanja u
+režimu `local` (korak 4b na putu B); videti „Gde smo stali“.
 
 ## Gde smo stali (31.10.2026)
 
 **Korak 4 na putu B**, redosled dogovoren 31.10.2026 (korisnik: „radi kako misliš da
 treba“): **4a** čuvanje na uređaju (urađeno, videti niže; ide prvo jer Nominatim traži da se
-rezultati trajno čuvaju), **4b** koordinate (Nominatim, pravila u „Predlog za koordinate i
-kilometraže“ niže; u pregledaču se User-Agent ne može postaviti, pa se šalje `email` iz
-podešavanja), **4c** kilometraže (ORS `driving-hgv` kao podešavanje, ključ samo u bazi na
+rezultati trajno čuvaju), **4b** koordinate (urađeno, videti niže), **4c** kilometraže (ORS `driving-hgv` kao podešavanje, ključ samo u bazi na
 uređaju, traže se samo parovi koji nisu zapamćeni, bez ORS-a posao je FAILED sa porukom;
 proveriti ograničenje veličine matrice na nalogu), **4d** izvoz/uvoz JSON fajla sa verzijom
 formata. Posle toga: upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani
 režim `local`. Pitanja za Gojka (30.10.2026) još nisu poslata.
+
+**Korak 4b (urađeno 31.10.2026)**:
+- `src/api/local/nominatim.ts`: `createNominatimGeocoder` (jedan upit odjednom, najmanje
+  1 s između početaka, i posle greške), `q` = naziv mesta, `featureType=settlement`,
+  `limit=1`, `countrycodes` iz oznake u fajlu (BIH → `ba`), `email` iz podešavanja ako je
+  unet. Poštanski broj se ne šalje. Pregledač ne dozvoljava sopstveni User-Agent, pa
+  aplikaciju predstavlja Referer. Greške (mreža, 429/403, 5xx, loš odgovor) su
+  `GeocodeError` sa porukom za korisnika. Jedan pravi upit („Beograd“) proveren curl-om
+  31.10.2026: 200, `access-control-allow-origin: *`, lat/lon kao stringovi.
+- Uvoz (`importStore.ts`): koordinate se traže **samo pri potvrdi uvoza**, za nova mesta i
+  za poznata mesta bez koordinata (pa se neuspelo traženje ponavlja pri sledećem uvozu);
+  posle prve greške ostala mesta se ne pitaju. Izvor je ubačen spolja (`PlaceLocator`):
+  mock i dalje koristi probni spisak (`locateInGazetteer`, isti ishod kao ranije), a
+  `local` Nominatim. `commitImport(id, { onProgress })` i `ImportCommitResult.geocoding`
+  su NOT IN SPEC v2 (backend ih nema). Upozorenje u pregledu redova u režimu `local` dolazi
+  samo iz zapamćenih odgovora („Nominatim ranije nije pronašao...“), bez upita.
+- `LocalData.geocodeCache` (ključ `placeKey` = naziv bez dijakritika + zemlja; čuva i „nije
+  pronađeno“, a greške ne) i `LocalData.settings`; svaki odgovor se upisuje odmah. Nova
+  polja su opciona, pa stari snimci (format 1) i dalje rade.
+- Ekran **Podešavanja** (`/settings`, u meniju samo u režimu `local`): prekidač za
+  Nominatim i neobavezna e-adresa (`ApiClient.getDeviceSettings/updateDeviceSettings`,
+  NOT IN SPEC v2; mock i `httpClient` vraćaju `null` i 404). Oznaka „© OpenStreetMap
+  contributors“ (`OsmAttribution`) je u Podešavanjima i na koraku potvrde uvoza.
+- Testovi: `nominatim.test.ts` (7, lažni `fetch` i sat), 7 novih u `localClient.test.ts`,
+  e2e `tests/e2e/local/geocoding.local.spec.ts` (`page.route`, razmak ≥ 950 ms, keš posle
+  osvežavanja, isključen prekidač). Provereno na pokvarenom kodu (14 izmena): svaka obara
+  testove. Nijedan test ne šalje pravi zahtev.
+- Ograničenja: razmak od 1 s važi po kartici pregledača; „nije pronađeno“ se pamti zauvek
+  (ispravka mesta u pregledu redova je za sada jedini način da se traži drugi naziv).
 
 **Korak 4a (urađeno 31.10.2026)**:
 - `src/api/local/deviceStore.ts`: `DeviceStore` (`load`/`save` jednog snimka sa
@@ -255,7 +282,8 @@ RCVA/
 │   ├── src/api/mock/import/      pravila čitanja Excel-a (referenca za backend)
 │   ├── src/fixtures/             probni scenariji: small, test7, proven, notFound
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
-│   │                             optimization, route-map, truck-3d (+ tego/)
+│   │                             optimization, route-map, truck-3d (+ tego/),
+│   │                             settings (samo režim local)
 │   ├── src/domain/capacity.ts    donja granica broja kamiona, provere kapaciteta
 │   ├── src/domain/fleet.ts       standardna cerada i flota koju pravi aplikacija
 │   ├── src/domain/optimization/  put B: routePlanner, solver, random (seed), job (ulaz posla),
@@ -319,8 +347,8 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
 na lokalni.
 
-Stanje (31.10.2026, posle koraka 4a): frontend tsc, lint i build čisti, 255 Vitest testova,
-Playwright 44 (mock 41 + local 3) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
+Stanje (31.10.2026, posle koraka 4b): frontend tsc, lint i build čisti, 269 Vitest testova,
+Playwright 46 (mock 41 + local 5) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
 toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
