@@ -58,6 +58,9 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
       ),
     // So do export and import of the data: the backend keeps its own.
     exportDeviceData: async () => null,
+    // The backend has no such endpoint; the shipments screen does not offer it in server mode.
+    deleteAllShipments: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema uklanjanje svih pošiljki.' })),
     checkDeviceData: () => Promise.reject(noDeviceData()),
     replaceDeviceData: () => Promise.reject(noDeviceData()),
   }

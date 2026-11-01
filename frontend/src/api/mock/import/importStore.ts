@@ -61,8 +61,20 @@ export function createImportStore(deps: {
   locate?: PlaceLocator
   /** the warning shown in the preview for a place known to have no coordinates */
   placeWarning?: PlaceWarning
+  /**
+   * The smallest id a new shipment may get: ids of removed shipments that kept results
+   * still name are never given again. Default 1.
+   */
+  firstFreeShipmentId?: () => number
 }) {
-  const { shipments, locations, readWorkbook, locate = locateInGazetteer, placeWarning = gazetteerWarning } = deps
+  const {
+    shipments,
+    locations,
+    readWorkbook,
+    locate = locateInGazetteer,
+    placeWarning = gazetteerWarning,
+    firstFreeShipmentId = () => 1,
+  } = deps
   const imports = new Map<number, ImportRecord>()
   let nextImportId = 1
 
@@ -225,7 +237,7 @@ export function createImportStore(deps: {
       views.forEach((view, index) => {
         if (!writable(view) || !view.pickup || !view.delivery || view.ldmTenths === null) return
         shipments.push({
-          id: Math.max(0, ...shipments.map((s) => s.id)) + 1,
+          id: Math.max(firstFreeShipmentId(), ...shipments.map((s) => s.id + 1)),
           externalId: view.externalId,
           description: view.description,
           ldmTenths: view.ldmTenths,

@@ -33,6 +33,11 @@ import type {
 export interface ApiClient {
   listLocations(): Promise<Location[]>
   listShipments(): Promise<Shipment[]>
+  /**
+   * NOT IN SPEC v2: removes every shipment, and the places nothing uses any more (places of
+   * kept results stay); for a new week's import. 409 while a job waits or runs; 404 over HTTP.
+   */
+  deleteAllShipments(): Promise<{ shipments: number; locations: number }>
 
   listTrucks(): Promise<Truck[]>
   createTruck(input: TruckInput): Promise<Truck>

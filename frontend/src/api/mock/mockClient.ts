@@ -130,6 +130,13 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
   return {
     listLocations: () => respond(() => locations),
     listShipments: () => respond(() => shipments),
+    // The places stay: the scenario's fixed result names them.
+    deleteAllShipments: () =>
+      respond(() => {
+        const removed = shipments.length
+        shipments.splice(0)
+        return { shipments: removed, locations: 0 }
+      }),
     listTrucks: () => respond(() => trucks),
     getBase: () => respond(() => scenario.base),
 

@@ -66,8 +66,8 @@ import {
 // key, and a checked file replaces everything on the device; the device keeps its own key.
 
 export interface LocalApiOptions {
-  /** the starting data, used only when the store is empty */
-  scenario: Scenario
+  /** the starting data, used only when the store is empty: a fixture scenario, or EMPTY_START */
+  scenario: Pick<Scenario, 'shipments' | 'locations' | 'trucks' | 'base'>
   runSolver: SolverRunner
   store: DeviceStore<LocalData>
   readWorkbook?: WorkbookReader
@@ -75,6 +75,15 @@ export interface LocalApiOptions {
   nominatim?: { fetch: typeof fetch; minIntervalMs?: number }
   /** how OpenRouteService is reached; the same for tests */
   ors?: { fetch: typeof fetch; minIntervalMs?: number }
+}
+
+/** A device without data: shipments come from an Excel import, trucks are made by the jobs (B1). */
+export const EMPTY_START: LocalApiOptions['scenario'] = {
+  shipments: [],
+  locations: [],
+  trucks: [],
+  // Not used by open routes (A2); the API still answers it.
+  base: { baseLocationId: 0, returnToBase: false },
 }
 
 export const DEFAULT_SETTINGS: DeviceSettings = {
@@ -192,7 +201,15 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     geocodeCache[placeKey(place)]?.found === false
       ? `Nominatim ranije nije pronašao „${place.name}“; pošiljka će imati status „Nejasna lokacija“.`
       : null
-  const imports = createImportStore({ shipments, locations, readWorkbook, locate, placeWarning })
+  const imports = createImportStore({
+    shipments,
+    locations,
+    readWorkbook,
+    locate,
+    placeWarning,
+    // Kept jobs name their shipments by id, also after "Ukloni sve pošiljke".
+    firstFreeShipmentId: () => Math.max(0, ...[...jobs.values()].flatMap((j) => j.input.shipments.map((s) => s.id))) + 1,
+  })
   // Jobs run one at a time, in the order they were created (as on the backend).
   let queue: Promise<void> = Promise.resolve()
   // Writes go one after another; each writes the state as it is when its turn comes.
@@ -646,6 +663,25 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     getImportPreview: (importId) => respond(() => imports.preview(importId)),
     updateImportRow: (importId, rowNumber, patch) => respond(() => imports.updateRow(importId, rowNumber, patch)),
     commitImport: (importId, commitOptions) => change(() => imports.commit(importId, commitOptions?.onProgress)),
+
+    deleteAllShipments: () =>
+      change(() => {
+        const running = activeJob()
+        if (running) {
+          throw new ApiError({
+            title: 'Optimizacija je u toku',
+            status: 409,
+            detail: `Optimizacija #${running.id} je u toku; pošiljke se mogu ukloniti kada se završi.`,
+          })
+        }
+        const removed = shipments.length
+        shipments.splice(0)
+        // Places of the kept jobs stay, so an earlier result still names its stops.
+        const used = new Set([scenario.base.baseLocationId, ...[...jobs.values()].flatMap((j) => j.input.locationIds)])
+        const before = locations.length
+        locations.splice(0, locations.length, ...locations.filter((l) => used.has(l.id)))
+        return { shipments: removed, locations: before - locations.length }
+      }),
 
     getDeviceSettings: () => respond(() => settings),
 

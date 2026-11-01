@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
 import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
-import { createLocalApiClient, DEFAULT_SETTINGS, KEPT_JOBS, KEPT_ROUTE_LINES, type LocalData } from '../../src/api/local/localClient'
+import {
+  createLocalApiClient,
+  DEFAULT_SETTINGS,
+  EMPTY_START,
+  KEPT_JOBS,
+  KEPT_ROUTE_LINES,
+  type LocalApiOptions,
+  type LocalData,
+} from '../../src/api/local/localClient'
 import { TERMINAL_JOB_STATUSES, type OptimizationJob, type OrsProfile, type RouteStop } from '../../src/api/types'
 import type { SolverRunner } from '../../src/domain/optimization/solverRunner'
 import { runInThread } from '../../src/domain/optimization/solverRunner'
@@ -849,5 +857,82 @@ describe('road distances from OpenRouteService on the device', () => {
       expect(kept.slice(0, 2)).toEqual(['old-1', 'old-2'])
       expect(kept.at(-1)).toMatch(/^driving-hgv\|/)
     })
+  })
+})
+
+describe('an empty device and a new week', () => {
+  /** Nominatim that finds every place at the same point. */
+  const anywhere = {
+    fetch: (async (input: RequestInfo | URL) =>
+      new Response(JSON.stringify([{ lat: '45.0', lon: '20.0', display_name: new URL(String(input)).searchParams.get('q') }]))) as typeof globalThis.fetch,
+    minIntervalMs: 0,
+  }
+
+  function device(scenario: LocalApiOptions['scenario'], store = createMemoryStore<LocalData>(), runSolver: SolverRunner = steps) {
+    return createLocalApiClient({
+      scenario,
+      runSolver,
+      store,
+      readWorkbook: async () => [{ sheet: 'Sheet1', data: SHEET }],
+      nominatim: anywhere,
+    })
+  }
+
+  async function importSheet(api: ApiClient, name: string) {
+    const { importId } = await api.createImport(new File(['fake'], name))
+    await api.setImportMapping(importId, { sheetName: 'Sheet1', headerRow: 1, columns: { relation: 0, weight: 1, ldm: 2 } })
+    return api.commitImport(importId)
+  }
+
+  it('starts without shipments, places and trucks, and imports into that', async () => {
+    const api = device(EMPTY_START)
+    expect([await api.listShipments(), await api.listLocations(), await api.listTrucks()]).toEqual([[], [], []])
+    expect((await rejection(api.createOptimizationJob(REQUEST))).problem.detail).toBe('Nema pošiljki za optimizaciju.')
+
+    expect((await importSheet(api, 'Nedelja-1.xlsx')).created).toBe(1)
+    const { id } = await api.createOptimizationJob(REQUEST)
+    expect((await settle(api, id)).status).toBe('COMPLETED')
+    // The job made its own truck (B1).
+    expect((await api.listTrucks()).map((t) => t.name)).toEqual(['Kamion 1'])
+  })
+
+  it('removes all shipments and the places no kept result uses, and stores that', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = device(SCENARIOS.small, store)
+    const before = await api.listLocations()
+    // Without a job only the base stays.
+    expect(await api.deleteAllShipments()).toEqual({ shipments: 5, locations: before.length - 1 })
+    expect(await api.listShipments()).toEqual([])
+    expect((await api.listLocations()).map((l) => l.id)).toEqual([SCENARIOS.small.base.baseLocationId])
+    expect(storedData(store).shipments).toEqual([])
+  })
+
+  it('keeps the places of a kept result, and never gives a removed shipment id again', async () => {
+    const api = device(SCENARIOS.small)
+    const { id } = await api.createOptimizationJob(REQUEST)
+    expect((await settle(api, id)).status).toBe('COMPLETED')
+    const result = await api.getOptimizationResult(id)
+    const resultPlaces = new Set(result.routes.flatMap((r) => r.stops.map((s) => s.locationId)))
+
+    await api.deleteAllShipments()
+    const kept = new Set((await api.listLocations()).map((l) => l.id))
+    expect([...resultPlaces].every((place) => kept.has(place))).toBe(true)
+
+    await importSheet(api, 'Nedelja-2.xlsx')
+    const [created] = await api.listShipments()
+    const oldIds = SCENARIOS.small.shipments.map((s) => s.id)
+    expect(created.id).toBeGreaterThan(Math.max(...oldIds))
+  })
+
+  it('answers 409 while a job runs', async () => {
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const api = device(SCENARIOS.small, createMemoryStore<LocalData>(), (input, options) => held.then(() => steps(input, options)))
+    const { id } = await api.createOptimizationJob(REQUEST)
+    const error = await rejection(api.deleteAllShipments())
+    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija #${id} je u toku; pošiljke se mogu ukloniti kada se završi.` })
+    expect(await api.listShipments()).toHaveLength(5)
+    release()
+    await settle(api, id)
   })
 })

@@ -1,7 +1,10 @@
-import { useCallback } from 'react'
-import { useNavigate } from 'react-router'
+import { useCallback, useState } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
+import { apiMode } from '../../api/apiMode'
+import { describeError } from '../../api/client'
 import { Badge, type BadgeTone } from '../../components/Badge'
+import { Notice } from '../../components/Notice'
 import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { CSV_BOM } from '../../format/csv'
@@ -17,6 +20,11 @@ import {
 } from './shipmentRows'
 import { shipmentsCsvFileName, shipmentsToCsv } from './shipmentsCsv'
 
+// The backend has no "remove all shipments"; the mock and the device do.
+const CAN_DELETE_ALL = apiMode() !== 'server'
+// Weight limits a truck's load only in the application on the device (B2).
+const WEIGHT_HINT = apiMode() === 'local' ? 'Zbir po kamionu ne sme preći nosivost' : 'Informativno; nije ograničenje u optimizaciji'
+
 const STATUS_TONES: Record<ShipmentStatus, BadgeTone> = {
   OK: 'success',
   MANUAL: 'info',
@@ -31,6 +39,22 @@ export function ShipmentsPage() {
     return buildShipmentRows(shipments, locations)
   }, [api])
   const [rows, reload] = useAsyncData(load)
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function deleteAll() {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await api.deleteAllShipments()
+      setConfirming(false)
+      reload()
+    } catch (error) {
+      setDeleteError(describeError(error))
+    }
+    setDeleting(false)
+  }
 
   const exportCsv = () => {
     if (rows.status !== 'success') return
@@ -46,12 +70,49 @@ export function ShipmentsPage() {
             <button type="button" onClick={exportCsv} disabled={rows.status !== 'success' || rows.data.length === 0}>
               Izvezi CSV
             </button>
+            {CAN_DELETE_ALL && (
+              <button
+                type="button"
+                onClick={() => setConfirming(true)}
+                disabled={rows.status !== 'success' || rows.data.length === 0 || confirming}
+              >
+                Ukloni sve pošiljke
+              </button>
+            )}
             <button type="button" className="button--primary" onClick={() => navigate('/shipments/import')}>
               Uvezi Excel
             </button>
           </>
         }
       />
+
+      {confirming && rows.status === 'success' && (
+        <Notice tone="warning" title={`Ukloniti sve pošiljke (${rows.data.length})?`} role="status">
+          <p>
+            Brišu se pošiljke i mesta koja više nijedan rezultat ne koristi. Kamioni, poslednji rezultati i zapamćene
+            koordinate i kilometraže ostaju, pa se nova nedelja uvozi kao nov Excel.
+            {apiMode() === 'local' && (
+              <>
+                {' '}
+                Ako želite kopiju sadašnjih podataka, prvo ih <Link to="/settings">izvezite u Podešavanjima</Link>.
+              </>
+            )}
+          </p>
+          {deleteError && (
+            <p role="alert" className="text--error">
+              Uklanjanje nije uspelo: {deleteError}
+            </p>
+          )}
+          <div className="form-actions">
+            <button type="button" className="button--danger" onClick={() => void deleteAll()} disabled={deleting}>
+              {deleting ? 'Uklanjanje…' : 'Da, ukloni sve'}
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} disabled={deleting}>
+              Otkaži
+            </button>
+          </div>
+        </Notice>
+      )}
 
       {rows.status === 'loading' && <LoadingState label="Učitavanje pošiljki…" />}
       {rows.status === 'error' && <ErrorState title="Pošiljke nisu učitane" message={rows.message} onRetry={reload} />}
@@ -87,7 +148,7 @@ function ShipmentTable({ rows }: { rows: ShipmentRow[] }) {
               <th scope="col" className="num">
                 LDM
               </th>
-              <th scope="col" className="num" title="Informativno; nije ograničenje u optimizaciji">
+              <th scope="col" className="num" title={WEIGHT_HINT}>
                 Težina (kg)
               </th>
               <th scope="col">Dimenzije (D × Š × V)</th>
