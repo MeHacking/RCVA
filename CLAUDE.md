@@ -9,8 +9,36 @@ Poslednje ažuriranje: 01.11.2026, korak 4d (izvoz i uvoz podataka u fajl); vide
 ## Gde smo stali (01.11.2026)
 
 **Sledeće** (redosled dogovoren sa korisnikom 01.11.2026: 1, pa 2, pa 3): ~~1. upozorenja
-na Pregledu~~ (urađeno, videti niže), **2. podrazumevani režim `local`**, 3. pakovanje (PC,
-pa telefon kao Capacitor). Korak 4 na putu B je završen.
+na Pregledu~~ i ~~2. podrazumevani režim `local`~~ (urađeno, videti niže), **3. pakovanje**
+(PC, pa telefon kao Capacitor; plan predložiti i potvrditi pre početka). Korak 4 na putu B
+je završen.
+
+**Podrazumevani režim `local` (urađeno 01.11.2026)**. Odluke korisnika 01.11.2026: prazan
+uređaj kreće **bez podataka** (probni samo sa `VITE_MOCK_SCENARIO`), i dodato je **„Ukloni
+sve pošiljke“** (brisanje po redu nije traženo):
+- `apiMode()` podrazumevano `local`; `startingScenario(mode)`: `VITE_MOCK_SCENARIO`, inače
+  `small` za mock i `null` za uređaj (tada `EMPTY_START` iz `localClient`; baza id 0, ne
+  koristi se kod otvorenih ruta). Bočna traka: „Na uređaju“ ili „Na uređaju (probni početni
+  podaci)“.
+- `ApiClient.deleteAllShipments()` (NOT IN SPEC v2): na uređaju briše pošiljke i mesta koja
+  nijedan sačuvani posao ne koristi (mesta rezultata ostaju, da stari rezultat ima nazive);
+  409 dok posao čeka ili radi. Mock briše samo pošiljke; `httpClient` 404 (dugme se u režimu
+  `server` ne prikazuje). Ekran Pošiljke: dugme sa potvrdom (u režimu `local` link na izvoz
+  u Podešavanjima).
+- **Zamka nađena usput**: uvoz je davao id `max + 1`, pa bi posle brisanja nove pošiljke
+  dobile id-jeve iz sačuvanih rezultata (stari rezultat bi pokazivao pogrešne pošiljke).
+  `createImportStore` sada ima `firstFreeShipmentId`, a `localClient` daje najveći id iz
+  sačuvanih poslova + 1.
+- Naslov kolone „Težina (kg)“ u režimu `local`: „Zbir po kamionu ne sme preći nosivost“
+  (ranije svuda „Informativno; nije ograničenje“, što na uređaju nije tačno).
+- Playwright: mock serveri dobijaju `VITE_API_MODE=mock`; nov server 5178 bez `VITE_`
+  promenljivih i `tests/e2e/local-empty/` (podrazumevani režim i prazan početak).
+- Testovi: `apiMode.test.ts` (3), 4 nova u `localClient.test.ts` (prazan početak i uvoz,
+  brisanje i čuvanje, mesta rezultata i id posle brisanja, 409), e2e
+  `local/deleteShipments.local.spec.ts` i `local-empty/emptyDevice.spec.ts`. Provereno na
+  pokvarenom kodu (12 izmena): svaka obara testove.
+- Ograničenje: posle „Ukloni sve pošiljke“ stari rezultat u spisku stanica pokazuje
+  pošiljke kao `#id` (pošiljke više ne postoje; mesta da).
 
 **Upozorenja na Pregledu (urađeno 01.11.2026)**: Pregled više ne računa sam, nego koristi
 iste provere kao posao pre pokretanja (`feasibility.ts`, `provenFindings`: tekst i da li se
@@ -383,8 +411,8 @@ Rezultat se prikazuje kao spisak ruta (kasnije mapa) i kao 3D raspored robe u ka
   Apache POI, Timefold Solver 2.7.1 (skor Hard/Medium/Soft: hard = LDM preko kapaciteta,
   medium = broj kamiona, soft = metri), nezavisni `SolutionValidator`. Rastojanja su za sada
   vazdušna linija (haversine); planirano: OSRM, geokodiranje, PostgreSQL.
-- Frontend: React + TypeScript + Vite. Radi nad mock API-jem (podrazumevano) ili, u režimu
-  `server`, potpuno nad backend-om.
+- Frontend: React + TypeScript + Vite. Podrazumevano radi na uređaju (režim `local`, put B);
+  može i nad mock API-jem ili, u režimu `server`, potpuno nad backend-om.
 
 ## Izvori istine
 
@@ -456,15 +484,15 @@ RCVA/
 
 ```bash
 cd frontend
-npm run dev                          # http://localhost:5173, sve na mock-u, scenario "small"
-VITE_MOCK_SCENARIO=test7 npm run dev # i: proven, notFound
-VITE_API_MODE=local npm run dev      # na uređaju: prava optimizacija u pregledaču (put B)
+npm run dev                          # http://localhost:5173, na uređaju (put B), prazan početak
+VITE_MOCK_SCENARIO=small npm run dev # na uređaju, probni početni podaci (i: test7, proven, notFound)
+VITE_API_MODE=mock npm run dev       # mock, fiksan ishod po scenariju (podrazumevano "small")
 VITE_API_MODE=server npm run dev     # sve preko backend-a (Vite proxy /api -> :8080)
 npm run build                        # tsc -b && vite build
 npm run lint
 npm test                             # Vitest (logika, bez DOM-a)
 npm run test:oracle                  # TS solver protiv Timefold-a, oko 5 min (ORACLE_MS=2000 za kraće)
-npm run test:e2e                     # Playwright/Chromium nad mock-om; dev serveri 5174-5176
+npm run test:e2e                     # Playwright/Chromium; dev serveri 5174-5178 (videti niže)
 npm run test:e2e:server              # Playwright nad pravim backend-om (sam ga diže; treba Java 21)
 
 cd backend
@@ -475,21 +503,26 @@ cd backend
 ```
 
 Izvor podataka bira `VITE_API_MODE` (`src/api/apiMode.ts`, `src/api/createApiClient.ts`):
-`mock` (podrazumevano; fiksan ishod po scenariju), `local` (podaci scenarija kao početak,
-prava optimizacija u pregledaču) ili `server`. U režimu `server` sve ide sa backend-a, a
-`VITE_MOCK_SCENARIO` se ne koristi. Bočna traka uvek prikazuje izvor podataka.
+`local` (podrazumevano od 01.11.2026; podaci u pregledaču, prava optimizacija; prazan
+uređaj kreće bez podataka, a sa `VITE_MOCK_SCENARIO` od tog scenarija), `mock` (fiksan
+ishod po scenariju, podrazumevano `small`) ili `server`. U režimu `server` sve ide sa
+backend-a, a `VITE_MOCK_SCENARIO` se ne koristi. Scenario važi samo za prazan uređaj; već
+sačuvani podaci se ne menjaju. Bočna traka uvek prikazuje izvor podataka („Na uređaju“, sa
+„(probni početni podaci)“ kad je zadat scenario).
 
 Serverski e2e testovi dele jedan backend i izvršavaju se abecedno po fajlu:
 `optimization.server` mora ići pre `shipmentImport.server`, jer uvoz dodaje pošiljke bez
 koordinata, a sa njima server odbija optimizaciju (409).
 
-Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5175) i
-`notFound` (5176), i jedan u režimu `local` nad `small` (5177). Testovi u
-`tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
-na lokalni.
+Playwright pokreće po jedan dev server za mock scenarije `small` (5174), `proven` (5175) i
+`notFound` (5176) (sa `VITE_API_MODE=mock`, jer je podrazumevani režim `local`), jedan u
+režimu `local` nad `small` (5177) i jedan bez ijedne `VITE_` promenljive (5178, kao `npm
+run dev`: podrazumevani režim, prazan uređaj). Testovi u
+`tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
+na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (01.11.2026, posle upozorenja na Pregledu): frontend tsc, lint i build čisti, 321 Vitest
-testova i Playwright 58 (mock 43 + local 15) prolaze; serverski e2e 9 poslednji put
+Stanje (01.11.2026, posle podrazumevanog režima `local`): frontend tsc, lint i build čisti,
+328 Vitest testova i Playwright 60 (mock 43 + local 16 + local-empty 1) prolaze; serverski e2e 9 poslednji put
 31.10.2026 (posle toga `httpClient` je dobio samo metode koje vraćaju `null` ili 404);
 `test:oracle` prošao 30.10.2026 (solver posle toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
