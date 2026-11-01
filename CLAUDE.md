@@ -4,7 +4,9 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 01.11.2026, korak 4d (izvoz i uvoz podataka u fajl); videti „Gde smo stali“.
+Poslednje ažuriranje: 01.11.2026, kraj sesije (linije po putu, nova ORS adresa, izvoz/uvoz
+podataka, upozorenja na Pregledu, režim `local` podrazumevano, aplikacija za PC); videti
+„Gde smo stali“. Sve je push-ovano na `origin/main` 01.11.2026.
 
 ## Gde smo stali (01.11.2026)
 
