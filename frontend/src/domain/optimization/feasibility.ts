@@ -6,44 +6,66 @@ import { weightOf, type JobTruck } from './job'
 // plus weight (B2). With two phases per route the whole load is on a truck at once, so a
 // truck's LDM and weight limit the sums over its shipments. Rear loading never makes a set
 // of shipments infeasible (it only makes the route longer), so it is not checked here.
-// The dashboard warnings (domain/capacity.ts) do not have weight yet.
+// The dashboard warns with the same checks (over domain/fleet.ts planningFleet).
+
+/** One reason the job cannot have a solution, and whether the shipments or the fleet should change. */
+export interface ProvenFinding {
+  text: string
+  about: 'shipment' | 'fleet'
+}
+
+/**
+ * `totals: false` for a fleet with a standard truck per shipment (on the device, B1): there
+ * a total can exceed the fleet only because of a shipment already named, and "more than
+ * the available trucks" would only mislead.
+ */
+export interface ProvenOptions {
+  totals?: boolean
+}
 
 /** Reasons the job cannot have a solution (PROVEN); empty when nothing is proven. */
-export function provenCauses(shipments: Shipment[], trucks: JobTruck[]): string[] {
-  const causes: string[] = []
-  if (shipments.length === 0) return causes
-  if (trucks.length === 0) return ['Nijedan kamion nije dostupan.']
+export function provenCauses(shipments: Shipment[], trucks: JobTruck[], options?: ProvenOptions): string[] {
+  return provenFindings(shipments, trucks, options).map((f) => f.text)
+}
+
+export function provenFindings(shipments: Shipment[], trucks: JobTruck[], { totals = true }: ProvenOptions = {}): ProvenFinding[] {
+  const findings: ProvenFinding[] = []
+  if (shipments.length === 0) return findings
+  if (trucks.length === 0) return [{ text: 'Nijedan kamion nije dostupan.', about: 'fleet' }]
+  const shipmentCause = (text: string) => findings.push({ text, about: 'shipment' })
+  const fleetCause = (text: string) => findings.push({ text, about: 'fleet' })
 
   const largestLdm = Math.max(...trucks.map((t) => t.capacityLdmTenths))
   const largestKg = Math.max(...trucks.map((t) => t.capacityKg))
   for (const shipment of shipments) {
     const kg = weightOf(shipment)
     if (shipment.ldmTenths > largestLdm) {
-      causes.push(
+      shipmentCause(
         `Pošiljka ${shipment.externalId} (${formatLdm(shipment.ldmTenths)} LDM) je veća od najvećeg kamiona (${formatLdm(largestLdm)} LDM).`,
       )
     } else if (kg > largestKg) {
-      causes.push(
+      shipmentCause(
         `Pošiljka ${shipment.externalId} (${formatKg(kg)} kg) je teža od najveće nosivosti kamiona (${formatKg(largestKg)} kg).`,
       )
     } else if (!trucks.some((t) => shipment.ldmTenths <= t.capacityLdmTenths && kg <= t.capacityKg)) {
-      causes.push(
+      shipmentCause(
         `Pošiljka ${shipment.externalId} (${formatLdm(shipment.ldmTenths)} LDM, ${formatKg(kg)} kg) ne staje ni u jedan kamion: nijedan nema i dovoljno mesta i dovoljnu nosivost.`,
       )
     }
   }
+  if (!totals) return findings
 
   const totalLdm = sum(shipments.map((s) => s.ldmTenths))
   const capacityLdm = sum(trucks.map((t) => t.capacityLdmTenths))
   if (totalLdm > capacityLdm) {
-    causes.push(`Ukupno ${formatLdm(totalLdm)} LDM je više od kapaciteta dostupnih kamiona (${formatLdm(capacityLdm)} LDM).`)
+    fleetCause(`Ukupno ${formatLdm(totalLdm)} LDM je više od kapaciteta dostupnih kamiona (${formatLdm(capacityLdm)} LDM).`)
   }
   const totalKg = sum(shipments.map(weightOf))
   const capacityKg = sum(trucks.map((t) => t.capacityKg))
   if (totalKg > capacityKg) {
-    causes.push(`Ukupno ${formatKg(totalKg)} kg je više od nosivosti dostupnih kamiona (${formatKg(capacityKg)} kg).`)
+    fleetCause(`Ukupno ${formatKg(totalKg)} kg je više od nosivosti dostupnih kamiona (${formatKg(capacityKg)} kg).`)
   }
-  return causes
+  return findings
 }
 
 /**

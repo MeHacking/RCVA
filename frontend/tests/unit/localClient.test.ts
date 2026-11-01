@@ -160,6 +160,11 @@ describe('local optimization', () => {
     }
     const error = await rejection(setup(tooHeavy).createOptimizationJob(REQUEST))
     expect(error.problem.causes).toEqual(['Pošiljka S-101 (30000 kg) je teža od najveće nosivosti kamiona (24000 kg).'])
+
+    // Alone and without own trucks it gets one standard truck; the total over it is not a second reason.
+    const alone: Scenario = { ...tooHeavy, trucks: [], shipments: tooHeavy.shipments.filter((s) => s.id === 101) }
+    const single = await rejection(setup(alone).createOptimizationJob(REQUEST))
+    expect(single.problem.causes).toEqual(['Pošiljka S-101 (30000 kg) je teža od najveće nosivosti kamiona (24000 kg).'])
   })
 
   it('answers 409 for shipments without coordinates', async () => {

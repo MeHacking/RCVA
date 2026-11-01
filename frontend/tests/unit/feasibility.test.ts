@@ -71,6 +71,16 @@ describe('provenCauses', () => {
     ])
   })
 
+  it('leaves out the totals for a fleet with a truck per shipment, but still names each shipment', () => {
+    const shipments = [shipment(1, 20, 18_000), shipment(2, 20, 18_000), shipment(3, 20, 18_000)]
+    expect(provenCauses(shipments, standardFleet(2), { totals: false })).toEqual([])
+    // One shipment of 30 t on one standard truck: only the shipment is named, not "54000 kg is more than...".
+    expect(provenCauses([shipment(1, 20, 30_000)], standardFleet(1), { totals: false })).toEqual([
+      'Pošiljka P-1 (30000 kg) je teža od najveće nosivosti kamiona (24000 kg).',
+    ])
+    expect(provenCauses([shipment(1, 20, 30_000)], standardFleet(1))).toHaveLength(2)
+  })
+
   it('does not limit weight on trucks without a payload (the Java model)', () => {
     expect(provenCauses([shipment(1, 50, 1_000_000)], [truck(1, 136, Infinity)])).toEqual([])
   })

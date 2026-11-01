@@ -1,11 +1,7 @@
 import type { Location, Shipment, Truck } from '../../api/types'
-import {
-  availableCapacity,
-  largestAvailableCapacity,
-  oversizedShipments,
-  trucksLowerBound,
-} from '../../domain/capacity'
-import { formatLdm } from '../../format/units'
+import { availableCapacity } from '../../domain/capacity'
+import { planningFleet } from '../../domain/fleet'
+import { provenFindings, trucksLowerBound } from '../../domain/optimization/feasibility'
 import { buildShipmentRows, shipmentTotals } from '../shipments/shipmentRows'
 
 export interface DashboardWarning {
@@ -21,47 +17,33 @@ export interface DashboardModel {
   availableTrucks: number
   totalTrucks: number
   availableCapacityTenths: number
-  /** null when the available fleet cannot carry everything (or a shipment fits no truck) */
+  /** the application adds standard trucks as needed (on the device), so their number is not limited */
+  unlimitedFleet: boolean
+  /** by LDM and weight; null when the fleet cannot carry everything (or a shipment fits no truck) */
   trucksLowerBound: number | null
   warnings: DashboardWarning[]
 }
 
 /**
- * Figures and warnings for the dashboard. The danger warnings are the checks that
- * prove infeasibility before solving (Spec v2, section 4), so the user sees them
- * before starting a job that would end with HTTP 422.
+ * Figures and warnings for the dashboard. The danger warnings are the checks a job makes
+ * before solving (PROVEN, feasibility.ts), over the fleet the job would get
+ * (planningFleet: on the device with standard trucks added), so the user sees exactly
+ * the reasons a job would be refused with HTTP 422, weight included.
  */
-export function buildDashboardModel(shipments: Shipment[], locations: Location[], trucks: Truck[]): DashboardModel {
+export function buildDashboardModel(
+  shipments: Shipment[],
+  locations: Location[],
+  trucks: Truck[],
+  { unlimitedFleet = false }: { unlimitedFleet?: boolean } = {},
+): DashboardModel {
   const totals = shipmentTotals(buildShipmentRows(shipments, locations))
-  const capacity = availableCapacity(trucks)
-  const available = trucks.filter((t) => t.available).length
-  const warnings: DashboardWarning[] = []
-
-  if (shipments.length > 0 && available === 0) {
-    warnings.push({
-      tone: 'danger',
-      text: 'Nijedan kamion nije označen kao dostupan, pa optimizacija ne može da se pokrene.',
-      link: { to: '/trucks', label: 'Kamioni' },
-    })
-  }
-
-  const largest = largestAvailableCapacity(trucks)
-  const oversized = oversizedShipments(shipments, trucks)
-  for (const shipment of oversized) {
-    warnings.push({
-      tone: 'danger',
-      text: `Pošiljka ${shipment.externalId} (${formatLdm(shipment.ldmTenths)} LDM) je veća od najvećeg dostupnog kamiona (${formatLdm(largest ?? 0)} LDM).`,
-      link: { to: '/shipments', label: 'Pošiljke' },
-    })
-  }
-
-  if (available > 0 && totals.ldmTenths > capacity) {
-    warnings.push({
-      tone: 'danger',
-      text: `Ukupno ${formatLdm(totals.ldmTenths)} LDM je više od kapaciteta dostupnih kamiona (${formatLdm(capacity)} LDM).`,
-      link: { to: '/trucks', label: 'Kamioni' },
-    })
-  }
+  const fleet = planningFleet(trucks, shipments.length, unlimitedFleet)
+  const findings = provenFindings(shipments, fleet, { totals: !unlimitedFleet })
+  const warnings: DashboardWarning[] = findings.map((finding) => ({
+    tone: 'danger',
+    text: finding.text,
+    link: finding.about === 'shipment' ? { to: '/shipments', label: 'Pošiljke' } : { to: '/trucks', label: 'Kamioni' },
+  }))
 
   if (totals.withErrors > 0) {
     warnings.push({
@@ -75,11 +57,12 @@ export function buildDashboardModel(shipments: Shipment[], locations: Location[]
     shipmentCount: totals.count,
     totalLdmTenths: totals.ldmTenths,
     shipmentsWithErrors: totals.withErrors,
-    availableTrucks: available,
+    availableTrucks: trucks.filter((t) => t.available).length,
     totalTrucks: trucks.length,
-    availableCapacityTenths: capacity,
-    // A bound next to a shipment that fits no truck would suggest a solution exists.
-    trucksLowerBound: shipments.length > 0 && oversized.length === 0 ? trucksLowerBound(shipments, trucks) : null,
+    availableCapacityTenths: availableCapacity(trucks),
+    unlimitedFleet,
+    // A bound next to a proven reason would suggest a solution exists.
+    trucksLowerBound: shipments.length > 0 && findings.length === 0 ? trucksLowerBound(shipments, fleet) : null,
     warnings,
   }
 }

@@ -1,5 +1,5 @@
 import type { Scenario } from '../../fixtures'
-import { STANDARD_TRUCK } from '../../domain/fleet'
+import { STANDARD_TRUCK, standardJobTruck, toJobTruck } from '../../domain/fleet'
 import { haversineMatrix, type LatLon } from '../../domain/optimization/distance'
 import { provenCauses } from '../../domain/optimization/feasibility'
 import type { JobInput, JobTruck } from '../../domain/optimization/job'
@@ -333,11 +333,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       innerWidthMm: STANDARD_TRUCK.innerWidthMm,
       innerHeightMm: STANDARD_TRUCK.innerHeightMm,
     }))
-    const jobTrucks: JobTruck[] = [
-      ...own.map((t) => ({ id: t.id, name: t.name, capacityLdmTenths: t.capacityLdmTenths, capacityKg: t.capacityKg ?? Infinity })),
-      ...added.map((t) => ({ id: t.id, name: 'Standardna cerada', capacityLdmTenths: t.capacityLdmTenths, capacityKg: STANDARD_TRUCK.capacityKg })),
-    ]
-    const causes = provenCauses(chosenShipments, jobTrucks)
+    const jobTrucks: JobTruck[] = [...own.map(toJobTruck), ...added.map((t) => standardJobTruck(t.id))]
+    const causes = provenCauses(chosenShipments, jobTrucks, { totals: false })
     if (causes.length > 0) {
       throw new ApiError({
         title: 'Dokazano neizvodljivo',

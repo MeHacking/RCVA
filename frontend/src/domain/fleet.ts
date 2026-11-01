@@ -1,3 +1,6 @@
+import type { Truck } from '../api/types'
+import type { JobTruck } from './optimization/job'
+
 // The application makes the fleet itself (process owner's answer B1): "Kamion 1",
 // "Kamion 2"..., all standard curtain-siders; the user renames them and changes their
 // dimensions later.
@@ -31,4 +34,24 @@ export interface FleetTruck {
  */
 export function standardFleet(count: number): FleetTruck[] {
   return Array.from({ length: count }, (_, i) => ({ id: i + 1, name: `Kamion ${i + 1}`, ...STANDARD_TRUCK }))
+}
+
+/** A truck as a job sees it: no payload limit is Infinity (as in the Java model). */
+export function toJobTruck(truck: Truck): JobTruck {
+  return { id: truck.id, name: truck.name, capacityLdmTenths: truck.capacityLdmTenths, capacityKg: truck.capacityKg ?? Infinity }
+}
+
+/** A standard curtain-sider the application adds to a job on the device (B1). */
+export function standardJobTruck(id: number): JobTruck {
+  return { id, name: 'Standardna cerada', capacityLdmTenths: STANDARD_TRUCK.capacityLdmTenths, capacityKg: STANDARD_TRUCK.capacityKg }
+}
+
+/**
+ * The trucks a job may use: the available ones and, on the device, one standard truck per
+ * shipment (`unlimited`, B1), so their number is not limited. The dashboard checks this
+ * fleet, so it warns exactly when a job would be refused as PROVEN.
+ */
+export function planningFleet(trucks: Truck[], shipmentCount: number, unlimited: boolean): JobTruck[] {
+  const own = trucks.filter((t) => t.available).map(toJobTruck)
+  return unlimited ? [...own, ...Array.from({ length: shipmentCount }, (_, i) => standardJobTruck(-(i + 1)))] : own
 }

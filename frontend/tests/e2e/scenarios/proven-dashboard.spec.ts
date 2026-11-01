@@ -6,7 +6,7 @@ test('dashboard shows the oversized shipment as a danger warning', async ({ page
   await page.goto('/')
   const warnings = page.getByRole('region', { name: 'Upozorenja' })
   await expect(warnings).toContainText(
-    'Pošiljka S-401 (14,0 LDM) je veća od najvećeg dostupnog kamiona (13,6 LDM).',
+    'Pošiljka S-401 (14,0 LDM) je veća od najvećeg kamiona (13,6 LDM).',
   )
-  await expect(page.locator('.stat').filter({ hasText: 'Ukupno LDM' })).toContainText('dostupni kamioni nisu dovoljni')
+  await expect(page.locator('.stat').filter({ hasText: 'Ukupno LDM' })).toContainText('kamioni nisu dovoljni (videti upozorenja)')
 })

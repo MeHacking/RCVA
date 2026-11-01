@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
+import { apiMode } from '../../api/apiMode'
 import { Badge } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
@@ -15,7 +16,8 @@ export function DashboardPage() {
   const api = useApi()
   const load = useCallback(async () => {
     const [shipments, locations, trucks] = await Promise.all([api.listShipments(), api.listLocations(), api.listTrucks()])
-    return buildDashboardModel(shipments, locations, trucks)
+    // On the device the application adds standard trucks to every job (B1).
+    return buildDashboardModel(shipments, locations, trucks, { unlimitedFleet: apiMode() === 'local' })
   }, [api])
   const [model, reload] = useAsyncData(load)
 
@@ -53,7 +55,7 @@ function Cards({ model }: { model: DashboardModel }) {
           {model.shipmentCount === 0
             ? 'nema pošiljki'
             : model.trucksLowerBound === null
-              ? 'dostupni kamioni nisu dovoljni'
+              ? 'kamioni nisu dovoljni (videti upozorenja)'
               : `najmanje kamiona po kapacitetu: ${model.trucksLowerBound}`}
         </dd>
       </div>
@@ -62,6 +64,7 @@ function Cards({ model }: { model: DashboardModel }) {
         <dd className="stat__value">{model.availableTrucks}</dd>
         <dd className="stat__hint">
           dostupno od {model.totalTrucks} · {formatLdm(model.availableCapacityTenths)} LDM
+          {model.unlimitedFleet && ' + standardne cerade po potrebi'}
         </dd>
       </div>
       <div className="stat">
