@@ -283,6 +283,28 @@ export interface RouteLine {
   path: Array<[number, number]>
 }
 
+/** NOT IN SPEC v2: all data of the application on the device as one file ("Izvezi podatke") */
+export interface DeviceDataFile {
+  fileName: string
+  /** JSON; never holds the ORS key */
+  content: string
+}
+
+/** NOT IN SPEC v2: what a data file holds, shown before it replaces the data on the device */
+export interface DeviceDataSummary {
+  /** ISO 8601 */
+  exportedAt: string
+  shipments: number
+  locations: number
+  trucks: number
+  /** completed optimization jobs */
+  results: number
+  /** remembered coordinates, road distances and road lines */
+  geocodes: number
+  distances: number
+  routeLines: number
+}
+
 /** NOT IN SPEC v2: progress of the coordinate lookup while an import is committed */
 export interface ImportCommitProgress {
   done: number

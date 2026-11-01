@@ -225,6 +225,15 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
       respond(() => {
         throw notFound('Podešavanja postoje samo u aplikaciji na uređaju.')
       }),
+    exportDeviceData: () => respond(() => null),
+    checkDeviceData: () =>
+      respond(() => {
+        throw notFound('Izvoz i uvoz podataka postoje samo u aplikaciji na uređaju.')
+      }),
+    replaceDeviceData: () =>
+      respond(() => {
+        throw notFound('Izvoz i uvoz podataka postoje samo u aplikaciji na uređaju.')
+      }),
   }
 }
 

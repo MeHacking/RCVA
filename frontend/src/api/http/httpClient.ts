@@ -56,7 +56,15 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
       Promise.reject(
         new ApiError({ title: 'Ne postoji', status: 404, detail: 'Podešavanja postoje samo u aplikaciji na uređaju.' }),
       ),
+    // So do export and import of the data: the backend keeps its own.
+    exportDeviceData: async () => null,
+    checkDeviceData: () => Promise.reject(noDeviceData()),
+    replaceDeviceData: () => Promise.reject(noDeviceData()),
   }
+}
+
+function noDeviceData(): ApiError {
+  return new ApiError({ title: 'Ne postoji', status: 404, detail: 'Izvoz i uvoz podataka postoje samo u aplikaciji na uređaju.' })
 }
 
 /** The backend has no payload yet (B2 is only on the device): missing means not limited. */

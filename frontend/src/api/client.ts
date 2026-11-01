@@ -1,5 +1,7 @@
 import type {
   BaseSettings,
+  DeviceDataFile,
+  DeviceDataSummary,
   DeviceSettings,
   ImportCommitProgress,
   ImportCommitResult,
@@ -79,6 +81,17 @@ export interface ApiClient {
   getDeviceSettings(): Promise<DeviceSettings | null>
   /** NOT IN SPEC v2: 400 with `errors.contactEmail` for a bad e-mail; 404 where there are no settings */
   updateDeviceSettings(settings: DeviceSettings): Promise<DeviceSettings>
+
+  /** NOT IN SPEC v2: all data of the application on the device, without the ORS key; null for the mock and the backend */
+  exportDeviceData(): Promise<DeviceDataFile | null>
+  /** NOT IN SPEC v2: checks a data file and says what it holds, changing nothing; 400 with the reason for a bad file */
+  checkDeviceData(content: string): Promise<DeviceDataSummary>
+  /**
+   * NOT IN SPEC v2: replaces all data on the device with the file's (the device keeps its
+   * own ORS key). 400 for a bad file (nothing changes), 409 while a job waits or runs, 404
+   * where there is no data on the device.
+   */
+  replaceDeviceData(content: string): Promise<DeviceDataSummary>
 }
 
 export class ApiError extends Error {

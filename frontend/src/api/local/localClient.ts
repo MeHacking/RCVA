@@ -18,6 +18,7 @@ import {
 } from '../mock/import/importStore'
 import type { PlaceWarning } from '../mock/import/importRows'
 import { assertValidTruck } from '../truckValidation'
+import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from './deviceFile'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
 import { createOrsDistances, createOrsLines, pairKey, RoadDistanceError } from './openRouteService'
@@ -60,6 +61,9 @@ import {
 // Road lines for the map: asked from ORS only when the map shows a route, then kept on
 // the device by profile and stops (the last KEPT_ROUTE_LINES lines), so a route is never
 // asked twice; without a key there is no line (null) and the map draws straight lines.
+//
+// Data file (deviceFile.ts): all of the above can be exported as one file without the ORS
+// key, and a checked file replaces everything on the device; the device keeps its own key.
 
 export interface LocalApiOptions {
   /** the starting data, used only when the store is empty */
@@ -87,7 +91,7 @@ export const KEPT_JOBS = 10
 /** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
 export const KEPT_ROUTE_LINES = 50
 
-interface LocalJob {
+export interface LocalJob {
   id: number
   status: JobStatus
   infeasibilityKind: InfeasibilityKind | null
@@ -205,18 +209,26 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       nextTruckId: Math.max(0, ...scenario.trucks.map((t) => t.id)) + 1,
       nextJobId: 1,
     }
-    shipments.push(...data.shipments)
-    locations.push(...data.locations)
-    trucks.push(...data.trucks)
+    const interrupted = apply(data)
+    if (!stored || interrupted) await persist()
+  }
+
+  /** Takes over stored (or imported) data; true when a job had to be marked FAILED. */
+  function apply(data: LocalData): boolean {
+    // The arrays stay the same objects, since the import store writes into them.
+    shipments.splice(0, shipments.length, ...data.shipments)
+    locations.splice(0, locations.length, ...data.locations)
+    trucks.splice(0, trucks.length, ...data.trucks)
     nextTruckId = data.nextTruckId
     nextJobId = data.nextJobId
     settings = { ...DEFAULT_SETTINGS, ...data.settings }
     geocodeCache = data.geocodeCache ?? {}
     distanceCache = data.distanceCache ?? {}
     routeLineCache = data.routeLineCache ?? {}
+    jobs.clear()
     let interrupted = false
     for (const job of data.jobs) {
-      // The page was closed while the job waited or ran; its solver is gone.
+      // The page was closed (or the file was exported) while the job waited or ran; its solver is gone.
       if (!TERMINAL_JOB_STATUSES.includes(job.status)) {
         job.status = 'FAILED'
         job.finishedAt = new Date().toISOString()
@@ -224,24 +236,26 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }
       jobs.set(job.id, job)
     }
-    if (!stored || interrupted) await persist()
+    return interrupted
+  }
+
+  function snapshot(): Required<LocalData> {
+    return {
+      shipments,
+      locations,
+      trucks,
+      jobs: [...jobs.values()],
+      nextTruckId,
+      nextJobId,
+      settings,
+      geocodeCache,
+      distanceCache,
+      routeLineCache,
+    }
   }
 
   function persist(): Promise<void> {
-    const write = saving.then(() =>
-      store.save({
-        shipments,
-        locations,
-        trucks,
-        jobs: [...jobs.values()],
-        nextTruckId,
-        nextJobId,
-        settings,
-        geocodeCache,
-        distanceCache,
-        routeLineCache,
-      }),
-    )
+    const write = saving.then(() => store.save(snapshot()))
     saving = write.catch(() => undefined)
     return write
   }
@@ -652,6 +666,40 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         settings = { geocodingEnabled: input.geocodingEnabled, contactEmail, orsApiKey, orsProfile: input.orsProfile }
         return settings
       }),
+
+    exportDeviceData: () =>
+      respond(() => {
+        const now = new Date()
+        return { fileName: deviceFileName(now), content: writeDeviceFile(snapshot(), now) }
+      }),
+
+    checkDeviceData: (content) => respond(() => readFile(content).summary),
+
+    replaceDeviceData: (content) =>
+      change(() => {
+        const { data, summary } = readFile(content)
+        const running = activeJob()
+        if (running) {
+          throw new ApiError({
+            title: 'Optimizacija je u toku',
+            status: 409,
+            detail: `Optimizacija #${running.id} je u toku; podaci se mogu uvesti kada se završi.`,
+          })
+        }
+        // The key is never in a file: the device keeps its own.
+        apply({ ...data, settings: { ...DEFAULT_SETTINGS, ...data.settings, orsApiKey: settings.orsApiKey } })
+        return summary
+      }),
+  }
+}
+
+/** A data file, or 400 with the reason; reading it changes nothing. */
+function readFile(content: string) {
+  try {
+    return readDeviceFile(content)
+  } catch (error) {
+    if (!(error instanceof DeviceFileError)) throw error
+    throw new ApiError({ title: 'Neispravan fajl', status: 400, detail: error.message })
   }
 }
 

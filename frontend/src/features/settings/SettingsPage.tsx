@@ -6,6 +6,7 @@ import { OsmAttribution } from '../../components/OsmAttribution'
 import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { useAsyncData } from '../../hooks/useAsyncData'
+import { DeviceDataPanel } from './DeviceDataPanel'
 
 /** Settings of the application on the device; the mock and the backend have none. */
 export function SettingsPage() {
@@ -22,7 +23,10 @@ export function SettingsPage() {
       )}
       {settings.status === 'success' &&
         (settings.data ? (
-          <SettingsForm initial={settings.data} />
+          <>
+            <SettingsForm initial={settings.data} />
+            <DeviceDataPanel />
+          </>
         ) : (
           <EmptyState title="Nema podešavanja">Podešavanja postoje samo u aplikaciji na uređaju.</EmptyState>
         ))}
