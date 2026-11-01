@@ -7,9 +7,13 @@ import type { OrsProfile } from '../types'
 // routes (sources x destinations) and 50 locations per matrix request, 50 waypoints per
 // directions request, 40 requests a minute each; so requests go one at a time, 1,5 s apart.
 // Road distances are directed: A to B is not always B to A.
+//
+// The host is api.heigit.org: the old api.openrouteservice.org was deprecated on 28.04.2026
+// and is shut down on 02.-06.11.2026 (ORS forum announcement); the same keys work on both.
+// CORS on the new host checked 01.11.2026 (OPTIONS, without a key): allows any origin.
 
-export const ORS_MATRIX_URL = 'https://api.openrouteservice.org/v2/matrix'
-export const ORS_DIRECTIONS_URL = 'https://api.openrouteservice.org/v2/directions'
+export const ORS_MATRIX_URL = 'https://api.heigit.org/openrouteservice/v2/matrix'
+export const ORS_DIRECTIONS_URL = 'https://api.heigit.org/openrouteservice/v2/directions'
 export const ORS_ATTRIBUTION = '© openrouteservice.org by HeiGIT'
 export const MAX_ROUTES_PER_REQUEST = 3500
 export const MAX_LOCATIONS_PER_REQUEST = 50

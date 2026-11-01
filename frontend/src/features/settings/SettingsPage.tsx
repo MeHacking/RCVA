@@ -121,13 +121,13 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
 
       <h2 className="settings-form__section">Kilometraže</h2>
       <p className="text--muted">
-        Sa ključem za OpenRouteService optimizacija računa kilometre po putu; bez ključa računa vazdušnu liniju, i
-        rezultat to piše. Pri pokretanju se šalju samo koordinate mesta, i samo za parove mesta koji još nisu
-        izračunati; kilometraže se pamte na uređaju. Besplatan ključ se pravi na{' '}
-        <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noreferrer">
-          openrouteservice.org
-        </a>
-        .
+        Sa ključem za OpenRouteService optimizacija računa kilometre po putu, a mapa crta rute po putu; bez ključa
+        računa vazdušnu liniju, i rezultat to piše. Šalju se samo koordinate mesta, i samo ono što još nije
+        izračunato; kilometraže i linije se pamte na uređaju. Besplatan ključ je na nalogu na{' '}
+        <a href="https://account.heigit.org" target="_blank" rel="noreferrer">
+          account.heigit.org
+        </a>{' '}
+        (kartica „API Key“).
       </p>
 
       <div className="field">

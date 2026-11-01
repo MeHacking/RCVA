@@ -620,7 +620,7 @@ describe('road distances from OpenRouteService on the device', () => {
     const result = await solve(api)
 
     expect(fake.asked).toHaveLength(1)
-    expect(fake.asked[0]).toMatchObject({ url: 'https://api.openrouteservice.org/v2/matrix/driving-hgv', key: 'test-kljuc' })
+    expect(fake.asked[0]).toMatchObject({ url: 'https://api.heigit.org/openrouteservice/v2/matrix/driving-hgv', key: 'test-kljuc' })
     expect(result.distanceSource).toBe('driving-hgv')
     expect(result.validation.passed).toBe(true)
     const at = new Map((await api.listLocations()).map((l) => [l.id, l as Point]))
@@ -652,7 +652,7 @@ describe('road distances from OpenRouteService on the device', () => {
 
     await withKey(again, 'driving-car')
     expect((await solve(again)).distanceSource).toBe('driving-car')
-    expect(second.asked.map((a) => a.url)).toEqual(['https://api.openrouteservice.org/v2/matrix/driving-car'])
+    expect(second.asked.map((a) => a.url)).toEqual(['https://api.heigit.org/openrouteservice/v2/matrix/driving-car'])
   })
 
   it('creates no job when ORS does not answer (502), keeps nothing, and works once it answers', async () => {
@@ -742,7 +742,7 @@ describe('road distances from OpenRouteService on the device', () => {
       const line = await api.getRouteLine(id, route.truckId)
       const stops = await stopsOf(api, route)
       expect(fake.lines).toHaveLength(1)
-      expect(fake.lines[0].url).toBe('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson')
+      expect(fake.lines[0].url).toBe('https://api.heigit.org/openrouteservice/v2/directions/driving-hgv/geojson')
       expect(fake.lines[0].waypoints).toEqual(stops.map((p) => [p![1], p![0]]))
       expect(line?.profile).toBe('driving-hgv')
       // Every stop, and between every two the bend of the road.

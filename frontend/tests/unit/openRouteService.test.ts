@@ -64,7 +64,7 @@ describe('OpenRouteService distances', () => {
     )
 
     expect(sent).toHaveLength(1)
-    expect(sent[0].url).toBe('https://api.openrouteservice.org/v2/matrix/driving-hgv')
+    expect(sent[0].url).toBe('https://api.heigit.org/openrouteservice/v2/matrix/driving-hgv')
     expect(sent[0].headers).toMatchObject({ Authorization: 'test-kljuc', 'Content-Type': 'application/json' })
     // Each point once, as [lon, lat]; sources and destinations point into that list.
     expect(sent[0].body).toEqual({
@@ -211,7 +211,7 @@ describe('OpenRouteService road lines', () => {
     const path = await line([POINTS[0], POINTS[0], POINTS[1], POINTS[2]], { apiKey: 'test-kljuc', profile: 'driving-car' })
 
     expect(sent).toHaveLength(1)
-    expect(sent[0].url).toBe('https://api.openrouteservice.org/v2/directions/driving-car/geojson')
+    expect(sent[0].url).toBe('https://api.heigit.org/openrouteservice/v2/directions/driving-car/geojson')
     expect(sent[0].headers).toMatchObject({ Authorization: 'test-kljuc', 'Content-Type': 'application/json' })
     expect(sent[0].body).toEqual({
       coordinates: [

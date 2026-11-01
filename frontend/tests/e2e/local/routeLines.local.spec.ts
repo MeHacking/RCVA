@@ -15,7 +15,7 @@ const CORS = {
 async function fakeOrs(page: Page) {
   const lines = { asked: 0, status: 200 }
   await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ body: TILE, contentType: 'image/png' }))
-  await page.route('https://api.openrouteservice.org/**', async (route) => {
+  await page.route('https://api.heigit.org/openrouteservice/**', async (route) => {
     const request = route.request()
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     if (request.url().includes('/directions/')) {

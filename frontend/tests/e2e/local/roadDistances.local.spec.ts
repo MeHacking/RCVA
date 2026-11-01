@@ -6,7 +6,7 @@ import { collectPageErrors } from '../consoleGuard.ts'
 
 async function fakeOrs(page: Page, status = 200) {
   const asked: { profile: string; key: string | null }[] = []
-  await page.route('https://api.openrouteservice.org/**', async (route) => {
+  await page.route('https://api.heigit.org/openrouteservice/**', async (route) => {
     const request = route.request()
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     asked.push({ profile: request.url().split('/').pop() ?? '', key: request.headers()['authorization'] ?? null })
