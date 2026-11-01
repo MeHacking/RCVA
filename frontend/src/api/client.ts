@@ -15,6 +15,7 @@ import type {
   OptimizationJobRequest,
   OptimizationResult,
   ProblemDetails,
+  RouteLine,
   Shipment,
   Truck,
   TruckInput,
@@ -52,6 +53,13 @@ export interface ApiClient {
   getOptimizationResult(id: number): Promise<OptimizationResult>
   /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */
   getLoadPlan(jobId: number, truckId: number): Promise<LoadPlan>
+  /**
+   * NOT IN SPEC v2: the route of a truck along the roads, for the map. null when there is
+   * none: the mock and the backend have no roads, and the application on the device needs
+   * an ORS key. 404 for an unknown job or truck, 409 for a job that is not COMPLETED, 502
+   * when OpenRouteService does not answer.
+   */
+  getRouteLine(jobId: number, truckId: number): Promise<RouteLine | null>
 
   /** POST /imports/excel; 415 for a non-.xlsx file, 400 when the file cannot be read */
   createImport(file: File): Promise<ImportCreated>

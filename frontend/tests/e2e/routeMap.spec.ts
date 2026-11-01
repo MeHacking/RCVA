@@ -75,6 +75,12 @@ test('draws every route and its places on the map, and only the chosen truck whe
 
   await expect(map(page)).toBeVisible()
   await expect(map(page).locator('path.map-route')).toHaveCount(2)
+  // The mock has no roads: dashed straight lines, and the caption says so.
+  await expect(map(page).locator('path.map-route--straight')).toHaveCount(2)
+  await expect(map(page).locator('path.map-route').first()).toHaveAttribute('stroke-dasharray', '8 8')
+  await expect(page.getByTestId('map-caption')).toContainText(
+    'Isprekidane linije spajaju stanice redom obilaska pravom linijom, ne po putu. U ovom režimu nema podataka o putevima.',
+  )
   const places = Number(await map(page).getAttribute('data-places'))
   expect(places).toBeGreaterThan(2)
   await expect(map(page).locator('path.map-place')).toHaveCount(places)

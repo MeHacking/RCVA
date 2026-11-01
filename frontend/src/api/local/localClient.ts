@@ -20,7 +20,7 @@ import type { PlaceWarning } from '../mock/import/importRows'
 import { assertValidTruck } from '../truckValidation'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
-import { createOrsDistances, pairKey, RoadDistanceError } from './openRouteService'
+import { createOrsDistances, createOrsLines, pairKey, RoadDistanceError } from './openRouteService'
 import {
   TERMINAL_JOB_STATUSES,
   type DeviceSettings,
@@ -32,6 +32,7 @@ import {
   type OrsProfile,
   type OptimizationJobRequest,
   type OptimizationResult,
+  type RouteLine,
   type Shipment,
   type Truck,
 } from '../types'
@@ -55,6 +56,10 @@ import {
 // an ORS key, asked only for pairs of places not asked before and kept on the device;
 // without a key, great-circle (as on the backend), and the result says which. When ORS
 // does not answer, no job is created (502): never a silent switch to great-circle.
+//
+// Road lines for the map: asked from ORS only when the map shows a route, then kept on
+// the device by profile and stops (the last KEPT_ROUTE_LINES lines), so a route is never
+// asked twice; without a key there is no line (null) and the map draws straight lines.
 
 export interface LocalApiOptions {
   /** the starting data, used only when the store is empty */
@@ -79,6 +84,8 @@ const PROFILE_LABELS: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna 
 
 /** Jobs kept on the device; older finished jobs are dropped (the screens show only the last one). */
 export const KEPT_JOBS = 10
+/** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
+export const KEPT_ROUTE_LINES = 50
 
 interface LocalJob {
   id: number
@@ -113,13 +120,18 @@ export interface LocalData {
   geocodeCache?: Record<string, GeocodeAnswer>
   /** ORS metres by `roadKey` (profile and both coordinates, directed); null: ORS finds no road */
   distanceCache?: Record<string, number | null>
+  /** ORS road lines by `lineKey` (profile and the stops in order), oldest first */
+  routeLineCache?: Record<string, RouteLine['path']>
 }
 
 /** Coordinates written to 6 decimals (about 10 cm), so a moved place is a new pair. */
+const pointKey = (p: LatLon) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`
+
 function roadKey(profile: OrsProfile, from: LatLon, to: LatLon): string {
-  const point = (p: LatLon) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`
-  return `${profile}|${point(from)}|${point(to)}`
+  return `${profile}|${pointKey(from)}|${pointKey(to)}`
 }
+
+const lineKey = (profile: OrsProfile, stops: LatLon[]) => `${profile}|${stops.map(pointKey).join(';')}`
 
 export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   const {
@@ -141,7 +153,11 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   let settings: DeviceSettings = { ...DEFAULT_SETTINGS }
   let geocodeCache: Record<string, GeocodeAnswer> = {}
   let distanceCache: Record<string, number | null> = {}
+  let routeLineCache: Record<string, RouteLine['path']> = {}
   const roadDistances = createOrsDistances(ors)
+  const roadLines = createOrsLines(ors)
+  // A line being asked for, by `lineKey`: a second request for it waits for the same answer.
+  const askingLines = new Map<string, Promise<RouteLine['path']>>()
   const geocoder = createNominatimGeocoder({
     fetch: nominatim.fetch,
     minIntervalMs: nominatim.minIntervalMs,
@@ -197,6 +213,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     settings = { ...DEFAULT_SETTINGS, ...data.settings }
     geocodeCache = data.geocodeCache ?? {}
     distanceCache = data.distanceCache ?? {}
+    routeLineCache = data.routeLineCache ?? {}
     let interrupted = false
     for (const job of data.jobs) {
       // The page was closed while the job waited or ran; its solver is gone.
@@ -222,6 +239,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         settings,
         geocodeCache,
         distanceCache,
+        routeLineCache,
       }),
     )
     saving = write.catch(() => undefined)
@@ -396,6 +414,55 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     return { distance, source: profile }
   }
 
+  /** The road line of one route, asked from ORS once per profile and stops; null without a key. */
+  async function routeLine(jobId: number, truckId: number): Promise<RouteLine | null> {
+    const job = findJob(jobId)
+    const result = completedResult(job)
+    const route = result.routes.find((r) => r.truckId === truckId)
+    if (!route) throw notFound(`Kamion ${truckId} nema rutu u poslu ${jobId}.`)
+    // The same points as on the map: the stops, and the base around them on a route that returns.
+    const base = result.openRoute ? [] : [scenario.base.baseLocationId]
+    const ids = [...base, ...route.stops.map((s) => s.locationId), ...(route.stops.length > 0 ? base : [])]
+    const byId = new Map(locations.map((l) => [l.id, l]))
+    const stops = ids.flatMap((id) => {
+      const location = byId.get(id)
+      return location && location.lat !== null && location.lon !== null ? [{ lat: location.lat, lon: location.lon }] : []
+    })
+    // The roads the job's distances were measured on; for great-circle jobs, the profile in the settings.
+    const profile = job.distanceSource && job.distanceSource !== 'airline' ? job.distanceSource : settings.orsProfile
+    const key = lineKey(profile, stops)
+    const kept = routeLineCache[key]
+    if (kept) return { profile, path: kept }
+    const apiKey = settings.orsApiKey
+    if (!apiKey) return null
+
+    let asking = askingLines.get(key)
+    if (!asking) {
+      asking = (async () => {
+        try {
+          const path = await roadLines(stops, { apiKey, profile })
+          keepLine(key, path)
+          await persist()
+          return path
+        } catch (error) {
+          if (!(error instanceof RoadDistanceError)) throw error
+          throw new ApiError({ title: 'Linija po putu nije dostupna', status: 502, detail: error.message })
+        } finally {
+          askingLines.delete(key)
+        }
+      })()
+      askingLines.set(key, asking)
+    }
+    return { profile, path: await asking }
+  }
+
+  function keepLine(key: string, path: RouteLine['path']): void {
+    delete routeLineCache[key]
+    routeLineCache[key] = path
+    const keys = Object.keys(routeLineCache)
+    for (const old of keys.slice(0, keys.length - KEPT_ROUTE_LINES)) delete routeLineCache[old]
+  }
+
   function dropOldJobs(): void {
     const ids = [...jobs.keys()].sort((a, b) => b - a)
     for (const id of ids.slice(KEPT_JOBS)) {
@@ -560,6 +627,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         }
         return rearLoadedPlan(jobId, route, { innerLengthMm, innerWidthMm, innerHeightMm }, job.input.shipments)
       }),
+
+    getRouteLine: (jobId, truckId) => respond(() => routeLine(jobId, truckId)),
 
     createImport: (file) => respond(() => imports.create(file)),
     setImportMapping: (importId, mapping) => respond(() => imports.setMapping(importId, mapping)),

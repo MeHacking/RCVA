@@ -6,8 +6,9 @@ import type { MapModel, PlaceKind } from './mapModel'
 
 // Leaflet directly (BSD-2-Clause; react-leaflet is not used, see CLAUDE.md). One map per
 // mount, removed on unmount; the routes are redrawn into one layer group when the model
-// changes. Marks are SVG circles, so no marker images are needed. Loaded lazily from
-// RouteMapPage, so Leaflet is not in the main bundle.
+// changes. A route along the roads is a full line, a straight one is dashed. Marks are SVG
+// circles, so no marker images are needed. Loaded lazily from RouteMapPage, so Leaflet is
+// not in the main bundle.
 //
 // Map tiles come from the OpenStreetMap tile server, under its usage policy
 // (https://operations.osmfoundation.org/policies/tiles/): the browser's Referer
@@ -24,9 +25,11 @@ const KIND_LABELS: Record<PlaceKind, string> = {
 export default function RouteMap({ model }: { model: MapModel }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<{ map: L.Map; layers: L.LayerGroup } | null>(null)
-  // The page builds a new model on every render; redraw (and refit) only when it differs,
-  // so a pan or zoom by the user stays until the routes change.
+  // The page builds a new model on every render; redraw only when it differs. Refit only
+  // when the shown routes or places change, not when a road line arrives, so a pan or zoom
+  // by the user stays.
   const signature = JSON.stringify(model)
+  const fitted = useRef<string | null>(null)
 
   useEffect(() => {
     const element = container.current
@@ -42,6 +45,7 @@ export default function RouteMap({ model }: { model: MapModel }) {
     return () => {
       created.remove()
       map.current = null
+      fitted.current = null
     }
   }, [])
 
@@ -56,8 +60,14 @@ export default function RouteMap({ model }: { model: MapModel }) {
 
     for (const route of model.routes) {
       if (route.path.length < 2) continue
-      L.polyline(route.path, { color: color(route.color), weight: 4, opacity: 0.85, className: 'map-route' })
-        .bindTooltip(route.truckName, { sticky: true })
+      L.polyline(route.path, {
+        color: color(route.color),
+        weight: 4,
+        opacity: 0.85,
+        dashArray: route.alongRoad ? undefined : '8 8',
+        className: `map-route map-route--${route.alongRoad ? 'road' : 'straight'}`,
+      })
+        .bindTooltip(route.alongRoad ? route.truckName : `${route.truckName} (prava linija, ne put)`, { sticky: true })
         .addTo(layers)
     }
     for (const place of model.places) {
@@ -75,6 +85,9 @@ export default function RouteMap({ model }: { model: MapModel }) {
         .addTo(layers)
     }
 
+    const shown = JSON.stringify([model.routes.map((r) => r.truckId), model.places.map((p) => p.at)])
+    if (fitted.current === shown) return
+    fitted.current = shown
     const points = [...model.routes.flatMap((r) => r.path), ...model.places.map((p) => p.at)]
     if (points.length > 0) leaflet.fitBounds(L.latLngBounds(points), { padding: [24, 24], maxZoom: 12 })
     else leaflet.setView([50, 15], 4)
@@ -89,6 +102,7 @@ export default function RouteMap({ model }: { model: MapModel }) {
       data-testid="route-map"
       data-routes={model.routes.filter((r) => r.path.length >= 2).length}
       data-places={model.places.length}
+      data-road-routes={model.routes.filter((r) => r.alongRoad).length}
     />
   )
 }

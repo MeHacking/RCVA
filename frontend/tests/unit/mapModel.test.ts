@@ -73,6 +73,7 @@ describe('route map model', () => {
           [58, 13],
           [57, 12],
         ],
+        alongRoad: false,
       },
     ])
     expect(model.places.map((p) => [p.name, p.kind])).toEqual([
@@ -118,6 +119,22 @@ describe('route map model', () => {
     const model = buildMapModel(r, REFERENCE, [1, 2])
     expect(model.places.find((p) => p.name === 'Magacin A')?.kind).toBe('both')
     expect(model.places.find((p) => p.name === 'Kupac X')?.kind).toBe('both')
+  })
+
+  it('draws a route along its road line when there is one, and the others straight', () => {
+    const road: Array<[number, number]> = [
+      [45, 20],
+      [45.5, 20.2],
+      [46, 21],
+      [57, 12],
+    ]
+    const model = buildMapModel(result(true), REFERENCE, [1, 2], new Map([[2, road]]))
+    expect(model.routes.map((r) => [r.truckId, r.alongRoad, r.path])).toEqual([
+      [2, true, road],
+      [1, false, [[45, 20]]],
+    ])
+    // The marks stay at the places, wherever the road line goes.
+    expect(model.places.find((p) => p.name === 'Kupac Y')?.at).toEqual([58, 13])
   })
 
   it('repeats the colors after the last one', () => {

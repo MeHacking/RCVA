@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   chunks,
   createOrsDistances,
+  createOrsLines,
+  LINE_TOLERANCE_M,
   MAX_LOCATIONS_PER_REQUEST,
   MAX_ROUTES_PER_REQUEST,
+  MAX_WAYPOINTS,
   pairKey,
   RoadDistanceError,
+  simplify,
 } from '../../src/api/local/openRouteService'
 
 // No request leaves the test: fetch is a fake, and so are the clock and the pause.
@@ -177,5 +181,129 @@ describe('OpenRouteService distances', () => {
       'OpenRouteService je vratio matricu koja ne odgovara zahtevu.',
       'OpenRouteService je vratio matricu koja ne odgovara zahtevu.',
     ])
+  })
+})
+
+describe('OpenRouteService road lines', () => {
+  type LineBody = { coordinates: number[][]; instructions: boolean }
+  /** A fake Directions API: the road goes through every waypoint and, before each, through `detour`. */
+  type Detour = (from: number[], to: number[]) => number[][]
+  function fakeDirections(answer?: () => Response, detour: Detour = () => []) {
+    const sent: { url: string; headers: Record<string, string>; body: LineBody }[] = []
+    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as LineBody
+      sent.push({ url: String(input), headers: init?.headers as Record<string, string>, body })
+      if (answer) return answer()
+      const coordinates = body.coordinates.flatMap((point, i) => (i === 0 ? [point] : [...detour(body.coordinates[i - 1], point), point]))
+      return json({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates } }] })
+    }) as typeof globalThis.fetch
+    return { fetch, sent }
+  }
+
+  it('asks the directions for the stops in order, once per repeated stop, and gives [lat, lon] along the road', async () => {
+    // Halfway between the stops the road bends 0,1 degree north (about 11 km), then goes
+    // through a point under 2 m off the straight line, which the simplified line leaves out.
+    const { fetch, sent } = fakeDirections(undefined, (from, to) => {
+      const bend = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2 + 0.1]
+      return [bend, [(bend[0] + to[0]) / 2 + 0.00002, (bend[1] + to[1]) / 2]]
+    })
+    const line = createOrsLines({ fetch, minIntervalMs: 0 })
+    const path = await line([POINTS[0], POINTS[0], POINTS[1], POINTS[2]], { apiKey: 'test-kljuc', profile: 'driving-car' })
+
+    expect(sent).toHaveLength(1)
+    expect(sent[0].url).toBe('https://api.openrouteservice.org/v2/directions/driving-car/geojson')
+    expect(sent[0].headers).toMatchObject({ Authorization: 'test-kljuc', 'Content-Type': 'application/json' })
+    expect(sent[0].body).toEqual({
+      coordinates: [
+        [20, 45],
+        [21, 46],
+        [12, 57],
+      ],
+      instructions: false,
+    })
+    expect(path).toEqual([
+      [45, 20],
+      [45.6, 20.5],
+      [46, 21],
+      [51.6, 16.5],
+      [57, 12],
+    ])
+  })
+
+  it('splits a route with more waypoints than one request takes, and joins the parts at their shared stop', async () => {
+    // A zigzag about 1 km wide, so the simplified line keeps every stop.
+    const stops = Array.from({ length: 120 }, (_, i) => ({ lat: 45 + i * 0.01, lon: 20 + (i % 2) * 0.01 }))
+    const { fetch, sent } = fakeDirections()
+    const path = await createOrsLines({ fetch, minIntervalMs: 0 })(stops, KEY)
+    expect(sent.map((s) => s.body.coordinates.length)).toEqual([MAX_WAYPOINTS, MAX_WAYPOINTS, 22])
+    expect(sent[1].body.coordinates[0]).toEqual(sent[0].body.coordinates[MAX_WAYPOINTS - 1])
+    expect(path).toEqual(stops.map((s) => [Number(s.lat.toFixed(5)), Number(s.lon.toFixed(5))]))
+  })
+
+  it('asks nothing for a route that stays at one point', async () => {
+    const { fetch, sent } = fakeDirections()
+    expect(await createOrsLines({ fetch, minIntervalMs: 0 })([POINTS[1], POINTS[1]], KEY)).toEqual([[46, 21]])
+    expect(sent).toEqual([])
+  })
+
+  it('starts line requests at least 1,5 s apart', async () => {
+    let time = 0
+    const started: number[] = []
+    const { fetch } = fakeDirections()
+    const line = createOrsLines({
+      fetch: (async (...args: Parameters<typeof globalThis.fetch>) => {
+        started.push(time)
+        return fetch(...args)
+      }) as typeof globalThis.fetch,
+      now: () => time,
+      wait: async (ms) => {
+        time += ms
+      },
+    })
+    await Promise.all([line(POINTS.slice(0, 2), KEY), line(POINTS.slice(1), KEY)])
+    expect(started).toEqual([0, 1500])
+  })
+
+  it('turns every kind of failure into a RoadDistanceError with a message for the user', async () => {
+    const geometry = (g: unknown) => () => json({ features: [{ geometry: g }] })
+    const answers: Array<() => Response> = [
+      () => json({ error: { code: 2009, message: 'Route could not be found between the given points' } }, 404),
+      () => json({ error: 'Rate limit exceeded' }, 429),
+      () => json({}, 403),
+      () => json({ features: [] }),
+      geometry({ type: 'MultiPoint', coordinates: [[20, 45], [21, 46]] }),
+      geometry({ type: 'LineString', coordinates: [[20, 45]] }),
+      geometry({ type: 'LineString', coordinates: [[20, 45], [21, 'x']] }),
+      geometry({ type: 'LineString', coordinates: [[20, 45], [210, 46]] }),
+    ]
+    const messages: string[] = []
+    for (const answer of answers) {
+      const error = await createOrsLines({ fetch: fakeDirections(answer).fetch, minIntervalMs: 0 })(POINTS, KEY).catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(RoadDistanceError)
+      messages.push((error as Error).message)
+    }
+    expect(messages).toEqual([
+      'OpenRouteService nije izračunao liniju puta (HTTP 404): Route could not be found between the given points.',
+      'OpenRouteService: potrošena je kvota upita (HTTP 429); pokušajte kasnije.',
+      'OpenRouteService je odbio ključ (HTTP 403); proverite ključ u Podešavanjima.',
+      ...Array<string>(5).fill('OpenRouteService je vratio liniju puta koja ne odgovara zahtevu.'),
+    ])
+  })
+})
+
+describe('simplified road lines', () => {
+  it('keeps the ends and the points farther from the line than the tolerance', () => {
+    // 0,0001 degree of latitude is about 11 m; 0,001 about 110 m.
+    // The middle point is 110 m off the ends' line; the others 11 m off the lines to it.
+    const line: Array<[number, number]> = [
+      [45, 20],
+      [45.0006, 20.05],
+      [45.001, 20.1],
+      [45.0004, 20.15],
+      [45, 20.2],
+    ]
+    expect(simplify(line, LINE_TOLERANCE_M)).toEqual([line[0], line[2], line[4]])
+    expect(simplify(line, 5)).toEqual(line)
+    expect(simplify(line.slice(0, 2), LINE_TOLERANCE_M)).toEqual(line.slice(0, 2))
   })
 })

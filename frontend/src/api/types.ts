@@ -276,6 +276,13 @@ export type OrsProfile = 'driving-hgv' | 'driving-car'
 /** NOT IN SPEC v2: where the distances of a result come from: road (ORS profile) or great-circle */
 export type DistanceSource = OrsProfile | 'airline'
 
+/** NOT IN SPEC v2: one route drawn along the roads, for the map */
+export interface RouteLine {
+  profile: OrsProfile
+  /** [lat, lon] from the first stop to the last, simplified */
+  path: Array<[number, number]>
+}
+
 /** NOT IN SPEC v2: progress of the coordinate lookup while an import is committed */
 export interface ImportCommitProgress {
   done: number

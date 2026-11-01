@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import type { OptimizationJob, OptimizationResult } from '../../api/types'
+import { apiMode } from '../../api/apiMode'
+import { ORS_ATTRIBUTION } from '../../api/local/openRouteService'
+import type { OptimizationJob, OptimizationResult, OrsProfile } from '../../api/types'
 import { LdmBar } from '../../components/LdmBar'
 import { Notice } from '../../components/Notice'
 import { PageHeader } from '../../components/PageHeader'
@@ -10,12 +12,17 @@ import { completedJob, isLastJobBusy, useLastJob, type LastJobState } from '../o
 import { buildTruckRows, type TruckRow } from '../optimization/resultRows'
 import { StopList } from '../optimization/StopList'
 import { useReferenceData } from '../optimization/useReferenceData'
-import { buildMapModel, routeColor } from './mapModel'
+import { buildMapModel, routeColor, type LatLng, type MapRoute } from './mapModel'
 import { parseRouteMapParams } from './routeMapParams'
+import { useRouteLines, type RouteLineState } from './useRouteLines'
 
-// The routes on a map (straight lines from stop to stop), then as stop lists. Leaflet is
-// loaded only when this screen shows a result.
+// The routes on a map, then as stop lists. A route is drawn along the roads when the API
+// gives its road line (the application on the device with an ORS key), otherwise as a
+// dashed straight line from stop to stop, and the caption says which. Leaflet is loaded
+// only when this screen shows a result.
 const RouteMap = lazy(() => import('./RouteMap'))
+
+const ROADS_FOR: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna vozila', 'driving-car': 'za automobile' }
 
 export function RouteMapPage() {
   const { state } = useLastJob()
@@ -47,6 +54,8 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
   const [searchParams, setSearchParams] = useSearchParams()
   const [reference, reload] = useReferenceData()
   const { jobId, truckId } = parseRouteMapParams(searchParams)
+  const shownTrucks = truckId !== null && result.routes.some((r) => r.truckId === truckId) ? [truckId] : result.routes.map((r) => r.truckId)
+  const [lines, retryLines] = useRouteLines(job.id, shownTrucks)
 
   if (reference.status === 'loading') return <LoadingState label="Učitavanje ruta…" />
   if (reference.status === 'error') {
@@ -56,7 +65,10 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
   const rows = buildTruckRows(result, reference.data)
   const selected = truckId === null ? null : (rows.find((row) => row.truckId === truckId) ?? null)
   const visible = selected ? [selected] : rows
-  const model = buildMapModel(result, reference.data, visible.map((row) => row.truckId))
+  const roads = new Map<number, LatLng[]>()
+  for (const [id, line] of lines) if (line.status === 'road') roads.set(id, line.line.path)
+  const model = buildMapModel(result, reference.data, visible.map((row) => row.truckId), roads)
+  const failed = [...lines.values()].flatMap((line) => (line.status === 'error' ? [line.message] : []))
 
   const selectTruck = (id: number | null) =>
     setSearchParams((previous) => {
@@ -103,11 +115,16 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
         <Suspense fallback={<LoadingState label="Učitavanje mape…" />}>
           <RouteMap model={model} />
         </Suspense>
-        <figcaption className="text--muted route-map-panel__caption">
-          Linije spajaju stanice redom obilaska pravom linijom; kilometraža je u spisku stanica. Puna tačka je
-          preuzimanje, prazna isporuka{result.openRoute ? '' : ', tamna baza'}.
-        </figcaption>
+        <MapCaption routes={model.routes} lines={lines} openRoute={result.openRoute === true} />
       </figure>
+      {failed.length > 0 && (
+        <Notice tone="warning" title={`Linije po putu nisu dostupne (${failed.length})`} role="status">
+          <p>{[...new Set(failed)].join(' ')} Te rute su nacrtane pravom linijom.</p>
+          <button type="button" onClick={retryLines}>
+            Pokušaj ponovo
+          </button>
+        </Notice>
+      )}
       {model.missing.length > 0 && (
         <Notice tone="warning" title={`Mesta bez koordinata nisu na mapi (${model.missing.length})`} role="status">
           <p>{model.missing.join(', ')}</p>
@@ -118,6 +135,35 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
         <RouteCard key={row.truckId} jobId={job.id} row={row} color={routeColor(result, row.truckId)} />
       ))}
     </>
+  )
+}
+
+function MapCaption({ routes, lines, openRoute }: { routes: MapRoute[]; lines: Map<number, RouteLineState>; openRoute: boolean }) {
+  const states = routes.filter((r) => r.path.length >= 2).map((r) => lines.get(r.truckId) ?? { status: 'loading' as const })
+  const road = states.flatMap((s) => (s.status === 'road' ? [s.line.profile] : []))
+  const loading = states.filter((s) => s.status === 'loading').length
+  const none = states.some((s) => s.status === 'none')
+  const roadsFor = [...new Set(road)].map((profile) => ROADS_FOR[profile]).join(' i ')
+  let lineText: string
+  if (road.length > 0 && road.length === states.length) lineText = `Linije prate put ${roadsFor} redom obilaska (${ORS_ATTRIBUTION}).`
+  else if (road.length > 0) {
+    lineText = `Pune linije prate put ${roadsFor} (${ORS_ATTRIBUTION}); isprekidane spajaju stanice pravom linijom, ne po putu.`
+  } else lineText = 'Isprekidane linije spajaju stanice redom obilaska pravom linijom, ne po putu.'
+  return (
+    <figcaption className="text--muted route-map-panel__caption" data-testid="map-caption">
+      {lineText}
+      {loading > 0 && ` Linije po putu se učitavaju (još ${loading}).`}
+      {none &&
+        (apiMode() === 'local' ? (
+          <>
+            {' '}
+            Za linije po putu unesite ključ za OpenRouteService u <Link to="/settings">Podešavanjima</Link>.
+          </>
+        ) : (
+          ' U ovom režimu nema podataka o putevima.'
+        ))}{' '}
+      Kilometraža je u spisku stanica. Puna tačka je preuzimanje, prazna isporuka{openRoute ? '' : ', tamna baza'}.
+    </figcaption>
   )
 }
 

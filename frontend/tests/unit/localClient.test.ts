@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
 import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
-import { createLocalApiClient, DEFAULT_SETTINGS, KEPT_JOBS, type LocalData } from '../../src/api/local/localClient'
+import { createLocalApiClient, DEFAULT_SETTINGS, KEPT_JOBS, KEPT_ROUTE_LINES, type LocalData } from '../../src/api/local/localClient'
 import { TERMINAL_JOB_STATUSES, type OptimizationJob, type OrsProfile, type RouteStop } from '../../src/api/types'
 import type { SolverRunner } from '../../src/domain/optimization/solverRunner'
 import { runInThread } from '../../src/domain/optimization/solverRunner'
@@ -548,7 +548,19 @@ describe('road distances from OpenRouteService on the device', () => {
   type Answer = 'ok' | 'down' | 'noRoad'
   function ors(answer: () => Answer = () => 'ok') {
     const asked: { url: string; key: string; pairs: number }[] = []
+    const lines: { url: string; waypoints: number[][] }[] = []
     const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/directions/')) {
+        // The fake road bends 0,1 degree north halfway between every two waypoints.
+        const { coordinates } = JSON.parse(String(init?.body)) as { coordinates: number[][] }
+        lines.push({ url: String(input), waypoints: coordinates })
+        if (answer() === 'down') return new Response('{}', { status: 503 })
+        const road = coordinates.flatMap((to, i) => {
+          const from = coordinates[i - 1]
+          return from ? [[(from[0] + to[0]) / 2, (from[1] + to[1]) / 2 + 0.1], to] : [to]
+        })
+        return new Response(JSON.stringify({ features: [{ geometry: { type: 'LineString', coordinates: road } }] }))
+      }
       const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources: number[]; destinations: number[] }
       asked.push({
         url: String(input),
@@ -562,7 +574,7 @@ describe('road distances from OpenRouteService on the device', () => {
       )
       return new Response(JSON.stringify({ distances }))
     }) as typeof globalThis.fetch
-    return { fetch, asked }
+    return { fetch, asked, lines }
   }
 
   function client(store: DeviceStore<LocalData>, fake: ReturnType<typeof ors>, scenario: ScenarioName = 'small'): ApiClient {
@@ -698,5 +710,136 @@ describe('road distances from OpenRouteService on the device', () => {
     })
     expect((await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, orsApiKey: '  ' })).orsApiKey).toBeNull()
     expect((await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, orsApiKey: ' abc123 ' })).orsApiKey).toBe('abc123')
+  })
+
+  describe('road lines for the map', () => {
+    /** The stops of a route as [lat, lon], one per run of stops at the same place. */
+    async function stopsOf(api: ApiClient, route: { stops: RouteStop[] }) {
+      const at = new Map((await api.listLocations()).map((l) => [l.id, [l.lat, l.lon] as [number, number]]))
+      return route.stops.filter((s, i) => i === 0 || s.locationId !== route.stops[i - 1].locationId).map((s) => at.get(s.locationId))
+    }
+
+    const lastJobId = async (api: ApiClient) => (await api.getLatestOptimizationJob())!.id
+
+    it('gives no line without a key, and asks nothing', async () => {
+      const fake = ors()
+      const api = client(createMemoryStore<LocalData>(), fake)
+      const result = await solve(api)
+      const id = await lastJobId(api)
+      for (const route of result.routes) expect(await api.getRouteLine(id, route.truckId)).toBeNull()
+      expect(fake.lines).toEqual([])
+    })
+
+    it('follows the road through the stops, asked once per route, also after a restart', async () => {
+      const store = createMemoryStore<LocalData>()
+      const fake = ors()
+      const api = client(store, fake)
+      await withKey(api)
+      const result = await solve(api)
+      const id = await lastJobId(api)
+      const route = result.routes[0]
+
+      const line = await api.getRouteLine(id, route.truckId)
+      const stops = await stopsOf(api, route)
+      expect(fake.lines).toHaveLength(1)
+      expect(fake.lines[0].url).toBe('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson')
+      expect(fake.lines[0].waypoints).toEqual(stops.map((p) => [p![1], p![0]]))
+      expect(line?.profile).toBe('driving-hgv')
+      // Every stop, and between every two the bend of the road.
+      expect(line?.path).toHaveLength(2 * stops.length - 1)
+      expect(line?.path.filter((_, i) => i % 2 === 0)).toEqual(stops)
+      const [from, bend, to] = line!.path
+      const round = (n: number) => Math.round(n * 1e5) / 1e5
+      expect(bend).toEqual([round((from[0] + to[0]) / 2 + 0.1), round((from[1] + to[1]) / 2)])
+
+      expect(await api.getRouteLine(id, route.truckId)).toEqual(line)
+      expect(await client(store, fake).getRouteLine(id, route.truckId)).toEqual(line)
+      expect(fake.lines).toHaveLength(1)
+      expect(Object.keys(storedData(store).routeLineCache ?? {})).toHaveLength(1)
+    })
+
+    it('asks once when the same route is asked for twice at the same time', async () => {
+      const fake = ors()
+      const api = client(createMemoryStore<LocalData>(), fake)
+      await withKey(api)
+      const result = await solve(api)
+      const id = await lastJobId(api)
+      const truckId = result.routes[0].truckId
+      const [a, b] = await Promise.all([api.getRouteLine(id, truckId), api.getRouteLine(id, truckId)])
+      expect(a).toEqual(b)
+      expect(fake.lines).toHaveLength(1)
+    })
+
+    it('follows the roads of the distances of the job; for a great-circle job, the profile in the settings', async () => {
+      const fake = ors()
+      const api = client(createMemoryStore<LocalData>(), fake)
+      const airline = await solve(api)
+      const airlineJob = await lastJobId(api)
+      await withKey(api)
+      const road = await solve(api)
+      const roadJob = await lastJobId(api)
+      await withKey(api, 'driving-car')
+
+      expect((await api.getRouteLine(roadJob, road.routes[0].truckId))?.profile).toBe('driving-hgv')
+      expect((await api.getRouteLine(airlineJob, airline.routes[0].truckId))?.profile).toBe('driving-car')
+      expect(fake.lines.map((l) => l.url.split('/').at(-2))).toEqual(['driving-hgv', 'driving-car'])
+    })
+
+    it('answers 502 when ORS does not answer, keeps nothing, and works once it answers', async () => {
+      const store = createMemoryStore<LocalData>()
+      let answer: Answer = 'ok'
+      const fake = ors(() => answer)
+      const api = client(store, fake)
+      await withKey(api)
+      const result = await solve(api)
+      const id = await lastJobId(api)
+      answer = 'down'
+      const error = await rejection(api.getRouteLine(id, result.routes[0].truckId))
+      expect(error.problem).toMatchObject({
+        title: 'Linija po putu nije dostupna',
+        status: 502,
+        detail: 'OpenRouteService nije izračunao liniju puta (HTTP 503).',
+      })
+      expect(storedData(store).routeLineCache ?? {}).toEqual({})
+      answer = 'ok'
+      expect((await api.getRouteLine(id, result.routes[0].truckId))?.profile).toBe('driving-hgv')
+    })
+
+    it('answers 404 for an unknown job or truck, and 409 for a job without a result', async () => {
+      let release: () => void = () => {}
+      const held = new Promise<void>((resolve) => (release = resolve))
+      const api = createLocalApiClient({
+        scenario: SCENARIOS.small,
+        runSolver: async (input, options) => held.then(() => steps(input, options)),
+        store: createMemoryStore<LocalData>(),
+        ors: { fetch: ors().fetch, minIntervalMs: 0 },
+      })
+      expect((await rejection(api.getRouteLine(99, 1))).status).toBe(404)
+      const { id: waiting } = await api.createOptimizationJob(REQUEST)
+      expect((await rejection(api.getRouteLine(waiting, 1))).status).toBe(409)
+      release()
+      expect((await settle(api, waiting)).status).toBe('COMPLETED')
+      expect((await rejection(api.getRouteLine(waiting, 999))).status).toBe(404)
+    })
+
+    it(`keeps only the last ${KEPT_ROUTE_LINES} lines`, async () => {
+      const first = createMemoryStore<LocalData>()
+      const api = client(first, ors())
+      await withKey(api)
+      const result = await solve(api)
+      const id = await lastJobId(api)
+      await written()
+      const old = Array.from({ length: KEPT_ROUTE_LINES }, (_, i): [string, Array<[number, number]>] => [`old-${i}`, [[45, 20]]])
+      const store = createMemoryStore<LocalData>({
+        version: 1,
+        data: { ...storedData(first), routeLineCache: Object.fromEntries(old) },
+      })
+
+      await client(store, ors()).getRouteLine(id, result.routes[0].truckId)
+      const kept = Object.keys(storedData(store).routeLineCache ?? {})
+      expect(kept).toHaveLength(KEPT_ROUTE_LINES)
+      expect(kept.slice(0, 2)).toEqual(['old-1', 'old-2'])
+      expect(kept.at(-1)).toMatch(/^driving-hgv\|/)
+    })
   })
 })

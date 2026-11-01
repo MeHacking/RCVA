@@ -207,6 +207,13 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         return buildLoadPlan(jobId, result, truck, shipments)
       }),
 
+    // The mock has no roads: the map draws straight lines.
+    getRouteLine: (jobId) =>
+      respond(() => {
+        completedResult(jobId)
+        return null
+      }),
+
     createImport: (file) => respond(() => imports.create(file)),
     setImportMapping: (importId, mapping) => respond(() => imports.setMapping(importId, mapping)),
     getImportPreview: (importId) => respond(() => imports.preview(importId)),

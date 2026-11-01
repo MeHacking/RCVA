@@ -1,8 +1,9 @@
 import type { Location, OptimizationResult, StopType } from '../../api/types'
 import type { ReferenceData } from '../optimization/resultRows'
 
-// What the route map draws, without Leaflet, so it can be tested: one line per route
-// from stop to stop (straight, not along the roads), and one mark per place.
+// What the route map draws, without Leaflet, so it can be tested: one line per route,
+// along the roads when there is a road line for it, otherwise straight from stop to stop;
+// and one mark per place.
 
 /** --route-1 ... --route-8 in tokens.css; routes beyond that repeat the colors. */
 export const ROUTE_COLORS = 8
@@ -14,8 +15,12 @@ export interface MapRoute {
   truckName: string
   /** 1..ROUTE_COLORS, by the route's place in the result, so a filter never changes it */
   color: number
-  /** stops in visiting order, with the base first and last on a route that returns to it */
+  /**
+   * the road line, or else the stops in visiting order, with the base first and last on a
+   * route that returns to it
+   */
   path: LatLng[]
+  alongRoad: boolean
 }
 
 export type PlaceKind = 'pickup' | 'delivery' | 'both' | 'base'
@@ -43,7 +48,12 @@ export const routeColor = (result: OptimizationResult, truckId: number) =>
 
 const STOP_NAMES: Record<StopType, string> = { PICKUP: 'preuzimanje', DELIVERY: 'isporuka' }
 
-export function buildMapModel(result: OptimizationResult, reference: ReferenceData, truckIds: number[]): MapModel {
+export function buildMapModel(
+  result: OptimizationResult,
+  reference: ReferenceData,
+  truckIds: number[],
+  roadLines: ReadonlyMap<number, LatLng[]> = new Map(),
+): MapModel {
   const locations = new Map(reference.locations.map((l) => [l.id, l]))
   const trucks = new Map(reference.trucks.map((t) => [t.id, t]))
   const shipments = new Map(reference.shipments.map((s) => [s.id, s]))
@@ -88,7 +98,8 @@ export function buildMapModel(result: OptimizationResult, reference: ReferenceDa
       )
     })
     if (base && baseAt && route.stops.length > 0) path.push(baseAt)
-    routes.push({ truckId: route.truckId, truckName, color, path })
+    const road = roadLines.get(route.truckId)
+    routes.push({ truckId: route.truckId, truckName, color, path: road ?? path, alongRoad: road !== undefined })
   }
   return { routes, places: [...places.values()], missing: [...missing] }
 }

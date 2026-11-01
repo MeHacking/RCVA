@@ -48,6 +48,8 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     getLatestOptimizationJob: async () => null,
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
     getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
+    // The backend has no road lines (its distances are great-circle): the map draws straight lines.
+    getRouteLine: async () => null,
     // Settings exist only in the application on the device.
     getDeviceSettings: async () => null,
     updateDeviceSettings: () =>
