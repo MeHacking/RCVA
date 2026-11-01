@@ -192,7 +192,10 @@ describe('OpenRouteService road lines', () => {
     const sent: { url: string; headers: Record<string, string>; body: LineBody }[] = []
     const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as LineBody
-      sent.push({ url: String(input), headers: init?.headers as Record<string, string>, body })
+      const headers = init?.headers as Record<string, string>
+      sent.push({ url: String(input), headers, body })
+      // As the real ORS: GeoJSON only for a request that accepts it.
+      if (!headers.Accept.includes('application/geo+json')) return json({ error: { code: 2007, message: 'This response format is not supported' } }, 406)
       if (answer) return answer()
       const coordinates = body.coordinates.flatMap((point, i) => (i === 0 ? [point] : [...detour(body.coordinates[i - 1], point), point]))
       return json({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates } }] })
@@ -212,7 +215,11 @@ describe('OpenRouteService road lines', () => {
 
     expect(sent).toHaveLength(1)
     expect(sent[0].url).toBe('https://api.heigit.org/openrouteservice/v2/directions/driving-car/geojson')
-    expect(sent[0].headers).toMatchObject({ Authorization: 'test-kljuc', 'Content-Type': 'application/json' })
+    expect(sent[0].headers).toEqual({
+      Authorization: 'test-kljuc',
+      'Content-Type': 'application/json',
+      Accept: 'application/geo+json, application/json',
+    })
     expect(sent[0].body).toEqual({
       coordinates: [
         [20, 45],

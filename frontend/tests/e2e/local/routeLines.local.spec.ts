@@ -20,6 +20,10 @@ async function fakeOrs(page: Page) {
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     if (request.url().includes('/directions/')) {
       lines.asked++
+      // As the real ORS: GeoJSON only for a request that accepts it.
+      if (!(request.headers()['accept'] ?? '').includes('application/geo+json')) {
+        return route.fulfill({ status: 406, json: { error: { code: 2007, message: 'This response format is not supported' } }, headers: CORS })
+      }
       if (lines.status !== 200) return route.fulfill({ status: lines.status, json: { error: 'Rate limit exceeded' }, headers: CORS })
       // The road bends north halfway between every two waypoints.
       const { coordinates } = request.postDataJSON() as { coordinates: number[][] }

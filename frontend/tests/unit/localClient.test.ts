@@ -554,6 +554,9 @@ describe('road distances from OpenRouteService on the device', () => {
         // The fake road bends 0,1 degree north halfway between every two waypoints.
         const { coordinates } = JSON.parse(String(init?.body)) as { coordinates: number[][] }
         lines.push({ url: String(input), waypoints: coordinates })
+        if (!(init?.headers as Record<string, string>).Accept.includes('application/geo+json')) {
+          return new Response(JSON.stringify({ error: { code: 2007, message: 'This response format is not supported' } }), { status: 406 })
+        }
         if (answer() === 'down') return new Response('{}', { status: 503 })
         const road = coordinates.flatMap((to, i) => {
           const from = coordinates[i - 1]

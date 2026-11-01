@@ -18,6 +18,8 @@ export const ORS_ATTRIBUTION = '© openrouteservice.org by HeiGIT'
 export const MAX_ROUTES_PER_REQUEST = 3500
 export const MAX_LOCATIONS_PER_REQUEST = 50
 export const MAX_WAYPOINTS = 50
+/** The directions answer in GeoJSON (application/geo+json); with only application/json ORS answers 406. */
+export const GEOJSON_ACCEPT = 'application/geo+json, application/json'
 /** A road line keeps only the points farther than this from the line without them. */
 export const LINE_TOLERANCE_M = 25
 
@@ -109,10 +111,14 @@ export function createOrsLines(options: OrsOptions): RoadLine {
     for (let start = 0; start < stops.length - 1; start += MAX_WAYPOINTS - 1) {
       const part = stops.slice(start, start + MAX_WAYPOINTS)
       const body = await inTurn(() =>
-        post(options.fetch, `${ORS_DIRECTIONS_URL}/${request.profile}/geojson`, request.apiKey, 'liniju puta', {
-          coordinates: part.map((p) => [p.lon, p.lat]),
-          instructions: false,
-        }),
+        post(
+          options.fetch,
+          `${ORS_DIRECTIONS_URL}/${request.profile}/geojson`,
+          request.apiKey,
+          'liniju puta',
+          { coordinates: part.map((p) => [p.lon, p.lat]), instructions: false },
+          GEOJSON_ACCEPT,
+        ),
       )
       const coordinates = lineOf(body)
       if (!coordinates) throw new RoadDistanceError('OpenRouteService je vratio liniju puta koja ne odgovara zahtevu.')
@@ -219,11 +225,21 @@ function createTurns(options: OrsOptions) {
   }
 }
 
-/** The parsed JSON answer (null when it is not JSON); `what` names the answer in the failure message. */
-async function post(fetchImpl: typeof fetch, url: string, apiKey: string, what: string, body: unknown): Promise<unknown> {
+/**
+ * The parsed JSON answer (null when it is not JSON); `what` names the answer in the failure
+ * message. ORS answers 406 when `accept` does not allow its format (GeoJSON for lines).
+ */
+async function post(
+  fetchImpl: typeof fetch,
+  url: string,
+  apiKey: string,
+  what: string,
+  body: unknown,
+  accept = 'application/json',
+): Promise<unknown> {
   const response = await fetchImpl(url, {
     method: 'POST',
-    headers: { Authorization: apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: { Authorization: apiKey, 'Content-Type': 'application/json', Accept: accept },
     body: JSON.stringify(body),
   }).catch((error: unknown) => {
     throw new RoadDistanceError('OpenRouteService nije dostupan (nema veze sa internetom ili je zahtev odbijen).', {
