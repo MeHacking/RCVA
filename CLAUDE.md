@@ -4,29 +4,46 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 01.11.2026, linije po putu na mapi (ORS Directions); videti „Gde smo stali“.
+Poslednje ažuriranje: 01.11.2026, korak 4d (izvoz i uvoz podataka u fajl); videti „Gde smo stali“.
 
 ## Gde smo stali (01.11.2026)
 
-**Početak sledeće sesije**: **korak 4d, izvoz i uvoz podataka u fajl**. Predlog koji je
-korisnik video (pre rada potvrditi pitanje zamene/spajanja i da li idu linije po putu):
-- Na ekranu Podešavanja „Izvezi podatke“: jedan JSON fajl (`rcva-GGGG-MM-DD.json`) sa
-  brojem verzije formata: pošiljke, mesta, kamioni, poslednji poslovi sa rezultatima,
-  podešavanja, `geocodeCache` i `distanceCache`. **ORS ključ nikad ne ide u fajl.**
-- **Otvoreno (01.11.2026)**: da li u fajl ide i `routeLineCache` (linije po putu; predlog:
-  da, fajl je veći, ali drugi uređaj ne troši ORS kvotu ponovo). Korisnik je odložio odluku
-  do 4d.
-- „Uvezi podatke“: prvo cela provera fajla (format, verzija, oblik podataka), pa pregled
-  sadržaja (broj pošiljki, kamiona, rezultata) i potvrda; tek tada se podaci menjaju.
-  Neispravan fajl ne menja ništa. Zapamćene koordinate i kilometraže prelaze sa fajlom, pa
-  drugi uređaj ne pita Nominatim i ORS ponovo.
-- **Otvoreno pitanje za korisnika**: uvoz **zamenjuje** sve podatke (predlog: jednostavno,
-  bez duplikata, za rezervnu kopiju i prenos na drugi uređaj) ili ih **spaja** (složenije,
-  ko ima prednost; može kasnije). Korisnik nije odgovorio.
-- To je jedina rezervna kopija podataka iz IndexedDB-a (brisanje podataka sajta briše sve).
+**Sledeće** (predlog, potvrditi sa korisnikom pre početka): upozorenja na Pregledu sa
+težinom i neograničenom flotom, podrazumevani režim `local`, pakovanje (PC, pa telefon kao
+Capacitor). Korak 4 na putu B je završen.
 
-Posle 4d: upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani režim
-`local`, pakovanje (PC, pa telefon kao Capacitor). Pitanja za Gojka (30.10.2026) još
+**Korak 4d, izvoz i uvoz podataka (urađeno 01.11.2026)**. Odluke korisnika 01.11.2026: uvoz
+**zamenjuje** sve podatke (spajanje je moguća kasnija nadogradnja), a u fajl idu i **linije
+po putu**.
+- `src/api/local/deviceFile.ts`: `writeDeviceFile` / `readDeviceFile`, format
+  `rcva-podaci`, verzija 1, `exportedAt`, `data` (pošiljke, mesta, kamioni, poslovi sa
+  rezultatima, brojači id-jeva, podešavanja, `geocodeCache`, `distanceCache`,
+  `routeLineCache`). Podešavanja se pišu polje po polje (bez `orsApiKey`, ni slučajno).
+  JSON nema Map/Set/Infinity: `fleet` i `addedTruckIds` posla idu kao spiskovi, a
+  `capacityKg` Infinity u ulazu posla kao `null`. Čitanje proverava ceo fajl (svako polje,
+  uključujući rezultate i keševe; poruka sa putanjom prvog lošeg polja), pa jedinstvene
+  id-jeve, mesta pošiljki, veličinu matrice rastojanja, rezultat završenog posla i brojače.
+  Naziv fajla `rcva-GGGG-MM-DD.json` (lokalni datum).
+- `ApiClient` (NOT IN SPEC v2): `exportDeviceData` (null za mock i server),
+  `checkDeviceData` (samo provera i sažetak, 400 „Neispravan fajl“), `replaceDeviceData`
+  (400, 409 dok posao čeka ili radi, 404 za mock i server). U `localClient` učitavanje je
+  izdvojeno u `apply` (isto za pokretanje i uvoz): posao koji je radio kada je fajl napravljen
+  posle uvoza je `FAILED`. Uređaj zadržava svoj ORS ključ.
+- Ekran: Podešavanja, odeljak „Podaci na uređaju“ (`DeviceDataPanel.tsx`): „Izvezi podatke“
+  (preuzimanje), „Uvezi podatke…“ (skriveno polje „Fajl sa podacima“), pregled sadržaja sa
+  „Zameni podatke“ / „Odustani“; posle uvoza stranica se ponovo učitava (svi ekrani kreću od
+  novih podataka), a poruka o uvozu preživi to preko `sessionStorage` (sve u try/catch).
+  `formatDateTime` u `src/format/time.ts`.
+- Testovi: `deviceFile.test.ts` (7: izvoz bez ključa i čitanje istih podataka nazad, naziv,
+  18 vrsta lošeg fajla sa tačnom porukom, zamena sa ključem uređaja i bez novih ORS
+  zahteva, loš fajl ne menja ni ne čuva ništa, 409 i prekinut posao, mock), 4 u
+  `time.test.ts`, e2e `tests/e2e/local/deviceData.local.spec.ts` (3: preuzimanje, uvoz sa
+  pregledom, odustajanjem i ključem uređaja, loš fajl). Provereno na pokvarenom kodu (15
+  izmena): svaka obara testove. Izgled proveren snimkom ekrana.
+- Ograničenje: fajl sa mnogo linija po putu je veći (svaka linija ima do nekoliko hiljada
+  tačaka, najviše 50 linija).
+
+Pitanja za Gojka (30.10.2026) još
 nisu poslata. Korisnik je 01.11.2026 napravio ORS ključ (account.heigit.org): prave
 kilometraže i prave linije po putu na mapi rade (posle ispravke `Accept` zaglavlja; videti
 „Zamke“). Korisnik je 31.10.2026 pogledao aplikaciju
@@ -43,7 +60,7 @@ missing“). Link u Podešavanjima vodi na account.heigit.org.
 
 **Korak 4 na putu B do sada** (redosled dogovoren 31.10.2026, korisnik: „radi kako misliš
 da treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže, **mapa** i
-**linije po putu** (sve urađeno, videti niže); ostaje 4d.
+**linije po putu** i **4d** izvoz i uvoz (sve urađeno).
 
 **Linije po putu na mapi (urađeno 01.11.2026)**, na zahtev korisnika („linija je vazdušna
 kao da robu prevozimo avionom“); odluka korisnika: linije se traže **kad se otvori mapa**,
@@ -272,8 +289,8 @@ kamiona najviše ima; uloga vozača.
    31.10.2026, videti gore).
 3. ~~Solver u Web Worker-u i povezivanje sa ekranima~~ (urađeno 31.10.2026, režim `local`;
    ostaje Pregled sa težinom i neograničenom flotom).
-4. Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
-   fajla, pakovanje (PC, pa telefon kao Capacitor aplikacija).
+4. ~~Geokodiranje (Nominatim) i kilometraže (ORS), čuvanje na uređaju (IndexedDB), izvoz/uvoz
+   fajla~~ (urađeno 31.10. i 01.11.2026); ostaje pakovanje (PC, pa telefon kao Capacitor aplikacija).
 
 ## Ranije (29.10.2026)
 
@@ -456,9 +473,9 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
 na lokalni.
 
-Stanje (01.11.2026, posle linija po putu): frontend tsc, lint i build čisti, 307 Vitest
-testova i Playwright 54 (mock 43 + local 11) prolaze; serverski e2e 9 poslednji put
-31.10.2026 (posle toga `httpClient` je dobio samo `getRouteLine` koji vraća `null`);
+Stanje (01.11.2026, posle koraka 4d): frontend tsc, lint i build čisti, 318 Vitest
+testova i Playwright 57 (mock 43 + local 14) prolaze; serverski e2e 9 poslednji put
+31.10.2026 (posle toga `httpClient` je dobio samo metode koje vraćaju `null` ili 404);
 `test:oracle` prošao 30.10.2026 (solver posle toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
@@ -541,7 +558,7 @@ Optimizacija na serveru:
 4. ~~SimpleLoadPlanner na serveru~~ (urađeno 28.10.2026).
 5. ~~Odluka A/B~~ (izabran B 29.10.2026) i ~~proba TS solvera~~ (urađeno 29.10.2026).
    Dalje na putu B: videti „Sledeće na putu B“ u „Gde smo stali“.
-6. ~~Mapa (Leaflet)~~ i ~~trajno čuvanje na putu B (IndexedDB)~~ (urađeno 31.10.2026).
+6. ~~Mapa (Leaflet)~~ i ~~trajno čuvanje na putu B (IndexedDB)~~ (urađeno 31.10.2026), ~~izvoz i uvoz podataka u fajl~~ (urađeno 01.11.2026).
    Kasnije: završno testiranje (svih 9 testova).
 
 Predlozi iz dopune 1 koji čekaju odluku: `GET /optimization-jobs/latest` (na putu B postoji
