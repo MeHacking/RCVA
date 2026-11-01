@@ -4,15 +4,18 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 31.10.2026, mapa ruta (Leaflet); videti „Gde smo stali“.
+Poslednje ažuriranje: 01.11.2026, linije po putu na mapi (ORS Directions); videti „Gde smo stali“.
 
-## Gde smo stali (31.10.2026)
+## Gde smo stali (01.11.2026)
 
-**Početak sledeće sesije** (dogovoreno 31.10.2026): **korak 4d, izvoz i uvoz podataka u
-fajl**. Predlog koji je korisnik video (pre rada samo potvrditi pitanje zamene/spajanja):
+**Početak sledeće sesije**: **korak 4d, izvoz i uvoz podataka u fajl**. Predlog koji je
+korisnik video (pre rada potvrditi pitanje zamene/spajanja i da li idu linije po putu):
 - Na ekranu Podešavanja „Izvezi podatke“: jedan JSON fajl (`rcva-GGGG-MM-DD.json`) sa
   brojem verzije formata: pošiljke, mesta, kamioni, poslednji poslovi sa rezultatima,
   podešavanja, `geocodeCache` i `distanceCache`. **ORS ključ nikad ne ide u fajl.**
+- **Otvoreno (01.11.2026)**: da li u fajl ide i `routeLineCache` (linije po putu; predlog:
+  da, fajl je veći, ali drugi uređaj ne troši ORS kvotu ponovo). Korisnik je odložio odluku
+  do 4d.
 - „Uvezi podatke“: prvo cela provera fajla (format, verzija, oblik podataka), pa pregled
   sadržaja (broj pošiljki, kamiona, rezultata) i potvrda; tek tada se podaci menjaju.
   Neispravan fajl ne menja ništa. Zapamćene koordinate i kilometraže prelaze sa fajlom, pa
@@ -23,15 +26,46 @@ fajl**. Predlog koji je korisnik video (pre rada samo potvrditi pitanje zamene/s
 - To je jedina rezervna kopija podataka iz IndexedDB-a (brisanje podataka sajta briše sve).
 
 Posle 4d: upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani režim
-`local`, pakovanje (PC, pa telefon kao Capacitor). Kasnije, ako korisnik hoće: linije na
-mapi po stvarnom putu (ORS Directions, dodatna kvota). Pitanja za Gojka (30.10.2026) još
-nisu poslata. Korisnik još nije napravio ORS ključ, pa prave kilometraže nisu probane.
-Korisnik je 31.10.2026 pogledao aplikaciju u režimu `local` (`VITE_API_MODE=local npm run
-dev`, http://localhost:5173).
+`local`, pakovanje (PC, pa telefon kao Capacitor). Pitanja za Gojka (30.10.2026) još
+nisu poslata. Korisnik još nije napravio ORS ključ, pa prave kilometraže i prave linije po
+putu nisu probane (samo lažni ORS u testovima). Korisnik je 31.10.2026 pogledao aplikaciju
+u režimu `local` (`VITE_API_MODE=local npm run dev`, http://localhost:5173).
 
 **Korak 4 na putu B do sada** (redosled dogovoren 31.10.2026, korisnik: „radi kako misliš
-da treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže i **mapa**
-(sve urađeno, videti niže); ostaje 4d.
+da treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže, **mapa** i
+**linije po putu** (sve urađeno, videti niže); ostaje 4d.
+
+**Linije po putu na mapi (urađeno 01.11.2026)**, na zahtev korisnika („linija je vazdušna
+kao da robu prevozimo avionom“); odluka korisnika: linije se traže **kad se otvori mapa**,
+ne kad se posao završi:
+- `openRouteService.ts`: `createOrsLines` (Directions v2, `POST
+  /v2/directions/{profil}/geojson`, `coordinates` kao `[lon, lat]`, `instructions: false`).
+  Uzastopne stanice na istom mestu se šalju jednom; više od 50 tačaka (ograničenje sa
+  foruma, proveriti) ide u delovima koji dele tačku spoja. Linija se zaokružuje na 5
+  decimala i pojednostavljuje (Douglas-Peucker, `LINE_TOLERANCE_M` = 25 m), jer duga ruta
+  ima hiljade tačaka, a sve se čuva u jednom snimku. Razmak 1,5 s i poruke grešaka su
+  zajednički sa Matrix pozivom (`createTurns`, `post`); greška je i dalje `RoadDistanceError`.
+- `ApiClient.getRouteLine(jobId, truckId)` (NOT IN SPEC v2) vraća `RouteLine | null`. Mock
+  i `httpClient` uvek `null`. `localClient`: profil iz posla (`distanceSource`), a za posao
+  sa vazdušnom linijom profil iz podešavanja; bez ključa `null`; zapamćena linija se vraća i
+  bez ključa. `LocalData.routeLineCache` (ključ: profil + sve tačke redom, na 6 decimala),
+  najviše `KEPT_ROUTE_LINES` (50), najstarija ispada. Istovremeni zahtevi za istu liniju
+  čekaju isti odgovor. ORS greška daje 502 „Linija po putu nije dostupna“, bez pamćenja.
+- Ekran: `useRouteLines` traži liniju za svaku prikazanu rutu jednom po poslu (promena
+  filtera ne pita ponovo, neuspela linija samo na „Pokušaj ponovo“). Linija po putu je
+  puna, prava linija **isprekidana** (`map-route--straight`, `stroke-dasharray` 8 8). Natpis
+  ispod mape (`map-caption`) kaže koje su linije po putu (sa „© openrouteservice.org by
+  HeiGIT“) ili zašto nisu (učitavanje; u režimu `local` link na Podešavanja za ključ; u
+  ostalim režimima „nema podataka o putevima“). Greške su u obaveštenju sa dugmetom
+  „Pokušaj ponovo“. Mapa se ne centrira ponovo kad linija stigne.
+- Testovi: 6 novih u `openRouteService.test.ts`, 7 u `localClient.test.ts`, 1 u
+  `mapModel.test.ts`, e2e `tests/e2e/local/routeLines.local.spec.ts` (bez ključa, sa
+  ključem i posle osvežavanja, 429 pa „Pokušaj ponovo“) i provera isprekidanih linija u
+  `routeMap.spec.ts`. Provereno na pokvarenom kodu (17 izmena): 16 obara testove; dupla
+  tačka spoja je ekvivalentna izmena (pojednostavljenje je uvek briše). Izgled proveren
+  snimkom ekrana sa pravom podlogom i lažnim ORS-om.
+- Ograničenje: za posao sa vazdušnim kilometražama linija ide po putu, a kilometri u spisku
+  ostaju vazdušni (natpis i Rezultati to kažu odvojeno).
 
 **Mapa ruta (urađeno 31.10.2026)**:
 - `leaflet` 1.9.4 (BSD-2-Clause, bez zavisnosti; 2.0 je još alfa) i `@types/leaflet`
@@ -412,9 +446,10 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
 na lokalni.
 
-Stanje (31.10.2026, posle mape): frontend tsc, lint i build čisti, 293 Vitest testa,
-Playwright 51 (mock 43 + local 8) i serverski e2e 9 prolaze; `test:oracle` prošao 30.10.2026 (solver posle
-toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
+Stanje (01.11.2026, posle linija po putu): frontend tsc, lint i build čisti, 307 Vitest
+testova i Playwright 54 (mock 43 + local 11) prolaze; serverski e2e 9 poslednji put
+31.10.2026 (posle toga `httpClient` je dobio samo `getRouteLine` koji vraća `null`);
+`test:oracle` prošao 30.10.2026 (solver posle toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
 `-Doracle.out` ne radi.
 
@@ -449,7 +484,7 @@ Svih šest ekrana iz prompta radi nad mock API-jem:
 | Pošiljke | tabela sa izvedenim statusom, CSV izvoz (UTF-8 BOM, `;`, decimalni zarez), **uvoz Excel-a u 4 koraka** (fajl → mapiranje kolona → greške, duplikati, ručna ispravka i isključivanje reda → potvrda) |
 | Kamioni | tabela, dodavanje i izmena sa validacijom, uklanjanje sa potvrdom u redu (409 dok posao radi) |
 | Rezultati optimizacije | pokretanje sa vremenskim ograničenjem, praćenje statusa, rezime i skor, validator, tabela po kamionu sa redosledom stanica, nedodeljene pošiljke, PROVEN i NOT_FOUND |
-| Mapa ruta | mapa (Leaflet, podloga OSM) sa rutama u bojama kamiona i mestima, filter po kamionu (`?truck=`), ispod spisak stanica |
+| Mapa ruta | mapa (Leaflet, podloga OSM) sa rutama u bojama kamiona i mestima (u režimu `local` sa ORS ključem po putu, inače isprekidane prave linije), filter po kamionu (`?truck=`), ispod spisak stanica |
 | 3D prikaz | TeGo vizuelizator (`TruckVisualizer`), izbor kamiona, spisak pošiljki, oznaka „Ilustrativni raspored“ |
 
 Gornja traka svuda prikazuje status poslednjeg posla i dugme „Pokreni optimizaciju“.
