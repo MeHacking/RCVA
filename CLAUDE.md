@@ -27,8 +27,9 @@ korisnik video (pre rada potvrditi pitanje zamene/spajanja i da li idu linije po
 
 Posle 4d: upozorenja na Pregledu sa težinom i neograničenom flotom, podrazumevani režim
 `local`, pakovanje (PC, pa telefon kao Capacitor). Pitanja za Gojka (30.10.2026) još
-nisu poslata. Korisnik još nije napravio ORS ključ, pa prave kilometraže i prave linije po
-putu nisu probane (samo lažni ORS u testovima). Korisnik je 31.10.2026 pogledao aplikaciju
+nisu poslata. Korisnik je 01.11.2026 napravio ORS ključ (account.heigit.org): prave
+kilometraže i prave linije po putu na mapi rade (posle ispravke `Accept` zaglavlja; videti
+„Zamke“). Korisnik je 31.10.2026 pogledao aplikaciju
 u režimu `local` (`VITE_API_MODE=local npm run dev`, http://localhost:5173).
 
 **ORS nova adresa (01.11.2026)**: sajt openrouteservice.org je bio ugašen („PHP issues“),
