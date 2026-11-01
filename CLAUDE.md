@@ -8,9 +8,25 @@ Poslednje ažuriranje: 01.11.2026, korak 4d (izvoz i uvoz podataka u fajl); vide
 
 ## Gde smo stali (01.11.2026)
 
-**Sledeće** (predlog, potvrditi sa korisnikom pre početka): upozorenja na Pregledu sa
-težinom i neograničenom flotom, podrazumevani režim `local`, pakovanje (PC, pa telefon kao
-Capacitor). Korak 4 na putu B je završen.
+**Sledeće** (redosled dogovoren sa korisnikom 01.11.2026: 1, pa 2, pa 3): ~~1. upozorenja
+na Pregledu~~ (urađeno, videti niže), **2. podrazumevani režim `local`**, 3. pakovanje (PC,
+pa telefon kao Capacitor). Korak 4 na putu B je završen.
+
+**Upozorenja na Pregledu (urađeno 01.11.2026)**: Pregled više ne računa sam, nego koristi
+iste provere kao posao pre pokretanja (`feasibility.ts`, `provenFindings`: tekst i da li se
+tiče pošiljke ili flote, za link), nad flotom koju bi posao dobio (`domain/fleet.ts`
+`planningFleet`: dostupni kamioni, a u režimu `local` i po jedna standardna cerada po
+pošiljci; `toJobTruck` i `standardJobTruck` koristi i `localClient`). Zato Pregled ima
+težinu, poruke su iste kao u odgovoru 422 („najvećeg kamiona“, ne više „najvećeg dostupnog
+kamiona“), a donja granica broja kamiona računa i težinu. Opcija `totals: false` (lokalni
+posao i Pregled u režimu `local`): sa po jednom ceradom po pošiljci zbir može da pređe flotu
+samo zbog pošiljke koja je već navedena, pa se zbir ne proverava (dokazano u razgovoru:
+svaka pošiljka staje u svoj kamion). Kartica „Kamioni“ u režimu `local`: „+ standardne
+cerade po potrebi“; bez donje granice: „kamioni nisu dovoljni (videti upozorenja)“.
+`capacity.ts` zadržava samo `trucksLowerBound` (fixture-i) i `availableCapacity`. Testovi:
+`dashboardModel.test.ts` (8), 1 nov u `feasibility.test.ts`, 1 slučaj u `localClient.test.ts`,
+e2e `tests/e2e/local/dashboard.local.spec.ts`. Provereno na pokvarenom kodu (10 izmena):
+svaka obara testove.
 
 **Korak 4d, izvoz i uvoz podataka (urađeno 01.11.2026)**. Odluke korisnika 01.11.2026: uvoz
 **zamenjuje** sve podatke (spajanje je moguća kasnija nadogradnja), a u fajl idu i **linije
@@ -215,9 +231,8 @@ ne kad se posao završi:
   `truckFormValidation`, `mockClient`, `httpClient` i e2e kamiona. Provereno na pokvarenom
   kodu (bez dodavanja kamiona, bez utovara pozadi, sa nedostupnim kamionima, bez PROVEN, bez
   reda poslova, bez `openRoute`, bez nosivosti, baza prikazana kod otvorene rute).
-- **Još nije urađeno**: upozorenja na Pregledu (`domain/capacity.ts`) nemaju težinu i
-  računaju sa unetim kamionima, a u režimu `local` flota je neograničena; podrazumevani režim
-  je i dalje `mock`.
+- Upozorenja na Pregledu sa težinom i neograničenom flotom urađena 01.11.2026 (videti „Gde
+  smo stali“); podrazumevani režim je i dalje `mock`.
 
 ## Ranije (31.10.2026, korak 2)
 
@@ -410,7 +425,7 @@ RCVA/
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
 │   │                             optimization, route-map, truck-3d (+ tego/),
 │   │                             settings (samo režim local)
-│   ├── src/domain/capacity.ts    donja granica broja kamiona, provere kapaciteta
+│   ├── src/domain/capacity.ts    donja granica po LDM (fixture-i); provere posla su u optimization/feasibility
 │   ├── src/domain/fleet.ts       standardna cerada i flota koju pravi aplikacija
 │   ├── src/domain/optimization/  put B: routePlanner, solver, random (seed), job (ulaz posla),
 │   │                             feasibility (PROVEN), validator, result (API rezultat), loadPlan
@@ -473,8 +488,8 @@ Playwright pokreće po jedan dev server za scenarije `small` (5174), `proven` (5
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, a `tests/e2e/local/`
 na lokalni.
 
-Stanje (01.11.2026, posle koraka 4d): frontend tsc, lint i build čisti, 318 Vitest
-testova i Playwright 57 (mock 43 + local 14) prolaze; serverski e2e 9 poslednji put
+Stanje (01.11.2026, posle upozorenja na Pregledu): frontend tsc, lint i build čisti, 321 Vitest
+testova i Playwright 58 (mock 43 + local 15) prolaze; serverski e2e 9 poslednji put
 31.10.2026 (posle toga `httpClient` je dobio samo metode koje vraćaju `null` ili 404);
 `test:oracle` prošao 30.10.2026 (solver posle toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
