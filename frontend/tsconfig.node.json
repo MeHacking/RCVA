@@ -17,7 +17,18 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* electron/main.mjs and scripts/: plain JavaScript, checked with // @ts-check */
+    "allowJs": true
   },
-  "include": ["vite.config.ts", "vitest.oracle.config.ts", "playwright.config.ts", "playwright.server.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "vitest.oracle.config.ts",
+    "playwright.config.ts",
+    "playwright.server.config.ts",
+    "playwright.desktop.config.ts",
+    "electron/main.mjs",
+    "scripts/prepare-desktop.mjs"
+  ]
 }

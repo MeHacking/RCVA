@@ -1,0 +1,10 @@
+{
+  "name": "rcva",
+  "productName": "RCVA",
+  "version": "1.0.0",
+  "description": "RCVA: optimizacija utovara i ruta kamiona",
+  "author": "RCVA",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs"
+}

@@ -7,7 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   // public/legacy: third-party classic scripts (TeGo LoadViewer), kept as close to the source as possible
-  globalIgnores(['dist', 'test-results', 'playwright-report', 'blob-report', 'public/legacy']),
+  globalIgnores(['dist', 'test-results', 'playwright-report', 'blob-report', 'public/legacy', 'electron/web', 'release']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,6 +18,14 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: globals.browser,
+    },
+  },
+  // Node scripts and the main process of the desktop application
+  {
+    files: ['electron/**/*.mjs', 'scripts/**/*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 ])

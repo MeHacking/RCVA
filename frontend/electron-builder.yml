@@ -1,0 +1,26 @@
+# Windows installer of the desktop application (npm run build:desktop). The application
+# itself is electron/ (its own package.json, without dependencies: everything is in the web
+# build). electron-builder still looks for production dependencies in the frontend and
+# packs them, so node_modules is excluded explicitly.
+appId: rs.rcva.desktop
+productName: RCVA
+copyright: RCVA
+directories:
+  app: electron
+  output: release
+files:
+  - main.mjs
+  - package.json
+  - web/**/*
+  - "!**/node_modules/**/*"
+electronVersion: 44.9.3
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: RCVA
+  artifactName: RCVA-Setup-${version}.${ext}

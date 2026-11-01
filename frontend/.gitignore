@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+# desktop application: the copied web build and the installers
+electron/web
+release
 dist-ssr
 *.local
 
