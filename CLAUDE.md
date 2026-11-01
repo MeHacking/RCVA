@@ -641,3 +641,10 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 - **Mock ograničenja**: rezultat optimizacije je fiksan po scenariju (nema solvera);
   geokodiranje zna desetak gradova (`src/api/mock/import/gazetteer.ts`); rastojanja u
   scenariju `small` su vazdušna linija; poslednji posao se čuva samo u memoriji.
+- **ORS Directions `/geojson` i `Accept`**: sa `Accept: application/json` pravi ORS
+  odgovara 406 „This response format is not supported“ (odgovor je
+  `application/geo+json`); zato `GEOJSON_ACCEPT`. Lažni ORS-ovi to nisu proveravali, pa je
+  greška nađena tek sa pravim ključem (01.11.2026); sada sva tri lažna ORS-a (unit, local,
+  e2e) odbijaju zahtev bez `application/geo+json`. Pouka: lažni servis treba da proverava i
+  zaglavlja, ne samo telo zahteva. Ključ se proverava pre formata, pa se bez ključa ovo ne
+  vidi curl-om.
