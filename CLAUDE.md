@@ -31,6 +31,15 @@ nisu poslata. Korisnik još nije napravio ORS ključ, pa prave kilometraže i pr
 putu nisu probane (samo lažni ORS u testovima). Korisnik je 31.10.2026 pogledao aplikaciju
 u režimu `local` (`VITE_API_MODE=local npm run dev`, http://localhost:5173).
 
+**ORS nova adresa (01.11.2026)**: sajt openrouteservice.org je bio ugašen („PHP issues“),
+a stara adresa API-ja `api.openrouteservice.org` je zastarela od 28.04.2026 i gasi se
+02.–06.11.2026 (obaveštenje na forumu ask.openrouteservice.org, tema 7912). Aplikacija sada
+zove `https://api.heigit.org/openrouteservice/v2/{matrix,directions}`; isti ključevi rade
+na obe adrese. Ključ je na nalogu **account.heigit.org**, kartica „API Key“ („Basic Key“,
+može da počinje sa `eyJ`). CORS nove adrese proveren 01.11.2026 (OPTIONS za obe putanje:
+204, `Access-Control-Allow-Origin: *`; POST bez ključa: 401 „Authorization field
+missing“). Link u Podešavanjima vodi na account.heigit.org.
+
 **Korak 4 na putu B do sada** (redosled dogovoren 31.10.2026, korisnik: „radi kako misliš
 da treba“): **4a** čuvanje na uređaju, **4b** koordinate, **4c** kilometraže, **mapa** i
 **linije po putu** (sve urađeno, videti niže); ostaje 4d.
