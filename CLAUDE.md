@@ -8,10 +8,45 @@ Poslednje ažuriranje: 01.11.2026, korak 4d (izvoz i uvoz podataka u fajl); vide
 
 ## Gde smo stali (01.11.2026)
 
-**Sledeće** (redosled dogovoren sa korisnikom 01.11.2026: 1, pa 2, pa 3): ~~1. upozorenja
-na Pregledu~~ i ~~2. podrazumevani režim `local`~~ (urađeno, videti niže), **3. pakovanje**
-(PC, pa telefon kao Capacitor; plan predložiti i potvrditi pre početka). Korak 4 na putu B
-je završen.
+**Sledeće**: aplikacija za **telefon** (Capacitor, isti web kod); plan predložiti i potvrditi
+pre početka. Urađeno 01.11.2026 redom koji je korisnik izabrao: 1. upozorenja na Pregledu,
+2. podrazumevani režim `local`, 3. aplikacija za PC (Electron). Korisnik još nije
+instalirao `RCVA-Setup-1.0.0.exe` ni preneo podatke iz pregledača (izvoz/uvoz fajla).
+Moguće dorade za PC (nisu tražene): sopstvena ikonica (sada podrazumevana Electron-ova),
+instaler na srpskom, potpisivanje (bez njega Windows SmartScreen upozorava).
+
+**Aplikacija za PC (urađeno 01.11.2026)**. Odluke korisnika: **Electron** (ne Tauri),
+**klasična instalacija** (NSIS), Node podignut na **24 LTS**.
+- **Node**: Electron 42+ traži Node ≥ 22.12 za instalaciju paketa, a Node 20 je bez ispravki od
+  30.04.2026; instaliran Node **24.22.1** (`winget install OpenJS.NodeJS.LTS --version
+  24.22.1`; bezbednosno izdanje, 12 dana, odstupanje od pravila dve nedelje), npm 11.19.1.
+  Ceo projekat posle toga prolazi sve testove.
+- `electron` **44.9.3** (MIT; 21.10.2026, 11 dana: 44.9.0 ima ranjivost visokog nivoa
+  GHSA-jr5w-w6x2-84p9, ispravljena u 44.9.1, a 44.9.3 donosi i ispravke Chromium/V8) i
+  `electron-builder` **26.17.0** (MIT), `--save-exact`, dev. `npm audit`: 26 umerenih, sve
+  `minimatch` u razvojnim alatima; `--omit=dev` 0. Paket nosi `LICENSE.electron.txt` i
+  `LICENSES.chromium.html`. npm 11 nije pokrenuo instalacionu skriptu `electron-winstaller`
+  (Squirrel, ne koristimo ga); nije odobravana.
+- `frontend/electron/`: aplikacija sa sopstvenim `package.json` (bez zavisnosti) i
+  `main.mjs` (`// @ts-check`, proverava ga `tsc -b` preko `tsconfig.node.json`): web verzija
+  (`electron/web/`, kopija `dist/`, `scripts/prepare-desktop.mjs`; nije u git-u) se služi
+  sa `app://rcva/` (standardna i sigurna šema: IndexedDB, Web Worker, fetch; nepoznata
+  putanja dobija `index.html`, ništa van `web/` se ne služi), User-Agent `RCVA/1.0.0
+  (desktop aplikacija za planiranje utovara i ruta)` za Nominatim/ORS/OSM, linkovi i
+  `target="_blank"` idu u podrazumevani pregledač, bez menija, jedna instanca. Podaci u
+  `%APPDATA%\RCVA` (odvojeni od pregledača; prenos preko izvoza/uvoza fajla).
+  `RCVA_USER_DATA` menja folder podataka (samo za testove).
+- `electron-builder.yml`: `directories.app: electron`, izlaz `release/` (nije u git-u),
+  `RCVA-Setup-1.0.0.exe` oko 115 MB, nepotpisan, podrazumevana ikonica. `app.asar` sadrži
+  samo `main.mjs`, `package.json` i `web/` (videti „Zamke“).
+- Testovi: `tests/desktop/desktop.spec.ts` (4, Playwright `_electron`, privremeni folder
+  podataka, lažni servisi): prazan početak na `app://rcva/` i osvežavanje na svakom ekranu,
+  bez služenja fajlova van `web/`, sopstveni User-Agent, uvoz + optimizacija u Worker-u +
+  podaci posle ponovnog pokretanja, linkovi u pregledaču bez novog prozora. Isti testovi
+  prolaze i nad spakovanim `release/win-unpacked/RCVA.exe` (`RCVA_DESKTOP_EXE`). Provereno
+  na pokvarenom kodu glavnog procesa (6 izmena): svaka obara testove (ignorisanje
+  `RCVA_USER_DATA` namerno nije probano: pisalo bi u prave podatke). Sam NSIS instaler nije
+  pokretan.
 
 **Podrazumevani režim `local` (urađeno 01.11.2026)**. Odluke korisnika 01.11.2026: prazan
 uređaj kreće **bez podataka** (probni samo sa `VITE_MOCK_SCENARIO`), i dodato je **„Ukloni
@@ -460,8 +495,11 @@ RCVA/
 │   ├── src/format/               jedini modul za formatiranje jedinica (LDM, km, kg, vreme)
 │   ├── src/styles/               tokens.css (sve boje), base, layout, components
 │   ├── public/legacy/tego/       TeGo 3D vizuelizator (klasične skripte; packwidget.js izmenjen)
+│   ├── electron/                 aplikacija za PC: main.mjs, package.json (web/ = kopija dist/)
+│   ├── electron-builder.yml      Windows instaler (release/)
 │   ├── tests/oracle/             timefold.json (Timefold rezultati) i poređenje TS solvera
-│   └── tests/unit, tests/e2e     Vitest i Playwright
+│   └── tests/unit, tests/e2e,    Vitest i Playwright (web), tests/desktop: Playwright nad
+│       tests/desktop             Electron aplikacijom
 └── backend/                      Java 21, Spring Boot 4.1.1, Maven Wrapper (mvnw)
     ├── src/main/java/rs/rcva/
     │   ├── api/                  kontroleri (/api/v1), ApiException, Problem Details handler
@@ -494,6 +532,10 @@ npm test                             # Vitest (logika, bez DOM-a)
 npm run test:oracle                  # TS solver protiv Timefold-a, oko 5 min (ORACLE_MS=2000 za kraće)
 npm run test:e2e                     # Playwright/Chromium; dev serveri 5174-5178 (videti niže)
 npm run test:e2e:server              # Playwright nad pravim backend-om (sam ga diže; treba Java 21)
+npm run desktop                      # aplikacija za PC iz izvornog koda (build + Electron)
+npm run build:desktop                # instaler: release/RCVA-Setup-<verzija>.exe (+ win-unpacked/)
+npm run test:desktop                 # Playwright nad Electron aplikacijom (4 testa)
+RCVA_DESKTOP_EXE=release/win-unpacked/RCVA.exe npx playwright test -c playwright.desktop.config.ts
 
 cd backend
 ./mvnw spring-boot:run               # http://localhost:8080/api/v1/health (Windows: mvnw.cmd)
@@ -521,8 +563,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (01.11.2026, posle podrazumevanog režima `local`): frontend tsc, lint i build čisti,
-328 Vitest testova i Playwright 60 (mock 43 + local 16 + local-empty 1) prolaze; serverski e2e 9 poslednji put
+Stanje (01.11.2026, posle aplikacije za PC, na Node 24.22.1): frontend tsc, lint i build
+čisti, 328 Vitest testova, Playwright 60 (mock 43 + local 16 + local-empty 1) i desktop 4
+(i nad spakovanim `RCVA.exe`) prolaze; serverski e2e 9 poslednji put
 31.10.2026 (posle toga `httpClient` je dobio samo metode koje vraćaju `null` ili 404);
 `test:oracle` prošao 30.10.2026 (solver posle toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
@@ -714,3 +757,17 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
   e2e) odbijaju zahtev bez `application/geo+json`. Pouka: lažni servis treba da proverava i
   zaglavlja, ne samo telo zahteva. Ključ se proverava pre formata, pa se bez ključa ovo ne
   vidi curl-om.
+- **`ELECTRON_RUN_AS_NODE=1`**: VS Code ga postavlja svojim podprocesima (i Claude Code-u
+  u VS Code-u), pa Electron iz tog okruženja radi kao običan Node (`electron --version`
+  ispisuje verziju Node-a). Desktop testovi ga brišu iz okruženja; ručno: `env -u
+  ELECTRON_RUN_AS_NODE npx electron electron`. Dvoklik na instaliranu aplikaciju to nema.
+- **electron-builder pakuje `node_modules` iz `frontend`-a** i kad je `directories.app`
+  poseban folder bez zavisnosti (traži zavisnosti i u folderu projekta); zato
+  `"!**/node_modules/**/*"` u `files` (`app.asar` 19,6 MB → 1,3 MB). Proveriti sadržaj
+  `app.asar` posle promene podešavanja.
+- **Playwright `getByText` traži deo teksta bez obzira na velika slova**: „Upisano pošiljki:
+  2“ nalazi i „Biće upisano pošiljki: 2“ pre uvoza. Čekati tekst koji postoji tek na kraju
+  (ili `exact: true`). Isti obrazac postoji u `geocoding.local.spec.ts`, ali tamo ga
+  spašavaju kasnije provere.
+- **Bash alat i heredoc**: obrnute kose crte i apostrofi u heredoc-u se kvare; skripte sa
+  njima pisati alatom za fajlove (scratchpad), pa pokretati.
