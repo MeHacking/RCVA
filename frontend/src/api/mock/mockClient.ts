@@ -7,7 +7,8 @@ import {
   type OptimizationJobRequest,
   type Truck,
 } from '../types'
-import { createImportStore, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
+import { createImportStore, locateInGazetteer, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
+import { createShipmentEditor } from './shipmentEdit'
 import { buildLoadPlan } from './loadPlan'
 import { assertValidTruck } from '../truckValidation'
 
@@ -50,6 +51,8 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
   const shipments = structuredClone(scenario.shipments)
   const locations = structuredClone(scenario.locations)
   const imports = createImportStore({ shipments, locations, readWorkbook })
+  // Places are never removed: the scenario's fixed result names them.
+  const editor = createShipmentEditor({ shipments, locations, locate: locateInGazetteer })
   const jobs = new Map<number, JobRecord>()
   let nextTruckId = Math.max(0, ...trucks.map((t) => t.id)) + 1
   let nextJobId = 1
@@ -137,6 +140,7 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         shipments.splice(0)
         return { shipments: removed, locations: 0 }
       }),
+    updateShipment: (id, patch) => respond(() => editor.update(id, patch)),
     listTrucks: () => respond(() => trucks),
     getBase: () => respond(() => scenario.base),
 

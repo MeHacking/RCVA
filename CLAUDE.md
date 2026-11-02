@@ -4,11 +4,53 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 01.11.2026, kraj sesije (linije po putu, nova ORS adresa, izvoz/uvoz
-podataka, upozorenja na Pregledu, režim `local` podrazumevano, aplikacija za PC); videti
-„Gde smo stali“. Sve je push-ovano na `origin/main` 01.11.2026.
+Poslednje ažuriranje: 02.11.2026 (izmena pošiljki posle uvoza); videti „Gde smo stali“.
+Na `origin/main` je sve do 01.11.2026; izmena pošiljki još nije commit-ovana ni push-ovana.
 
-## Gde smo stali (01.11.2026)
+## Gde smo stali (02.11.2026)
+
+**Sledeće**: i dalje aplikacija za **telefon** (videti 01.11.2026); izmenu pošiljki
+commit-ovati kada korisnik potvrdi.
+
+**Izmena pošiljki posle uvoza (urađeno 02.11.2026)**, na zahtev korisnika (pošiljka sa
+„Nejasna lokacija“ se ranije popravljala samo novim uvozom). Odluke korisnika: ispravka
+mesta bez koordinata se **nudi i za ostale pošiljke** sa tim mestom (uključeno unapred), i
+**ručne koordinate** kada Nominatim ne nađe mesto.
+- `ApiClient.updateShipment(id, ShipmentPatch)` (NOT IN SPEC v2): ID, LDM, težina, opis,
+  mesta (`PlaceInput`: naziv, poštanski broj, zemlja, `coordinates`,
+  `moveOtherShipments`). Logika je u `src/api/mock/shipmentEdit.ts` (deli je mock sa
+  probnim spiskom i `localClient` sa Nominatim-om); `httpClient` 404, a dugme „Izmeni“ se
+  u režimu `server` ne prikazuje. 400 po polju (ništa se ne menja i ništa se ne traži), 404,
+  409 dok posao čeka ili radi (pre traženja i ponovo pre izmene).
+- Mesto zadržava naziv i koordinate kad ih jednom ima (sačuvani rezultati ga koriste): nov
+  naziv je drugo mesto (postojeće po nazivu i poštanskom broju, `findPlace`, ili novo).
+  Koordinate dobija samo mesto bez njih: od Nominatim-a (samo mesta ove pošiljke, kroz isti
+  `locate` i keš, pa se zapamćen odgovor ne traži ponovo) ili ručno (`MANUAL`; ručne
+  koordinate za mesto koje ih već ima daju 400). Pri svakom čuvanju se mesta pošiljke bez
+  koordinata traže ponovo (neuspeo zahtev se tada ponavlja). Pronađen ručno upisan naziv je
+  `MANUAL` (kao ispravljen red pri uvozu). Ostale pošiljke se prebacuju samo sa mesta bez
+  koordinata. Mesto koje više niko ne koristi se briše, osim baze i mesta sačuvanih poslova
+  (`keptPlaces`, isto kao „Ukloni sve pošiljke“); mock ne briše mesta.
+- Ekran: dugme „Izmeni“ u redu tabele Pošiljke, obrazac ispod reda (`ShipmentEditor.tsx`,
+  model `shipmentEditModel.ts`): stanje koordinata svakog mesta, polje „Koordinate (ručno,
+  neobavezno)“ samo za mesto bez koordinata ili zamenjeno mesto
+  (`src/format/coordinates.ts`: „45.2671, 19.8335“ kao u Google mapama, ili sa decimalnim
+  zarezom), oznaka „Ispravi i u ostalim pošiljkama sa mestom „X“ (N)“ i obaveštenje posle
+  čuvanja (šta je pronađeno, šta nije, koliko je pošiljki prebačeno).
+- Testovi: `shipmentEdit.test.ts` (12), `shipmentEditModel.test.ts` (9),
+  `coordinates.test.ts` (16), e2e `tests/e2e/local/editShipment.local.spec.ts` (3).
+  Provereno na pokvarenom kodu (15 izmena u logici i modelu, 4 na ekranu): svaka obara
+  testove (409 pre traženja je promakla, pa test sada proverava i da se ništa ne traži).
+  Izgled proveren snimkom ekrana.
+- Ograničenje: mesto koje je Nominatim našao na pogrešnom mestu (isto ime, drugi grad) ne
+  može se pomeriti ručnim koordinatama; pomaže samo drugačiji naziv.
+
+**Novi računar (02.11.2026)**: Node 24.14.0 i npm 10.9.0 (na drugom 24.22.1 i npm 11).
+Posle `git pull` treba `npm install` u `frontend`; ovde je urađeno `npm install
+--ignore-scripts`, jer npm 10 sam pokreće instalacionu skriptu `electron-winstaller`, koja
+nije odobravana (lock fajl nepromenjen). Aplikacija za PC ovde nije probana.
+
+## Ranije (01.11.2026)
 
 **Sledeće**: aplikacija za **telefon** (Capacitor, isti web kod); plan predložiti i potvrditi
 pre početka. Urađeno 01.11.2026 redom koji je korisnik izabrao: 1. upozorenja na Pregledu,
@@ -485,7 +527,8 @@ RCVA/
 │   ├── src/api/                  ApiClient interfejs, tipovi, mock (src/api/mock/),
 │   │                             local (src/api/local/, put B; deviceStore = IndexedDB),
 │   │                             http (server)
-│   ├── src/api/mock/import/      pravila čitanja Excel-a (referenca za backend)
+│   ├── src/api/mock/import/      pravila čitanja Excel-a (referenca za backend);
+│   │                             src/api/mock/shipmentEdit.ts: izmena pošiljke (mock i local)
 │   ├── src/fixtures/             probni scenariji: small, test7, proven, notFound
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
 │   │                             optimization, route-map, truck-3d (+ tego/),
@@ -565,9 +608,12 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (01.11.2026, posle aplikacije za PC, na Node 24.22.1): frontend tsc, lint i build
-čisti, 328 Vitest testova, Playwright 60 (mock 43 + local 16 + local-empty 1) i desktop 4
-(i nad spakovanim `RCVA.exe`) prolaze; serverski e2e 9 poslednji put
+Stanje (02.11.2026, posle izmene pošiljki, na Node 24.14.0): frontend tsc, lint i build
+čisti, 365 Vitest testova i Playwright 63 (mock 43 + local 19 + local-empty 1) prolaze.
+Prvi pun Playwright posle `npm install` na novom računaru trajao je 10,9 min i 2 testa su
+pala (test 9 u `truck3d.spec.ts` i razmak od 1 s u `geocoding.local.spec.ts`); sami i u
+drugom punom prolazu (2,2 min) prolaze. Desktop 4 poslednji put 01.11.2026 (na drugom
+računaru, i nad spakovanim `RCVA.exe`); serverski e2e 9 poslednji put
 31.10.2026 (posle toga `httpClient` je dobio samo metode koje vraćaju `null` ili 404);
 `test:oracle` prošao 30.10.2026 (solver posle toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put
 pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koji bez
@@ -601,7 +647,7 @@ Svih šest ekrana iz prompta radi nad mock API-jem:
 | Ekran | Šta radi |
 |---|---|
 | Pregled | kartice (pošiljke, LDM, kamioni, greške), poslednja optimizacija, upozorenja (provere koje dokazuju neizvodljivost), brze akcije |
-| Pošiljke | tabela sa izvedenim statusom, CSV izvoz (UTF-8 BOM, `;`, decimalni zarez), **uvoz Excel-a u 4 koraka** (fajl → mapiranje kolona → greške, duplikati, ručna ispravka i isključivanje reda → potvrda) |
+| Pošiljke | tabela sa izvedenim statusom, CSV izvoz (UTF-8 BOM, `;`, decimalni zarez), **uvoz Excel-a u 4 koraka** (fajl → mapiranje kolona → greške, duplikati, ručna ispravka i isključivanje reda → potvrda), **izmena pošiljke posle uvoza** (mesta, ručne koordinate, ID, LDM, težina, opis; ne u režimu `server`) |
 | Kamioni | tabela, dodavanje i izmena sa validacijom, uklanjanje sa potvrdom u redu (409 dok posao radi) |
 | Rezultati optimizacije | pokretanje sa vremenskim ograničenjem, praćenje statusa, rezime i skor, validator, tabela po kamionu sa redosledom stanica, nedodeljene pošiljke, PROVEN i NOT_FOUND |
 | Mapa ruta | mapa (Leaflet, podloga OSM) sa rutama u bojama kamiona i mestima (u režimu `local` sa ORS ključem po putu, inače isprekidane prave linije), filter po kamionu (`?truck=`), ispod spisak stanica |

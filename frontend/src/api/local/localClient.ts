@@ -17,6 +17,7 @@ import {
   type WorkbookReader,
 } from '../mock/import/importStore'
 import type { PlaceWarning } from '../mock/import/importRows'
+import { createShipmentEditor } from '../mock/shipmentEdit'
 import { assertValidTruck } from '../truckValidation'
 import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from './deviceFile'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
@@ -44,7 +45,8 @@ import {
 // scenario is only the start, when nothing is stored yet. The Excel import is the mock's,
 // and an import that is not committed yet is not kept; committing it looks up the
 // coordinates of its places with Nominatim (nominatim.ts), and every answer is kept, so
-// a place is never asked twice. A job
+// a place is never asked twice. A shipment can be corrected after the import
+// (shipmentEdit.ts); then only its places without coordinates are looked up. A job
 // really solves: the checks before solving (422 PROVEN), the TS solver in a Web Worker,
 // the independent validator and the rear-loaded 3D plan, with the process owner's model
 // (open routes, loading from the rear, weight).
@@ -210,6 +212,13 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     // Kept jobs name their shipments by id, also after "Ukloni sve pošiljke".
     firstFreeShipmentId: () => Math.max(0, ...[...jobs.values()].flatMap((j) => j.input.shipments.map((s) => s.id))) + 1,
   })
+  const editor = createShipmentEditor({
+    shipments,
+    locations,
+    locate,
+    assertCanChange: () => assertNoActiveJob('pošiljke se mogu menjati'),
+    keepsPlace: (id) => keptPlaces().has(id),
+  })
   // Jobs run one at a time, in the order they were created (as on the backend).
   let queue: Promise<void> = Promise.resolve()
   // Writes go one after another; each writes the state as it is when its turn comes.
@@ -322,6 +331,23 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
   function activeJob(): LocalJob | undefined {
     return [...jobs.values()].find((job) => !TERMINAL_JOB_STATUSES.includes(job.status))
+  }
+
+  /** 409 while a job waits or runs; `allowed` says what can be done once it ends. */
+  function assertNoActiveJob(allowed: string): void {
+    const running = activeJob()
+    if (running) {
+      throw new ApiError({
+        title: 'Optimizacija je u toku',
+        status: 409,
+        detail: `Optimizacija #${running.id} je u toku; ${allowed} kada se završi.`,
+      })
+    }
+  }
+
+  /** Places that stay without shipments: the base, and the places of kept jobs, so an earlier result still names its stops. */
+  function keptPlaces(): Set<number> {
+    return new Set([scenario.base.baseLocationId, ...[...jobs.values()].flatMap((j) => j.input.locationIds)])
   }
 
   async function createJob(request: OptimizationJobRequest): Promise<LocalJob> {
@@ -666,22 +692,16 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
     deleteAllShipments: () =>
       change(() => {
-        const running = activeJob()
-        if (running) {
-          throw new ApiError({
-            title: 'Optimizacija je u toku',
-            status: 409,
-            detail: `Optimizacija #${running.id} je u toku; pošiljke se mogu ukloniti kada se završi.`,
-          })
-        }
+        assertNoActiveJob('pošiljke se mogu ukloniti')
         const removed = shipments.length
         shipments.splice(0)
-        // Places of the kept jobs stay, so an earlier result still names its stops.
-        const used = new Set([scenario.base.baseLocationId, ...[...jobs.values()].flatMap((j) => j.input.locationIds)])
+        const kept = keptPlaces()
         const before = locations.length
-        locations.splice(0, locations.length, ...locations.filter((l) => used.has(l.id)))
+        locations.splice(0, locations.length, ...locations.filter((l) => kept.has(l.id)))
         return { shipments: removed, locations: before - locations.length }
       }),
+
+    updateShipment: (id, patch) => change(() => editor.update(id, patch)),
 
     getDeviceSettings: () => respond(() => settings),
 

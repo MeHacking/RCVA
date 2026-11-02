@@ -259,9 +259,54 @@ export interface ImportCommitResult {
   geocoding?: { found: number; notFound: number; failed: number; message: string | null }
 }
 
+/** NOT IN SPEC v2: a place of a shipment as corrected by hand after the import */
+export interface PlaceInput extends PlaceGuess {
+  /**
+   * Coordinates entered by hand ("Ručno uneta lokacija"), used instead of a lookup; only
+   * for a place that has none yet.
+   */
+  coordinates?: { lat: number; lon: number } | null
+  /**
+   * When this place replaces a place without coordinates, the other shipments at the
+   * replaced place move here too. A place with coordinates is never replaced this way.
+   */
+  moveOtherShipments?: boolean
+}
+
+/** NOT IN SPEC v2: a correction of an imported shipment; fields left out stay as they are */
+export interface ShipmentPatch {
+  externalId?: string
+  ldmTenths?: number
+  weightKg?: number | null
+  description?: string | null
+  pickup?: PlaceInput
+  delivery?: PlaceInput
+}
+
+/**
+ * NOT IN SPEC v2: what happened to one place of an edited shipment. `known`: it already had
+ * coordinates; `found` / `notFound` / `failed`: the lookup asked now (or its kept answer);
+ * `manual`: coordinates entered by hand.
+ */
+export interface PlaceLookup {
+  role: 'pickup' | 'delivery'
+  name: string
+  outcome: 'known' | 'found' | 'notFound' | 'failed' | 'manual'
+  /** why the lookup failed (`failed` only) */
+  message: string | null
+}
+
+/** NOT IN SPEC v2: answer of a shipment correction */
+export interface ShipmentUpdateResult {
+  shipment: Shipment
+  /** other shipments moved to a new place (`PlaceInput.moveOtherShipments`) */
+  movedShipments: number
+  places: PlaceLookup[]
+}
+
 /** NOT IN SPEC v2: settings of the application on the device ("local" mode only) */
 export interface DeviceSettings {
-  /** look up the coordinates of new places with Nominatim when an import is committed */
+  /** look up the coordinates of new places with Nominatim when an import is committed or a shipment corrected */
   geocodingEnabled: boolean
   /** sent to Nominatim as `email`, so its operators can reach the user; null when not given */
   contactEmail: string | null

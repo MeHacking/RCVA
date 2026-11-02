@@ -19,6 +19,8 @@ import type {
   ProblemDetails,
   RouteLine,
   Shipment,
+  ShipmentPatch,
+  ShipmentUpdateResult,
   Truck,
   TruckInput,
 } from './types'
@@ -38,6 +40,13 @@ export interface ApiClient {
    * kept results stay); for a new week's import. 409 while a job waits or runs; 404 over HTTP.
    */
   deleteAllShipments(): Promise<{ shipments: number; locations: number }>
+  /**
+   * NOT IN SPEC v2: corrects an imported shipment. Its places without coordinates are looked
+   * up again (only these, and never a place whose answer is kept); a place keeps its name and
+   * coordinates, so kept results do not change. 400 by field, 404 for an unknown shipment
+   * (and over HTTP), 409 while a job waits or runs.
+   */
+  updateShipment(id: number, patch: ShipmentPatch): Promise<ShipmentUpdateResult>
 
   listTrucks(): Promise<Truck[]>
   createTruck(input: TruckInput): Promise<Truck>

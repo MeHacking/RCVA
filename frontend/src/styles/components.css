@@ -140,6 +140,11 @@ fieldset.field {
   color: var(--danger);
 }
 
+.field__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 .form-actions {
   display: flex;
   gap: var(--space-2);

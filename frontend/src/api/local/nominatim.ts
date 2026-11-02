@@ -5,7 +5,8 @@ import { normalizePlaceName } from '../mock/import/gazetteer'
 // - at most one request per second for the whole application (one geocoder per app);
 // - every answer, also "not found", is kept on the device by the caller and never asked
 //   again (see `placeKey`); only a failed request may be repeated, on the next import;
-// - requests only when the user commits an import, never while typing;
+// - requests only when the user commits an import or saves a corrected shipment (only its
+//   places), never while typing;
 // - it can be switched off in the settings, without a new version;
 // - "© OpenStreetMap contributors" is shown where the coordinates are used.
 // A web page cannot set its own User-Agent, so the browser's Referer identifies the

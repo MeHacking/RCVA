@@ -549,7 +549,8 @@
   text-decoration: line-through;
 }
 
-.import-table__editor > td {
+.import-table__editor > td,
+.table__editor-row > td {
   background: var(--surface-muted);
 }
 
@@ -572,6 +573,17 @@
 .row-editor {
   width: 0;
   min-width: 100%;
+  white-space: normal; /* table cells default to nowrap */
+}
+
+.row-editor__place-status {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.row-editor__note {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
 }
 
 .row-editor__source {

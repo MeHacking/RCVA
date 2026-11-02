@@ -14,7 +14,7 @@ import type {
 import { geocode, normalizePlaceName } from './gazetteer'
 import { applyPatch, gazetteerWarning, readRows, toImportRows, type PlaceWarning, type RowState } from './importRows'
 
-/** Coordinates of one place, looked up when an import is committed. */
+/** Coordinates of one place, looked up when an import is committed or a shipment corrected. */
 export type PlaceLocator = (place: PlaceGuess) => Promise<LocateResult>
 export type LocateResult =
   | { kind: 'found'; lat: number; lon: number }
@@ -93,10 +93,7 @@ export function createImportStore(deps: {
     return record.rows
   }
 
-  function findLocation(place: PlaceGuess): Location | undefined {
-    const key = normalizePlaceName(place.name)
-    return locations.find((l) => normalizePlaceName(l.name) === key && (l.postalCode ?? null) === place.postalCode)
-  }
+  const findLocation = (place: PlaceGuess) => findPlace(locations, place)
 
   function findOrCreateLocation(place: PlaceGuess, corrected: boolean, located: Map<string, LocateResult>): number {
     const result = located.get(placeId(place))
@@ -255,6 +252,12 @@ export function createImportStore(deps: {
       return { created, skipped: views.length - created, geocoding: geocoding.summary }
     },
   }
+}
+
+/** The location of a place: the same name (written any way) and postal code; the country is not compared. */
+export function findPlace(locations: Location[], place: PlaceGuess): Location | undefined {
+  const key = normalizePlaceName(place.name)
+  return locations.find((l) => normalizePlaceName(l.name) === key && (l.postalCode ?? null) === place.postalCode)
 }
 
 /** field -> message; empty when the mapping can be used */
