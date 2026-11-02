@@ -10,16 +10,16 @@ const { shipments, locations } = SCENARIOS.small
 describe('buildShipmentRows', () => {
   const rows = buildShipmentRows(shipments, locations)
 
-  it('resolves locations and the delivery postal code', () => {
+  it('resolves locations, without the number next to a place (an open question)', () => {
     expect(rows[0]).toMatchObject({
       externalId: 'S-101',
       pickupName: 'Subotica',
       deliveryName: 'Ljungby',
-      deliveryPostalCode: '34131',
       ldmTenths: 40,
       weightKg: 3200,
       status: 'OK',
     })
+    expect(Object.values(rows[0])).not.toContain('34131')
   })
 
   it('sums LDM and counts errors', () => {
@@ -50,7 +50,6 @@ describe('shipment status (derived, not in Spec v2)', () => {
   it('shows an unknown location by id', () => {
     const [row] = buildShipmentRows([shipment(1, 'X', 10, 1, 99)], [ok])
     expect(row.deliveryName).toBe('Lokacija #99')
-    expect(row.deliveryPostalCode).toBeNull()
   })
 })
 
@@ -59,17 +58,17 @@ describe('shipmentsToCsv', () => {
     const csv = shipmentsToCsv(buildShipmentRows(shipments, locations))
     const lines = csv.split('\r\n')
     expect(lines[0]).toBe(
-      'ID;Preuzimanje;Isporuka;Poštanski broj isporuke;LDM;Težina (kg);Dužina (mm);Širina (mm);Visina (mm);Status',
+      'ID;Preuzimanje;Isporuka;LDM;Težina (kg);Dužina (mm);Širina (mm);Visina (mm);Status',
     )
-    expect(lines[1]).toBe('S-101;Subotica;Ljungby;34131;4,0;3200;;;;U redu')
-    expect(lines[3]).toBe('S-103;Kragujevac;Stenkullen;44361;6,0;5400;6000;2400;2200;U redu')
+    expect(lines[1]).toBe('S-101;Subotica;Ljungby;4,0;3200;;;;U redu')
+    expect(lines[3]).toBe('S-103;Kragujevac;Stenkullen;6,0;5400;6000;2400;2200;U redu')
     expect(lines).toHaveLength(7) // header + 5 rows + trailing empty string
   })
 
   it('quotes cells containing ";", quotes or line breaks', () => {
     const tricky = location(9, 'Beograd; "Zemun"\nmagacin', 'RS', null, [44.8, 20.4])
     const csv = shipmentsToCsv(buildShipmentRows([shipment(1, 'S;1', 10, 9, 9)], [tricky]))
-    expect(csv.split('\r\n')[1]).toBe('"S;1";"Beograd; ""Zemun""\nmagacin";"Beograd; ""Zemun""\nmagacin";;1,0;;;;;U redu')
+    expect(csv.split('\r\n')[1]).toBe('"S;1";"Beograd; ""Zemun""\nmagacin";"Beograd; ""Zemun""\nmagacin";1,0;;;;;U redu')
   })
 
   it('names the file with the local date', () => {

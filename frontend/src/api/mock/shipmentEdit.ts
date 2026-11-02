@@ -99,7 +99,7 @@ export function createShipmentEditor(deps: {
       } else if (input?.coordinates) {
         plans.push({ ...base, outcome: 'manual', coordinates: input.coordinates })
       } else {
-        const id = `${place.name.toLowerCase()}|${place.postalCode ?? ''}|${place.country ?? ''}`
+        const id = `${place.name.toLowerCase()}|${place.country ?? ''}`
         let result = asked.get(id)
         if (!result) {
           result = await locate(place)

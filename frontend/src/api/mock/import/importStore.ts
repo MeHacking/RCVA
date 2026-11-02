@@ -254,10 +254,13 @@ export function createImportStore(deps: {
   }
 }
 
-/** The location of a place: the same name (written any way) and postal code; the country is not compared. */
+/**
+ * The location of a place: the same name, written any way. The postal code and the country
+ * are not compared (whether the number next to a place is a postal code is an open question).
+ */
 export function findPlace(locations: Location[], place: PlaceGuess): Location | undefined {
   const key = normalizePlaceName(place.name)
-  return locations.find((l) => normalizePlaceName(l.name) === key && (l.postalCode ?? null) === place.postalCode)
+  return locations.find((l) => normalizePlaceName(l.name) === key)
 }
 
 /** field -> message; empty when the mapping can be used */
@@ -285,9 +288,9 @@ function writable(view: ImportRow): boolean {
   return !view.excluded && view.errors.length === 0 && !!view.pickup && !!view.delivery && view.ldmTenths !== null
 }
 
-/** The same place in the rows of an import: same name (written any way) and postal code. */
+/** The same place in the rows of an import: the same name, written any way (as `findPlace`). */
 function placeId(place: PlaceGuess): string {
-  return `${normalizePlaceName(place.name)}|${place.postalCode ?? ''}`
+  return normalizePlaceName(place.name)
 }
 
 function cellText(value: unknown): string {

@@ -442,14 +442,27 @@ describe('coordinates from Nominatim on the device', () => {
     expect(await place(api, 'Drugstad')).toMatchObject({ lat: null, lon: null, geocodeStatus: 'FAILED' })
   })
 
+  it('takes a place written with two different numbers in one file as one place', async () => {
+    const fake = nominatim()
+    const rows = [...ROWS.slice(0, 2), ['PRIMEROVO - TESTSTAD 22222', '800 kg', '1,2m']]
+    const api = client(createMemoryStore<LocalData>(), fake, rows)
+    const progress: string[] = []
+    const result = await importRows(api, (p) => progress.push(`${p.done}/${p.total}`))
+    expect(fake.names()).toEqual(['Primerovo', 'Teststad'])
+    expect(progress).toEqual(['0/2', '1/2', '2/2'])
+    expect(result.geocoding).toEqual({ found: 2, notFound: 0, failed: 0, message: null })
+    const shipments = (await api.listShipments()).slice(-2)
+    expect(shipments[0].deliveryLocationId).toBe(shipments[1].deliveryLocationId)
+  })
+
   it('never asks the same place again, also "not found" and after a restart', async () => {
     const store = createMemoryStore<LocalData>()
     const first = nominatim()
     await importRows(client(store, first))
     expect(first.asked).toHaveLength(3)
 
-    // New places (Teststad without a postal code is another place) and Drugstad, which has
-    // no coordinates, are looked up again, but only in what is kept: "found" and "not found".
+    // Teststad without its number is the same place (the number is not compared), so only
+    // Drugstad, which has no coordinates, is looked up again, and only in what is kept.
     const second = nominatim()
     const rows = [ROWS[0], ['DRUGSTAD - PRIMEROVO', '1 kg', '1m'], ['DRUGSTAD - TESTSTAD', '1 kg', '1m']]
     const api = client(store, second, rows)
@@ -461,7 +474,7 @@ describe('coordinates from Nominatim on the device', () => {
     expect(preview.rows.map((r) => r.warnings)).toEqual([[drugstad], [drugstad]])
     const result = await importRows(api)
     expect(second.asked).toEqual([])
-    expect(result.geocoding).toEqual({ found: 1, notFound: 1, failed: 0, message: null })
+    expect(result.geocoding).toEqual({ found: 0, notFound: 1, failed: 0, message: null })
     expect(Object.keys(storedData(store).geocodeCache ?? {}).sort()).toEqual(['drugstad|', 'primerovo|', 'teststad|'])
   })
 

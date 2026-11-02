@@ -4,13 +4,14 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 02.11.2026 (izmena pošiljki posle uvoza); videti „Gde smo stali“.
-Na `origin/main` je sve do 01.11.2026; izmena pošiljki još nije commit-ovana ni push-ovana.
+Poslednje ažuriranje: 02.11.2026 (izmena pošiljki posle uvoza; broj uz mesto se skriva i
+zanemaruje); videti „Gde smo stali“.
+Sve je push-ovano na `origin/main` 02.11.2026 (izmena pošiljki i skrivanje broja uz mesto, dva commit-a).
 
 ## Gde smo stali (02.11.2026)
 
-**Sledeće**: i dalje aplikacija za **telefon** (videti 01.11.2026); izmenu pošiljki
-commit-ovati kada korisnik potvrdi.
+**Sledeće**: i dalje aplikacija za **telefon** (videti 01.11.2026); pitanja za Gojka još
+nisu poslata (spisak od 30.10. dopunjen 02.11.).
 
 **Izmena pošiljki posle uvoza (urađeno 02.11.2026)**, na zahtev korisnika (pošiljka sa
 „Nejasna lokacija“ se ranije popravljala samo novim uvozom). Odluke korisnika: ispravka
@@ -44,6 +45,29 @@ mesta bez koordinata se **nudi i za ostale pošiljke** sa tim mestom (uključeno
   Izgled proveren snimkom ekrana.
 - Ograničenje: mesto koje je Nominatim našao na pogrešnom mestu (isto ime, drugi grad) ne
   može se pomeriti ručnim koordinatama; pomaže samo drugačiji naziv.
+
+**Broj uz mesto se skriva i zanemaruje (02.11.2026)**, odluka korisnika („mislim da broj
+koji stoji pored imena gradova nije poštanski“), dok Gojko ne odgovori. Upozorenje dato pre
+odluke: u stvarnom fajlu se brojevi poklapaju sa švedskim i norveškim poštanskim brojevima
+mesta istovara (i kad stoje uz mesto utovara), osim jednog sa 6 cifara; korisnik je ipak
+izabrao da se sakrije. **Pitanje za Gojka** (dodato na spisak od 30.10.): da li je broj uz
+mesto poštanski broj mesta istovara, ili nešto drugo (koje mesto, šta znači), i da li ga
+treba prikazivati.
+- Broj se i dalje izdvaja iz naziva i čuva u `Location.postalCode` / `PlaceGuess.postalCode`
+  (ništa se ne gubi ako Gojko kaže da jeste poštanski), ali: mesta se prepoznaju **samo po
+  nazivu** (`findPlace`, `placeId` u `importStore.ts`; isti grad sa dva broja je jedno
+  mesto); broj više ne daje greške pri uvozu (nema „Neispravan poštanski broj“, a „Više
+  odredišta“ samo za zarez u delu isporuke); kolona „Poštanski broj isporuke“ se ne nudi pri
+  mapiranju; zamenjeno mesto u izmeni pošiljke ne preuzima broj.
+- Skriveno: kolona u tabeli Pošiljke i CSV-u, broj u pregledu redova uvoza, polja u
+  ispravci reda i u izmeni pošiljke. Probni podaci (fixture-i) i fajl sa podacima ga i dalje
+  imaju.
+- **Mock i Java se sada razlikuju**: Java uvoz (režim `server`) i dalje proverava broj i
+  razlikuje mesta po njemu; backend se na putu B ne menja.
+- Testovi: izmenjeni postojeći (parser, mock uvoz, `localClient`, tabela i CSV, mapiranje,
+  model izmene, e2e `shipments.spec.ts`), nov u `localClient.test.ts` (isto mesto sa dva
+  broja u jednom fajlu) i provere da se broj ne vidi u `editShipment.local.spec.ts`.
+  Provereno na pokvarenom kodu (7 izmena): svaka obara testove.
 
 **Novi računar (02.11.2026)**: Node 24.14.0 i npm 10.9.0 (na drugom 24.22.1 i npm 11).
 Posle `git pull` treba `npm install` u `frontend`; ovde je urađeno `npm install
@@ -400,7 +424,9 @@ zanemaruje.
 Tekst je u razgovoru, ne u repozitorijumu, jer navodi stvarne redove; **još nisu poslata**.
 Teme: tačna nosivost cerade; da li se cerada može utovariti i sa strane; red sa dva mesta
 istovara (koliko robe ide na koje mesto); red bez mesta utovara (nastavak prethodnog ili
-posebna pošiljka); poštanski broj napisan uz mesto utovara, a pripada mestu istovara; da li
+posebna pošiljka); poštanski broj napisan uz mesto utovara, a pripada mestu istovara (dopuna
+02.11.2026: da li je broj uz mesto uopšte poštanski broj i da li ga prikazivati; aplikacija
+ga do odgovora skriva i zanemaruje); da li
 je mesto (grad) dovoljno ili će biti adrese; utovar u više zemalja i istovar u Švedskoj i
 Norveškoj u istom kamionu (granice, carina); da li sve iz tabele mora iste nedelje i koliko
 kamiona najviše ima; uloga vozača.
@@ -608,8 +634,8 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (02.11.2026, posle izmene pošiljki, na Node 24.14.0): frontend tsc, lint i build
-čisti, 365 Vitest testova i Playwright 63 (mock 43 + local 19 + local-empty 1) prolaze.
+Stanje (02.11.2026, posle izmene pošiljki i skrivanja broja uz mesto, na Node 24.14.0): frontend tsc, lint i build
+čisti, 366 Vitest testova i Playwright 63 (mock 43 + local 19 + local-empty 1) prolaze.
 Prvi pun Playwright posle `npm install` na novom računaru trajao je 10,9 min i 2 testa su
 pala (test 9 u `truck3d.spec.ts` i razmak od 1 s u `geocoding.local.spec.ts`); sami i u
 drugom punom prolazu (2,2 min) prolaze. Desktop 4 poslednji put 01.11.2026 (na drugom
@@ -689,7 +715,8 @@ Optimizacija na serveru:
 
 1. ~~Backend kostur~~ (urađeno 28.10.2026; PostgreSQL namerno odložen).
 2. ~~Excel uvoz na serveru~~ (urađeno 28.10.2026). Mock pravila u
-   `frontend/src/api/mock/import/` i Java pravila moraju ostati ista dok mock postoji.
+   `frontend/src/api/mock/import/` i Java pravila su bila ista; od 02.11.2026 se razlikuju
+   u broju uz mesto (frontend ga zanemaruje, Java ne).
 3. ~~Timefold optimizacija~~ (urađeno 28.10.2026, **na pretpostavkama** iz
    `optimization/routing/Assumptions.java`; kada Gojko odgovori, proveriti ih).
    Testovi 1–3, 5a i 6 iz Spec v2 nisu preneti: specifikacija nije u repozitorijumu, a ovde
@@ -731,7 +758,8 @@ nije povezan sa ekranima. Šta odgovori menjaju:
 Otvoreno posle odgovora (detalji u odeljku „Otvoreno“ u dokumentu odgovora): nosivost
 cerade („mislim 13 t“, uobičajeno je oko 24 t; privremeno 24 t), da li se cerada može
 utovariti i sa strane (ako može, D2 utiče samo na 3D raspored, a ne na rute), da li je broj
-kamiona ograničen (privremeno nije), početna tačka iz prethodne nedelje, uloga vozača. Specifikacija v2 nije u repozitorijumu, pa odgovori nisu upisani u nju.
+kamiona ograničen (privremeno nije), početna tačka iz prethodne nedelje, uloga vozača, i (od
+02.11.2026) da li je broj uz mesto poštanski broj (do odgovora se skriva i zanemaruje). Specifikacija v2 nije u repozitorijumu, pa odgovori nisu upisani u nju.
 Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
 
 ## Zamke (naučeno u radu)

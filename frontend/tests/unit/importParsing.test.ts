@@ -36,10 +36,15 @@ describe('parseRelation', () => {
     expect(parsed.delivery?.postalCode).toBeNull()
   })
 
-  it('reports a postal code that is neither 4 nor 5 digits', () => {
-    const parsed = parseRelation('BEOGRAD 123456 - KIRUNA')
-    expect(parsed.issues).toEqual(['Neispravan poštanski broj „123456“ (očekuje se 4 ili 5 cifara).'])
-    expect(parsed.delivery).toEqual({ name: 'Kiruna', postalCode: null, country: null })
+  // Whether the number next to a place is a postal code waits for the process owner, so a
+  // number never makes a row wrong; only a comma means several destinations.
+  it('never reports a number: not one of 6 digits, nor two numbers without a comma', () => {
+    const six = parseRelation('BEOGRAD 123456 - KIRUNA')
+    expect(six.issues).toEqual([])
+    expect(six.delivery).toEqual({ name: 'Kiruna', postalCode: null, country: null })
+    const two = parseRelation('ZAJECAR 11111 - YSTAD 22222')
+    expect(two.issues).toEqual([])
+    expect(two.delivery).toEqual({ name: 'Ystad', postalCode: null, country: null })
   })
 })
 

@@ -1,10 +1,9 @@
 import type { ImportField, ImportMapping, ImportRow } from '../../../api/types'
 
 export const IMPORT_FIELDS: ReadonlyArray<{ field: ImportField; label: string; hint: string }> = [
-  { field: 'relation', label: 'Relacija', hint: 'Preuzimanje i isporuka u jednoj koloni, npr. „NOVI SAD 34131 - LJUNGBY“' },
+  { field: 'relation', label: 'Relacija', hint: 'Preuzimanje i isporuka u jednoj koloni, npr. „NOVI SAD - LJUNGBY“' },
   { field: 'pickup', label: 'Preuzimanje', hint: 'Umesto relacije: posebna kolona sa mestom preuzimanja' },
   { field: 'delivery', label: 'Isporuka', hint: 'Umesto relacije: posebna kolona sa mestom isporuke' },
-  { field: 'deliveryPostalCode', label: 'Poštanski broj isporuke', hint: 'Opciono, ako nije deo relacije' },
   { field: 'ldm', label: 'LDM', hint: 'Obavezno; npr. „2,4m“ ili „2,4“' },
   { field: 'weight', label: 'Težina', hint: 'Opciono, informativno; npr. „4,200 kg“ ili „5,3t“' },
   { field: 'externalId', label: 'ID pošiljke', hint: 'Opciono; bez njega ID se pravi od imena fajla i broja reda' },
@@ -16,7 +15,6 @@ const KEYWORDS: ReadonlyArray<[ImportField, RegExp]> = [
   ['relation', /RELACIJ|RELATION|RUTA/],
   ['ldm', /LDM|DIMENZIJ|UTOVARNI ?MET|LOADING ?MET/],
   ['weight', /TEZIN|WEIGHT|MASA|KG/],
-  ['deliveryPostalCode', /POSTANSKI|ZIP|POSTAL|^PB$/],
   ['pickup', /PREUZIM|UTOVAR|POLAZ|PICKUP|ORIGIN/],
   ['delivery', /ISPORUK|ISTOVAR|ODREDIST|DELIVERY|DESTINATION/],
   ['externalId', /^ID$|SIFRA|BROJ POSILJKE|SHIPMENT ?ID/],

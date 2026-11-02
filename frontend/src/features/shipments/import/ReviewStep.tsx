@@ -196,11 +196,11 @@ export function ReviewStep({ importId, onBack, onNext }: ReviewStepProps) {
 
 function Place({ place }: { place: PlaceGuess | null }) {
   if (!place) return <span className="text--error">nedostaje</span>
-  const extra = [place.postalCode, place.country].filter(Boolean).join(' · ')
+  // The number next to a place is not shown: whether it is a postal code is an open question.
   return (
     <>
       {place.name}
-      {extra && <span className="text--muted"> · {extra}</span>}
+      {place.country && <span className="text--muted"> · {place.country}</span>}
     </>
   )
 }

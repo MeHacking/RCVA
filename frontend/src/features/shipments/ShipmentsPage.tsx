@@ -170,7 +170,7 @@ function ShipmentTable({
   const totals = shipmentTotals(rows)
   const [editing, setEditing] = useState<number | null>(null)
   const edited = shipments.find((s) => s.id === editing)
-  const columns = CAN_EDIT ? 9 : 8
+  const columns = CAN_EDIT ? 8 : 7
   return (
     <>
       <p className="table-summary text--muted">
@@ -184,7 +184,6 @@ function ShipmentTable({
               <th scope="col">ID</th>
               <th scope="col">Preuzimanje</th>
               <th scope="col">Isporuka</th>
-              <th scope="col">Poštanski broj</th>
               <th scope="col" className="num">
                 LDM
               </th>
@@ -207,7 +206,6 @@ function ShipmentTable({
                   <td>{row.externalId}</td>
                   <td>{row.pickupName}</td>
                   <td>{row.deliveryName}</td>
-                  <td>{row.deliveryPostalCode ?? <span className="text--muted">–</span>}</td>
                   <td className="num">{formatLdm(row.ldmTenths)}</td>
                   <td className="num">
                     {row.weightKg === null ? <span className="text--muted">–</span> : formatKg(row.weightKg)}

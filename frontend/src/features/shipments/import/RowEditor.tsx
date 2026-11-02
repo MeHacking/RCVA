@@ -146,20 +146,10 @@ function PlaceEditor({
         <label htmlFor={`${idPrefix}-name`}>Mesto</label>
         <input id={`${idPrefix}-name`} value={value.name} onChange={(e) => set('name')(e.target.value)} />
       </div>
-      <div className="field-row field-row--2">
-        <div className="field">
-          <label htmlFor={`${idPrefix}-postal`}>Poštanski broj</label>
-          <input
-            id={`${idPrefix}-postal`}
-            inputMode="numeric"
-            value={value.postalCode}
-            onChange={(e) => set('postalCode')(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor={`${idPrefix}-country`}>Zemlja</label>
-          <input id={`${idPrefix}-country`} value={value.country} onChange={(e) => set('country')(e.target.value)} />
-        </div>
+      {/* The number read next to a place is kept but not shown: whether it is a postal code is an open question. */}
+      <div className="field">
+        <label htmlFor={`${idPrefix}-country`}>Zemlja</label>
+        <input id={`${idPrefix}-country`} value={value.country} onChange={(e) => set('country')(e.target.value)} />
       </div>
     </fieldset>
   )

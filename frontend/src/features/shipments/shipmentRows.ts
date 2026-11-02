@@ -17,8 +17,6 @@ export interface ShipmentRow {
   externalId: string
   pickupName: string
   deliveryName: string
-  /** postal code of the delivery location (the Excel file identifies destinations by it) */
-  deliveryPostalCode: string | null
   ldmTenths: number
   weightKg: number | null
   lengthMm: number | null
@@ -43,7 +41,6 @@ export function buildShipmentRows(shipments: Shipment[], locations: Location[]):
       externalId: s.externalId,
       pickupName: pickup?.name ?? `Lokacija #${s.pickupLocationId}`,
       deliveryName: delivery?.name ?? `Lokacija #${s.deliveryLocationId}`,
-      deliveryPostalCode: delivery?.postalCode ?? null,
       ldmTenths: s.ldmTenths,
       weightKg: s.weightKg,
       lengthMm: s.lengthMm,

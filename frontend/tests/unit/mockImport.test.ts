@@ -101,11 +101,12 @@ describe('mock Excel import', () => {
     const excluded = await api.updateImportRow(importId, 4, { excluded: true })
     expect(excluded).toMatchObject({ excluded: true, corrected: false })
 
-    // Vaxjo and Sodertalje are not in the gazetteer; two places were already known with coordinates.
+    // Vaxjo and Sodertalje are not in the gazetteer; Ljungby, Subotica, Kragujevac and
+    // Landskrona are the scenario's places (the number next to a place is not compared).
     expect(await api.commitImport(importId)).toEqual({
       created: 4,
       skipped: 1,
-      geocoding: { found: 4, notFound: 2, failed: 0, message: null },
+      geocoding: { found: 2, notFound: 2, failed: 0, message: null },
     })
     expect((await rejection(api.commitImport(importId))).status).toBe(409)
 
@@ -114,7 +115,7 @@ describe('mock Excel import', () => {
     expect(shipments).toHaveLength(5 + 4)
     const imported = shipments.find((s) => s.externalId === 'Relacije-oktobar-5')
     const pickup = locations.find((l) => l.id === imported?.pickupLocationId)
-    expect(pickup).toMatchObject({ name: 'Subotica', country: 'RS', geocodeStatus: 'MANUAL' })
+    expect(pickup).toMatchObject({ id: 2, name: 'Subotica', postalCode: '24000', geocodeStatus: 'OK' })
     const vaxjo = locations.find((l) => l.name === 'Vaxjo')
     expect(vaxjo).toMatchObject({ postalCode: '55555', geocodeStatus: 'FAILED', lat: null })
   })

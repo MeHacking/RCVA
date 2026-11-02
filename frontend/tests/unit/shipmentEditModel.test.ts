@@ -52,15 +52,16 @@ describe('shipment form', () => {
   })
 
   it('sends a replaced place with "move the others", and a corrected one with coordinates only', () => {
+    // A replaced place does not take over the number read next to the old one.
     const replaced = { ...initial, delivery: { ...initial.delivery, name: ' Novostad ' } }
     expect(buildShipmentPatch(replaced, initial)).toEqual({
       ok: true,
-      patch: { delivery: { name: 'Novostad', postalCode: '11111', country: 'SE', moveOtherShipments: true } },
+      patch: { delivery: { name: 'Novostad', postalCode: null, country: 'SE', moveOtherShipments: true } },
     })
     const alone = { ...initial, delivery: { ...initial.delivery, name: 'Novostad', moveOthers: false } }
     expect(buildShipmentPatch(alone, initial)).toEqual({
       ok: true,
-      patch: { delivery: { name: 'Novostad', postalCode: '11111', country: 'SE' } },
+      patch: { delivery: { name: 'Novostad', postalCode: null, country: 'SE' } },
     })
     // The same place with coordinates is corrected, not replaced: nothing to move.
     const located = { ...initial, delivery: { ...initial.delivery, coordinates: '59.1, 15.2' } }

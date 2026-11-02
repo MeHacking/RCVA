@@ -203,20 +203,9 @@ function PlaceEditor({
         <input {...fieldProps(role)} value={value.name} onChange={(e) => set('name', e.target.value)} />
         {fieldError(role)}
       </div>
-      <div className="field-row field-row--2">
-        <div className="field">
-          <label htmlFor={`${prefix}-postal`}>Poštanski broj</label>
-          <input
-            id={`${prefix}-postal`}
-            inputMode="numeric"
-            value={value.postalCode}
-            onChange={(e) => set('postalCode', e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor={`${prefix}-country`}>Zemlja</label>
-          <input id={`${prefix}-country`} value={value.country} onChange={(e) => set('country', e.target.value)} />
-        </div>
+      <div className="field">
+        <label htmlFor={`${prefix}-country`}>Zemlja</label>
+        <input id={`${prefix}-country`} value={value.country} onChange={(e) => set('country', e.target.value)} />
       </div>
       {/* A place with coordinates keeps them; coordinates by hand are only for a place without them. */}
       {(!located || replaced) && (

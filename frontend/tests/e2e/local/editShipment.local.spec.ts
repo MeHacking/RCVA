@@ -33,6 +33,8 @@ async function importRows(page: Page, rows: string[][]) {
     buffer: await writeExcelFile([['RELACIJA', 'TEŽINA', 'DIMENZIJE'], ...rows]).toBuffer(),
   })
   await page.getByRole('button', { name: 'Dalje: pregled redova' }).click()
+  // The number next to a place is kept but never shown (whether it is a postal code is an open question).
+  await expect(page.getByRole('table', { name: 'Redovi za uvoz' }).locator('tbody td')).not.toContainText(['11111'])
   await page.getByRole('button', { name: 'Dalje: potvrda' }).click()
   await page.getByRole('button', { name: /^Upiši pošiljke/ }).click()
   await expect(page.getByText(`Upisano pošiljki: ${rows.length}`, { exact: true })).toBeVisible({ timeout: 15_000 })
@@ -58,9 +60,12 @@ test('corrects an unclear place once for all its shipments, asking only for the 
   ])
   await expect(row(page, 'uvoz-2')).toContainText('Nejasna lokacija')
   await expect(row(page, 'uvoz-3')).toContainText('Nejasna lokacija')
+  await expect(table(page).getByRole('columnheader', { name: 'Poštanski broj' })).toHaveCount(0)
+  await expect(table(page)).not.toContainText('11111')
   asked.length = 0
 
   const form = await edit(page, 'uvoz-2')
+  await expect(form.getByLabel('Poštanski broj')).toHaveCount(0)
   const delivery = form.getByRole('group', { name: 'Isporuka' })
   await expect(delivery).toContainText('Nema koordinata (nejasna lokacija).')
   await expect(form.getByRole('group', { name: 'Preuzimanje' })).toContainText('Koordinate: 45,10000° N, 20,10000° E')
@@ -141,7 +146,7 @@ test('changes the other fields, and shows the reason when a field is refused', a
   await form.getByLabel('Težina (kg)').fill('')
   await form.getByRole('button', { name: 'Sačuvaj izmenu' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Pošiljka „S-101a“ je sačuvana.' })).toBeVisible()
-  await expect(row(page, 'S-101a').getByRole('cell')).toHaveText(['S-101a', 'Subotica', 'Ljungby', '34131', '3,5', '–', 'nije uneto', 'U redu', 'Izmeni'])
+  await expect(row(page, 'S-101a').getByRole('cell')).toHaveText(['S-101a', 'Subotica', 'Ljungby', '3,5', '–', 'nije uneto', 'U redu', 'Izmeni'])
 
   await page.reload()
   await expect(row(page, 'S-101a')).toContainText('3,5')

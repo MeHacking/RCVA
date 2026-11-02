@@ -6,6 +6,10 @@ export type PlaceRole = 'pickup' | 'delivery'
 
 export interface PlaceFormValues {
   name: string
+  /**
+   * The number read next to the place, kept as it is but never shown or edited: whether it
+   * is a postal code is an open question. A replaced place does not take it over.
+   */
   postalCode: string
   country: string
   /** "latitude, longitude" entered by hand; empty = not given */
@@ -55,9 +59,9 @@ export function toFormValues(shipment: Shipment, locations: Location[]): Shipmen
   }
 }
 
-/** The name or the postal code differs: the shipment gets another place, not the same one corrected. */
+/** The name differs: the shipment gets another place, not the same one corrected. */
 export function placeReplaced(values: PlaceFormValues, initial: PlaceFormValues): boolean {
-  return values.name.trim() !== initial.name || values.postalCode.trim() !== initial.postalCode
+  return values.name.trim() !== initial.name
 }
 
 /** Other shipments that use the place as pickup or delivery. */
@@ -111,7 +115,7 @@ export function buildShipmentPatch(
     if (!changed && !coordinates) continue
     const input: PlaceInput = {
       name: place.name.trim(),
-      postalCode: place.postalCode.trim() || null,
+      postalCode: placeReplaced(place, start) ? null : start.postalCode || null,
       country: place.country.trim().toUpperCase() || null,
     }
     if (coordinates) input.coordinates = coordinates

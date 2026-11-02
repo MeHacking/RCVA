@@ -15,7 +15,8 @@ test('lists shipments with totals and status', async ({ page }) => {
   const s103 = table.getByRole('row', { name: /S-103/ })
   await expect(s103).toContainText('Kragujevac')
   await expect(s103).toContainText('Stenkullen')
-  await expect(s103).toContainText('44361')
+  // The number next to a place is not shown (whether it is a postal code is an open question).
+  await expect(s103).not.toContainText('44361')
   await expect(s103).toContainText('6,0')
   await expect(s103).toContainText('6000 × 2400 × 2200 mm')
   await expect(s103).toContainText('U redu')
@@ -37,6 +38,6 @@ test('exports a UTF-8 CSV that Excel opens with Serbian settings', async ({ page
   expect(content.startsWith('﻿')).toBe(true)
   const lines = content.slice(1).split('\r\n')
   expect(lines[0]).toContain('ID;Preuzimanje;Isporuka')
-  expect(lines[1]).toBe('S-101;Subotica;Ljungby;34131;4,0;3200;;;;U redu')
+  expect(lines[1]).toBe('S-101;Subotica;Ljungby;4,0;3200;;;;U redu')
   expect(lines.filter(Boolean)).toHaveLength(6)
 })

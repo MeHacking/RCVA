@@ -4,15 +4,17 @@ import type { PlaceGuess } from '../../types'
 // "NIS / RS / -/ SE / 55555 VAXJO" into pickup and delivery.
 // Rules come from the real Excel file (Spec v2, section 1):
 // - pickup and delivery are separated by the first hyphen (with or without spaces);
-// - a postal code belongs to the DELIVERY place even when written next to the pickup
-//   ("NOVI SAD 34131 - LJUNGBY": 34131 is Ljungby);
+// - a number next to a place (4 or 5 digits) is kept as the DELIVERY place's postal code
+//   even when written next to the pickup ("NOVI SAD 34131 - LJUNGBY"), but it is not used:
+//   whether it is a postal code waits for the process owner (02.11.2026), so it never makes
+//   a row wrong, and the screens do not show it;
 // - countries appear as "/ RS /" or as a code in front of the postal code ("NO 1234 DRAMMEN").
 // The real implementation belongs to the backend; this one feeds the mock.
 
 export interface RelationParse {
   pickup: PlaceGuess | null
   delivery: PlaceGuess | null
-  /** blocking problems with the text itself (postal codes, several destinations) */
+  /** blocking problems with the text itself (several destinations) */
   issues: string[]
 }
 
@@ -27,12 +29,8 @@ export function parseRelation(text: string): RelationParse {
   const separator = normalized.search(/[-–]/)
   const [left, right] = separator < 0 ? ['', normalized] : [normalized.slice(0, separator), normalized.slice(separator + 1)]
 
-  const postalCodes = [...normalized.matchAll(NUMBER_TOKEN)].map((m) => m[0])
-  for (const code of postalCodes.filter((c) => !VALID_POSTAL.test(c))) {
-    issues.push(`Neispravan poštanski broj „${code}“ (očekuje se 4 ili 5 cifara).`)
-  }
-  const validCodes = postalCodes.filter((c) => VALID_POSTAL.test(c))
-  if (validCodes.length > 1 || right.includes(',')) {
+  const validCodes = [...normalized.matchAll(NUMBER_TOKEN)].map((m) => m[0]).filter((c) => VALID_POSTAL.test(c))
+  if (right.includes(',')) {
     issues.push('Više odredišta u jednoj relaciji; podelite ih na posebne redove ili ispravite ručno.')
   }
 

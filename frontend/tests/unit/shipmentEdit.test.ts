@@ -129,8 +129,10 @@ describe('correcting a shipment on the device', () => {
 
   it('asks nothing for a known place, nor for an answer kept from before', async () => {
     const { api, fake, first, second } = await imported()
-    const known = await api.updateShipment(second.id, { delivery: { name: 'Teststad', postalCode: '22222', country: null } })
-    expect(known.places[1]).toEqual({ role: 'delivery', name: 'Teststad', outcome: 'known', message: null })
+    // Known by its name alone: the number next to a place is not compared.
+    const known = await api.updateShipment(second.id, { delivery: { name: 'teststad', postalCode: null, country: null } })
+    expect(known.places[1]).toEqual({ role: 'delivery', name: 'teststad', outcome: 'known', message: null })
+    expect(await placeOf(api, 'Nedelja-3', 'delivery')).toMatchObject({ name: 'Teststad', postalCode: '22222' })
 
     // An unchanged shipment looks up its unclear place again, but Nominatim's "not found" is kept.
     const again = await api.updateShipment(first.id, {})

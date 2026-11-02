@@ -7,12 +7,11 @@ describe('suggestMapping', () => {
     expect(suggestMapping(['RELACIJA', 'TEŽINA', 'DIMENZIJE'])).toEqual({ relation: 0, weight: 1, ldm: 2 })
   })
 
-  it('maps separate pickup and delivery columns', () => {
+  it('maps separate pickup and delivery columns, and never a postal code column (an open question)', () => {
     expect(suggestMapping(['ID', 'Mesto preuzimanja', 'Mesto isporuke', 'Poštanski broj', 'Utovarni metri', 'Opis robe'])).toEqual({
       externalId: 0,
       pickup: 1,
       delivery: 2,
-      deliveryPostalCode: 3,
       ldm: 4,
       description: 5,
     })
