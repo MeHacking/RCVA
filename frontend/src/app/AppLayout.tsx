@@ -19,12 +19,10 @@ export function AppLayout() {
     <div className="app">
       <nav className="app__nav" aria-label="Glavna navigacija">
         <div className="brand">
-          <span className="brand__mark">
-            <Icon name="truck" size={16} />
-          </span>
+          <img className="brand__logo" src="/logo.png" alt="" width={32} height={32} />
           <span className="brand__name">
             RCVA
-            <span className="brand__tagline">Utovar i rute</span>
+            <span className="brand__tagline">Rutiranje i Vizualizacija</span>
           </span>
         </div>
         <ul className="nav-list">

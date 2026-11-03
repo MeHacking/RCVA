@@ -16,6 +16,8 @@ files:
 electronVersion: 44.9.3
 win:
   target: nsis
+  # Made from branding/logo-source.png by npm run icons (scripts/make-icons.mjs).
+  icon: branding/icon.ico
 nsis:
   oneClick: false
   perMachine: false

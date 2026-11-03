@@ -43,3 +43,16 @@ test('unknown path shows a not-found message', async ({ page }) => {
   await page.goto('/does-not-exist')
   await expect(page.getByText('Stranica ne postoji')).toBeVisible()
 })
+
+test('shows the logo in the sidebar and has it as the favicon', async ({ page, request }) => {
+  await page.goto('/')
+  const logo = page.getByRole('navigation', { name: 'Glavna navigacija' }).locator('img.brand__logo')
+  await expect(logo).toHaveAttribute('src', '/logo.png')
+  // Loaded, not a broken image.
+  expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(256)
+  await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute('href', '/favicon.ico')
+  const favicon = await request.get('/favicon.ico')
+  expect(favicon.status()).toBe(200)
+  // An .ico file: reserved 0, type 1 (icon), three images.
+  expect([...(await favicon.body()).subarray(0, 6)]).toEqual([0, 0, 1, 0, 3, 0])
+})

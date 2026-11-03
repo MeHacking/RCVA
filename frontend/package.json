@@ -13,6 +13,7 @@
     "test:oracle": "vitest run --config vitest.oracle.config.ts --silent=false",
     "test:e2e": "playwright test",
     "test:e2e:server": "playwright test --config playwright.server.config.ts",
+    "icons": "node scripts/make-icons.mjs",
     "desktop": "npm run build && node scripts/prepare-desktop.mjs && electron electron",
     "build:desktop": "npm run build && node scripts/prepare-desktop.mjs && electron-builder --win",
     "test:desktop": "npm run build && node scripts/prepare-desktop.mjs && playwright test --config playwright.desktop.config.ts"

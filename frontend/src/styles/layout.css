@@ -31,13 +31,11 @@
   color: var(--nav-text-active);
 }
 
-.brand__mark {
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: var(--radius-md);
-  background: var(--nav-accent);
+/* The application's logo (public/logo.png, made by scripts/make-icons.mjs). */
+.brand__logo {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
 }
 
 .brand__name {

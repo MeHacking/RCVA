@@ -5,9 +5,8 @@ automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 03.11.2026 (lokacije kamiona, nedostatak kamiona, preporuka dodatnog
-kamiona); videti „Gde smo stali“.
-Na `origin/main` su izmena pošiljki i skrivanje broja uz mesto (02.11.2026); ponovno traženje
-upisanog naziva (02.11.) i sve od 03.11.2026 još nije commit-ovano.
+kamiona, logo); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 03.11.2026 (tri
+commit-a: ponovno traženje upisanog naziva, lokacije kamiona sa preporukom, logo).
 
 ## Gde smo stali (03.11.2026)
 
@@ -15,6 +14,20 @@ upisanog naziva (02.11.) i sve od 03.11.2026 još nije commit-ovano.
 utovaru i istovaru usput je razmotrena 03.11.2026: **dve faze ostaju** (Gojko potvrdio A1),
 a ideja je zapisana u „Mogući pravci razvoja“.
 Pitanja za Gojka još nisu poslata (spisak od 30.10. dopunjen 02. i 03.11.).
+
+**Logo i favicon (urađeno 03.11.2026)**, na zahtev korisnika (slika: kutija sa crvenom
+strelicom). Izvor je `frontend/branding/logo-source.png` (1254 × 1254, prozirna pozadina);
+`npm run icons` (`scripts/make-icons.mjs`) odseca prozirne ivice, centrira znak u kvadrat i
+pravi `public/favicon.ico` (16, 32, 48), `public/logo.png` (256) i `branding/icon.ico` (16 do
+256) preko Chromium-a iz Playwright-a (canvas; na računaru nema ni Pillow ni ImageMagick).
+Koristi se kao favicon (`index.html`, stari Vite `favicon.svg` obrisan), logo u bočnoj traci
+(umesto ikonice kamiona), ikonica prozora aplikacije za PC (`main.mjs`, `web/logo.png`) i
+ikonica instalera i `RCVA.exe` (`electron-builder.yml` `win.icon`). Test: `smoke.spec.ts`
+(logo učitan, favicon u stranici i služi se kao .ico sa 3 slike).
+- Na ovom računaru je za desktop testove preuzet Electron program (`node
+node_modules/electron/install.js`, preskočen pri `npm install --ignore-scripts`). Desktop test
+uvoza je pao na proveri iz 02.11. (broj uz mesto: sada 2 mesta, ne 3) i na kamionu bez
+lokacije; ispravljen, sada 4/4.
 
 **Lokacije kamiona, nedostatak kamiona i preporuka dodatnog kamiona (urađeno 03.11.2026)**.
 Odluke korisnika: lokacija se unosi za svaki kamion pre optimizacije; poslednja adresa
@@ -142,7 +155,7 @@ nije odobravana (lock fajl nepromenjen). Aplikacija za PC ovde nije probana.
 pre početka. Urađeno 01.11.2026 redom koji je korisnik izabrao: 1. upozorenja na Pregledu,
 2. podrazumevani režim `local`, 3. aplikacija za PC (Electron). Korisnik još nije
 instalirao `RCVA-Setup-1.0.0.exe` ni preneo podatke iz pregledača (izvoz/uvoz fajla).
-Moguće dorade za PC (nisu tražene): sopstvena ikonica (sada podrazumevana Electron-ova),
+Moguće dorade za PC (nisu tražene): ~~sopstvena ikonica~~ (urađeno 03.11.2026),
 instaler na srpskom, potpisivanje (bez njega Windows SmartScreen upozorava).
 
 **Aplikacija za PC (urađeno 01.11.2026)**. Odluke korisnika: **Electron** (ne Tauri),
@@ -167,7 +180,7 @@ instaler na srpskom, potpisivanje (bez njega Windows SmartScreen upozorava).
   `%APPDATA%\RCVA` (odvojeni od pregledača; prenos preko izvoza/uvoza fajla).
   `RCVA_USER_DATA` menja folder podataka (samo za testove).
 - `electron-builder.yml`: `directories.app: electron`, izlaz `release/` (nije u git-u),
-  `RCVA-Setup-1.0.0.exe` oko 115 MB, nepotpisan, podrazumevana ikonica. `app.asar` sadrži
+  `RCVA-Setup-1.0.0.exe` oko 115 MB, nepotpisan, ikonica iz `branding/icon.ico` (od 03.11.). `app.asar` sadrži
   samo `main.mjs`, `package.json` i `web/` (videti „Zamke“).
 - Testovi: `tests/desktop/desktop.spec.ts` (4, Playwright `_electron`, privremeni folder
   podataka, lažni servisi): prazan početak na `app://rcva/` i osvežavanje na svakom ekranu,
@@ -633,6 +646,7 @@ RCVA/
 │   ├── public/legacy/tego/       TeGo 3D vizuelizator (klasične skripte; packwidget.js izmenjen)
 │   ├── electron/                 aplikacija za PC: main.mjs, package.json (web/ = kopija dist/)
 │   ├── electron-builder.yml      Windows instaler (release/)
+│   ├── branding/                 logo-source.png (izvor loga) i icon.ico (npm run icons)
 │   ├── tests/oracle/             timefold.json (Timefold rezultati) i poređenje TS solvera
 │   └── tests/unit, tests/e2e,    Vitest i Playwright (web), tests/desktop: Playwright nad
 │       tests/desktop             Electron aplikacijom
@@ -669,6 +683,7 @@ npm run test:oracle                  # TS solver protiv Timefold-a, oko 5 min (O
 npm run test:e2e                     # Playwright/Chromium; dev serveri 5174-5178 (videti niže)
 npm run test:e2e:server              # Playwright nad pravim backend-om (sam ga diže; treba Java 21)
 npm run desktop                      # aplikacija za PC iz izvornog koda (build + Electron)
+npm run icons                        # favicon, logo i ikonica za PC iz branding/logo-source.png
 npm run build:desktop                # instaler: release/RCVA-Setup-<verzija>.exe (+ win-unpacked/)
 npm run test:desktop                 # Playwright nad Electron aplikacijom (4 testa)
 RCVA_DESKTOP_EXE=release/win-unpacked/RCVA.exe npx playwright test -c playwright.desktop.config.ts
@@ -700,13 +715,14 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
 Stanje (03.11.2026, posle lokacija kamiona i preporuke dodatnog kamiona, na Node 24.14.0):
-frontend tsc, lint i build čisti, 395 Vitest testova, Playwright 68 (mock 43 + local 24 +
-local-empty 1) i desktop 4 prolaze; `test:oracle` sa 2 s (`ORACLE_MS=2000`) daje iste brojeve kao 29.10.
+frontend tsc, lint i build čisti, 395 Vitest testova, Playwright 69 (mock 44 + local 24 +
+local-empty 1) i desktop 4 (i nad spakovanim `RCVA.exe`, sa novom ikonicom) prolaze; `test:oracle` sa 2 s (`ORACLE_MS=2000`) daje iste brojeve kao 29.10.
 Provereno na pokvarenom kodu (33 izmene): 32 obaraju testove, jedna je ekvivalentna
 (potvrđen predlog bez zapisa vremena: predlog je tada ionako mesto kamiona).
 Prvi pun Playwright posle `npm install` na novom računaru trajao je 10,9 min i 2 testa su
 pala (test 9 u `truck3d.spec.ts` i razmak od 1 s u `geocoding.local.spec.ts`); sami i u
-drugom punom prolazu (2,2 min) prolaze. Desktop 4 poslednji put 01.11.2026 (na drugom
+drugom punom prolazu (2,2 min) prolaze. Razmak od 1 s u `geocoding.local.spec.ts` je 03.11. još
+jednom pao u punom prolazu (pod opterećenjem), a sam prolazi. Desktop 4 poslednji put 01.11.2026 (na drugom
 računaru, i nad spakovanim `RCVA.exe`); serverski e2e 9 poslednji put
 31.10.2026 (posle toga `httpClient` je dobio samo metode koje vraćaju `null` ili 404);
 `test:oracle` prošao 30.10.2026 (solver posle toga nije menjan). Backend `mvnw verify` poslednji put 28.10.2026 (backend nije menjan). Playwright (40 mock, 9 server) i backend `mvnw verify` (99 testova) poslednji put

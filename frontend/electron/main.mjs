@@ -60,6 +60,8 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     title: 'RCVA',
+    // The window and taskbar icon when started from the sources; the installed RCVA.exe has it built in.
+    icon: path.join(WEB, 'logo.png'),
     show: false,
     backgroundColor: '#f5efe6',
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
