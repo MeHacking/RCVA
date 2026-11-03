@@ -41,6 +41,7 @@ export function writeDeviceFile(data: Required<LocalData>, exportedAt: Date): st
       geocodeCache: data.geocodeCache,
       distanceCache: data.distanceCache,
       routeLineCache: data.routeLineCache,
+      jobLog: data.jobLog,
       jobs: data.jobs.map((job) => ({
         ...job,
         fleet: [...job.fleet.values()],
@@ -267,6 +268,8 @@ const FILE = object({
     geocodeCache: recordOf(GEOCODE),
     distanceCache: recordOf(nullable(NUM)),
     routeLineCache: recordOf(arrayOf(POINT)),
+    // Added 03.11.2026; older files have no log.
+    jobLog: optional(arrayOf(STR)),
   }),
 })
 

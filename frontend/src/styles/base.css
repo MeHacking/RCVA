@@ -19,20 +19,30 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Headings in capitals, a little spaced so the letters do not crowd (the text stays as written). */
 h1,
 h2,
 h3 {
   margin: 0;
   line-height: 1.25;
   font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
+/* By importance: the page title strongest, card and section titles bold, subheadings semibold. */
 h1 {
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-heavy);
 }
 
 h2 {
   font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+h3 {
+  font-weight: var(--weight-semibold);
 }
 
 p {

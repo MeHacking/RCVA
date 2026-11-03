@@ -10,11 +10,29 @@ const PLACES: Record<string, [number, number]> = {
   Teststad: [57.1, 12.1],
 }
 
+/**
+ * Every request is timed in the page, where the application calls fetch: the time a request
+ * reaches this test process varies with the load of the machine (it once measured 806 ms
+ * for requests started 1000 ms apart).
+ */
+async function sentAt(page: Page): Promise<number[]> {
+  return page.evaluate(() => (window as unknown as { nominatimSentAt: number[] }).nominatimSentAt)
+}
+
 async function fakeNominatim(page: Page) {
-  const asked: { q: string; at: number }[] = []
+  await page.addInitScript(() => {
+    const times: number[] = []
+    ;(window as unknown as { nominatimSentAt: number[] }).nominatimSentAt = times
+    const original = window.fetch.bind(window)
+    window.fetch = (input, init) => {
+      if (String(input instanceof Request ? input.url : input).startsWith('https://nominatim.openstreetmap.org/')) times.push(Date.now())
+      return original(input, init)
+    }
+  })
+  const asked: { q: string }[] = []
   await page.route('https://nominatim.openstreetmap.org/**', async (route) => {
     const q = new URL(route.request().url()).searchParams.get('q') ?? ''
-    asked.push({ q, at: Date.now() })
+    asked.push({ q })
     const place = PLACES[q]
     await route.fulfill({
       json: place ? [{ lat: String(place[0]), lon: String(place[1]), display_name: q }] : [],
@@ -49,7 +67,10 @@ test('looks up new places one per second while committing, and keeps the answers
   await expect(page.getByText('Koordinate novih mesta: pronađeno 3, nije pronađeno 1.')).toBeVisible()
 
   expect(asked.map((a) => a.q)).toEqual(['Primerovo', 'Teststad', 'Drugovo', 'Nepoznatovo'])
-  for (let i = 1; i < asked.length; i++) expect(asked[i].at - asked[i - 1].at).toBeGreaterThanOrEqual(950)
+  const sent = await sentAt(page)
+  expect(sent).toHaveLength(asked.length)
+  // At least a second between the starts, as the application spaces them (Nominatim's usage policy).
+  for (let i = 1; i < sent.length; i++) expect(sent[i] - sent[i - 1]).toBeGreaterThanOrEqual(1000)
 
   // After a reload the same places are not asked again, not even the one that was not found.
   await page.reload()

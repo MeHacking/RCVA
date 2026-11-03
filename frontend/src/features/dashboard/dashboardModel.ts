@@ -1,8 +1,10 @@
-import type { Location, Shipment, Truck, TruckStart } from '../../api/types'
+import type { Location, OptimizationResult, Shipment, Truck, TruckStart } from '../../api/types'
 import { availableCapacity } from '../../domain/capacity'
 import { planningFleet } from '../../domain/fleet'
 import { provenFindings, trucksLowerBound } from '../../domain/optimization/feasibility'
-import { buildShipmentRows, shipmentTotals } from '../shipments/shipmentRows'
+import { weightOf } from '../../domain/optimization/job'
+import { routeColor } from '../route-map/mapModel'
+import { buildShipmentRows, shipmentTotals, type ShipmentStatus } from '../shipments/shipmentRows'
 
 export interface DashboardWarning {
   tone: 'warning' | 'danger'
@@ -20,6 +22,35 @@ export interface DashboardModel {
   /** by LDM and weight; null when the fleet cannot carry everything (or a shipment fits no truck) */
   trucksLowerBound: number | null
   warnings: DashboardWarning[]
+  /** all shipments, a missing weight counted as 0 kg */
+  totalWeightKg: number
+  /** payload of the available trucks; null when one of them has no limit (weight is then not limited) */
+  availableCapacityKg: number | null
+  /** shipments by status, for the status ring */
+  statusCounts: Record<ShipmentStatus, number>
+}
+
+/** How full a load is: up to 85 % normal, up to 100 % high, above that over the limit. */
+export type LoadLevel = 'normal' | 'high' | 'over'
+
+export function loadLevel(used: number, capacity: number): LoadLevel {
+  if (used > capacity) return 'over'
+  return used > 0.85 * capacity ? 'high' : 'normal'
+}
+
+/** One truck of the last result, for the dashboard. */
+export interface TruckLoad {
+  truckId: number
+  name: string
+  /** its route color (1..ROUTE_COLORS), as on the map */
+  color: number
+  usedLdmTenths: number
+  /** null when the truck is no longer in the list */
+  capacityLdmTenths: number | null
+  weightKg: number
+  /** null: no limit, or the truck is no longer in the list */
+  capacityKg: number | null
+  meters: number
 }
 
 /**
@@ -77,5 +108,42 @@ export function buildDashboardModel(
     // A bound next to a proven reason would suggest a solution exists.
     trucksLowerBound: shipments.length > 0 && findings.length === 0 ? trucksLowerBound(shipments, fleet) : null,
     warnings,
+    totalWeightKg: shipments.reduce((sum, s) => sum + weightOf(s), 0),
+    availableCapacityKg: availableCapacityKg(trucks),
+    statusCounts: countStatuses(buildShipmentRows(shipments, locations).map((r) => r.status)),
   }
+}
+
+function availableCapacityKg(trucks: Truck[]): number | null {
+  const available = trucks.filter((t) => t.available)
+  if (available.some((t) => t.capacityKg === null)) return null
+  return available.reduce((sum, t) => sum + (t.capacityKg ?? 0), 0)
+}
+
+function countStatuses(statuses: ShipmentStatus[]): Record<ShipmentStatus, number> {
+  const counts: Record<ShipmentStatus, number> = { OK: 0, MANUAL: 0, LOCATION_ERROR: 0 }
+  for (const status of statuses) counts[status]++
+  return counts
+}
+
+/**
+ * The trucks of a result with their load and kilometres, in the result's order. Names,
+ * capacities and weights come from the present lists, as on the results screen.
+ */
+export function truckLoads(result: OptimizationResult, trucks: Truck[], shipments: Shipment[]): TruckLoad[] {
+  const weights = new Map(shipments.map((s) => [s.id, weightOf(s)]))
+  return result.routes.map((route) => {
+    const truck = trucks.find((t) => t.id === route.truckId)
+    const picked = route.stops.filter((s) => s.type === 'PICKUP')
+    return {
+      truckId: route.truckId,
+      name: truck?.name ?? `Kamion #${route.truckId}`,
+      color: routeColor(result, route.truckId),
+      usedLdmTenths: route.usedLdmTenths,
+      capacityLdmTenths: truck?.capacityLdmTenths ?? null,
+      weightKg: picked.reduce((sum, s) => sum + (weights.get(s.shipmentId) ?? 0), 0),
+      capacityKg: truck?.capacityKg ?? null,
+      meters: route.totalMeters,
+    }
+  })
 }

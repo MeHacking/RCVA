@@ -4,9 +4,8 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 03.11.2026 (lokacije kamiona, nedostatak kamiona, preporuka dodatnog
-kamiona, logo); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 03.11.2026 (tri
-commit-a: ponovno traženje upisanog naziva, lokacije kamiona sa preporukom, logo).
+Poslednje ažuriranje: 03.11.2026 (Uputstvo, izgled kartica, Pregled sa grafikonima); videti „Gde
+smo stali“. Sve je push-ovano na `origin/main` 03.11.2026.
 
 ## Gde smo stali (03.11.2026)
 
@@ -14,6 +13,55 @@ commit-a: ponovno traženje upisanog naziva, lokacije kamiona sa preporukom, log
 utovaru i istovaru usput je razmotrena 03.11.2026: **dve faze ostaju** (Gojko potvrdio A1),
 a ideja je zapisana u „Mogući pravci razvoja“.
 Pitanja za Gojka još nisu poslata (spisak od 30.10. dopunjen 02. i 03.11.).
+
+**Sledeće posle Uputstva**: korisnik želi modernije i intuitivnije ekrane pre telefona; predlog
+(pregled ekrana, probni izgled, izvođenje ekran po ekran) i pitanja (paleta uz logo, tamna tema,
+samo izgled ili i tok, ko je korisnik) postavljena su 03.11.; čeka odgovore.
+
+**Izgled i Pregled (urađeno 03.11.2026)**, na zahtev korisnika, korak po korak:
+kartice sa 3D senkom i većim razmakom (`--shadow-card`, `--shadow-card-raised`, `--card-edge`,
+`--radius-lg`, `--card-gap` u `tokens.css`), naslovi velikim slovima sa težinom po važnosti (h1 800,
+h2 i naslovi obaveštenja 700, h3 600), naslov kartice pregledača „RCVA – rutiranje i
+vizualizacija“. **Pregled**: ikonice na karticama, kartica „Ukupna težina“, „Pošiljke prema
+kamionima“ (trake LDM i težine; do 85 % akcent, do 100 % upozorenje, preko greška), prsten
+„Status pošiljki“, u „Poslednjoj optimizaciji“ popunjenost i kilometri po kamionu, i
+„Pokrenute optimizacije“: glatka kriva (monotona, ne ide ispod nule) po danu (14), nedelji (12,
+od ponedeljka) ili mesecu (12), prelazak mišem i strelice, skrivena tabela; sve bez biblioteke
+(`DashboardCharts.tsx`, `ActivityChart.tsx`, `activityModel.ts`). Animacije pri svakom ulasku
+(kartice, trake, prsten, kriva), isključene uz „smanji animacije“. Uređaj od sada pamti
+vreme pokretanja svakog posla (`LocalData.jobLog`, `KEPT_JOB_LOG` 5000, u fajlu za izvoz;
+`ApiClient.getOptimizationHistory`, NOT IN SPEC v2; HTTP `null`). Validator boja (skill dataviz):
+boje ruta `--route-1..8` ne prolaze kao paleta za razlikovanje; Pregled zato boji trake jednom
+bojom, a kamion imenuje tekst. Testovi: `activityModel.test.ts`, dopune u
+`dashboardModel.test.ts`, `localClient.test.ts` (istorija), e2e u `dashboard.spec.ts` i
+`dashboard.local.spec.ts`.
+- Dorade istog dana: kartica „Najveća mesta po LDM“ uklonjena; grafik počinje jedan period
+  pre prve optimizacije (`fromFirstActivity`) i ima „Proširi“ / „Suzi“ (dan ±7, nedelja i
+  mesec ±4; najviše 90 / 52 / 36, najmanje 2 tačke); raspored: levo „Poslednja optimizacija“,
+  desno „Upozorenja“ iznad grafika, u ravni (`.dashboard-split`, container query 46rem);
+  upozorenja popunjavaju ostatak (`contain: size`) i dobijaju strane (`WarningsPanel.tsx`,
+  `warningPages.ts`), u jednoj koloni sva; gornje dve kartice iste visine.
+- **Zamka**: `.visually-hidden` na samoj `<table>` ne radi (tabela ne poštuje visinu 1px), pa je
+  skrivena tabela grafika produžavala stranicu ispod bočne trake. Sakriva se omotač `<div>`;
+  e2e proverava da je skriveni deo visok najviše 1px.
+
+**Uputstvo (urađeno 03.11.2026)**, na zahtev korisnika: ekran `/help` („Uputstvo“, poslednji u
+meniju, ikonica `info`; `features/help/HelpPage.tsx`). Poglavlja: Ukratko, Kako se koristi
+(uvoz, provera pošiljki, kamioni i lokacije, pokretanje, rezultat, podešavanja i podaci), Kako
+radi optimizacija (pravila, 5 koraka, preporuka dodatnog kamiona, kilometraže, šta ne
+garantuje), Saveti, Poruke i šta znače; sadržaj sa linkovima na poglavlja. Delovi samo za
+uređaj se u režimima `mock` i `server` ne prikazuju. **Tekst prati ekrane: pri promeni
+ekrana, poruka ili algoritma ažurirati i Uputstvo.** Testovi: `help.local.spec.ts`, u
+`smoke.spec.ts` ruta `/help` i provera da u mock-u nema delova za uređaj.
+- Usput: natpis ispod kilometraže je sada „od lokacije kamiona do poslednjeg istovara“ kada
+  rute kreću sa lokacije kamiona (ranije netačno „od prvog utovara“).
+- `geocoding.local.spec.ts`: razmak od 1 s je padao u punim prolazima (izmereno 806 ms) jer
+  je meren kada zahtev stigne do test procesa, što kasni pod opterećenjem. Sada se meri u
+  stranici, kada aplikacija pozove `fetch` (`addInitScript`), i traži ≥ 1000 ms; sa
+  razmakom 500 ms u aplikaciji test pada (511 ms).
+- Natpis u bočnoj traci „Rutiranje i Vizualizacija“ (umesto „Utovar i rute“) je izmena
+  korisnika; nehotice je ušla u commit sa logom (`1e62e44`, `git add -A`), poruka je ne pominje.
+  Naslov kartice je i dalje „RCVA – utovar i rute“.
 
 **Logo i favicon (urađeno 03.11.2026)**, na zahtev korisnika (slika: kutija sa crvenom
 strelicom). Izvor je `frontend/branding/logo-source.png` (1254 × 1254, prozirna pozadina);
@@ -714,9 +762,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (03.11.2026, posle lokacija kamiona i preporuke dodatnog kamiona, na Node 24.14.0):
-frontend tsc, lint i build čisti, 395 Vitest testova, Playwright 69 (mock 44 + local 24 +
-local-empty 1) i desktop 4 (i nad spakovanim `RCVA.exe`, sa novom ikonicom) prolaze; `test:oracle` sa 2 s (`ORACLE_MS=2000`) daje iste brojeve kao 29.10.
+Stanje (03.11.2026, posle Uputstva i Pregleda sa grafikonima, na Node 24.14.0): frontend tsc,
+lint i build čisti, 408 Vitest testova, Playwright 75 i desktop 4 prolaze (spakovani
+`RCVA.exe` proveren pre ovih izmena, sa novom ikonicom); `test:oracle` sa 2 s (`ORACLE_MS=2000`) daje iste brojeve kao 29.10.
 Provereno na pokvarenom kodu (33 izmene): 32 obaraju testove, jedna je ekvivalentna
 (potvrđen predlog bez zapisa vremena: predlog je tada ionako mesto kamiona).
 Prvi pun Playwright posle `npm install` na novom računaru trajao je 10,9 min i 2 testa su

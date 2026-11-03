@@ -46,6 +46,7 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     getOptimizationJob: (id) => request('GET', `/optimization-jobs/${id}`),
     // The backend has no such endpoint yet (see ApiClient), so a reload forgets the job.
     getLatestOptimizationJob: async () => null,
+    getOptimizationHistory: async () => null,
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
     getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
     // The backend has no road lines (its distances are great-circle): the map draws straight lines.

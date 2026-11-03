@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
+import { HelpPage } from '../features/help/HelpPage'
 import { OptimizationPage } from '../features/optimization/OptimizationPage'
 import { RouteMapPage } from '../features/route-map/RouteMapPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
       { path: 'truck-3d', element: <Truck3dPage /> },
       { path: 'route-map', element: <RouteMapPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'help', element: <HelpPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

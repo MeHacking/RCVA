@@ -71,6 +71,18 @@ const PATHS = {
     </>
   ),
   chevron: <path d="m9 6 6 6-6 6" />,
+  pin: (
+    <>
+      <path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10" r="2.3" />
+    </>
+  ),
+  weight: (
+    <>
+      <path d="M9 7a3 3 0 1 1 6 0" />
+      <path d="M6.5 9h11l2 11h-15z" />
+    </>
+  ),
   alert: (
     <>
       <path d="M12 3 2 20h20z" />

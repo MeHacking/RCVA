@@ -43,3 +43,17 @@ test('quick actions open the import wizard and the trucks screen', async ({ page
   await actions.getByRole('button', { name: 'Uredi kamione' }).click()
   await expect(page).toHaveURL('/trucks')
 })
+
+test('shows the load against the trucks, the shipments by status and the trucks of the last result', async ({ page }) => {
+  await page.goto('/')
+  // Scenario "small": 20,9 LDM on Šleper 1 and 2 (27,2 LDM), weight not limited.
+  await expect(page.getByRole('meter', { name: 'LDM prema kapacitetu' })).toHaveAttribute('aria-valuetext', '20,9 LDM od 27,2 LDM · 77 %')
+  await expect(page.getByText('nosivost nije ograničena')).toBeVisible()
+  await expect(page.getByRole('img', { name: /^Pošiljke po statusu, ukupno 5: U redu 5, Ručno uneta lokacija 0, Nejasna lokacija 0$/ })).toBeVisible()
+
+  await page.getByRole('region', { name: 'Brze akcije' }).getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  const loads = page.getByRole('list', { name: 'Popunjenost kamiona' })
+  await expect(loads.getByRole('listitem')).toHaveCount(2, { timeout: 15_000 })
+  await expect(loads.getByRole('meter').first()).toHaveAttribute('aria-valuetext', / LDM od 13,6 LDM · \d+ %$/)
+  await expect(page.getByRole('list', { name: 'Kilometri po kamionu' }).getByRole('listitem')).toHaveCount(2)
+})

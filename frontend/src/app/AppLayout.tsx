@@ -12,6 +12,7 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: IconName }> = 
   { to: '/route-map', label: 'Mapa ruta', icon: 'map' },
   // Only the application on the device has settings.
   ...(apiMode() === 'local' ? [{ to: '/settings', label: 'Podešavanja', icon: 'settings' as const }] : []),
+  { to: '/help', label: 'Uputstvo', icon: 'info' },
 ]
 
 export function AppLayout() {

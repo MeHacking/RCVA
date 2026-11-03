@@ -82,7 +82,11 @@ function Summary({ job, result }: { job: OptimizationJob; result: OptimizationRe
         <dt>Ukupna kilometraža</dt>
         <dd className="stat__value">{formatKm(result.totalMeters)}</dd>
         <dd className="stat__hint">
-          {result.openRoute ? 'od prvog utovara do poslednjeg istovara' : 'uključuje povratak u bazu'}
+          {!result.openRoute
+            ? 'uključuje povratak u bazu'
+            : result.routes.some((r) => r.startLocationId !== undefined)
+              ? 'od lokacije kamiona do poslednjeg istovara'
+              : 'od prvog utovara do poslednjeg istovara'}
         </dd>
         {result.distanceSource && (
           <dd className="stat__hint" data-testid="distance-source">

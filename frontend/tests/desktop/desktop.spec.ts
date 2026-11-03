@@ -63,7 +63,7 @@ test('starts empty on its own origin, and every screen loads, also after a reloa
   const errors = collectPageErrors(page)
   await expect(page.getByTestId('data-source')).toHaveText('Na uređaju')
   expect(page.url()).toBe('app://rcva/')
-  expect(await page.title()).toBe('RCVA – utovar i rute')
+  expect(await page.title()).toBe('RCVA – rutiranje i vizualizacija')
 
   for (const [link, url, heading] of [
     ['Pošiljke', 'app://rcva/shipments', 'Pošiljke'],

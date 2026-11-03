@@ -18,7 +18,7 @@ test('solves in the browser and shows open routes, the validator and the 3D plan
   const stats = page.locator('.stats')
   await expect(stats).toContainText('Kamioni2')
   await expect(stats).toContainText('jednako donjoj granici po kapacitetu')
-  await expect(stats).toContainText('od prvog utovara do poslednjeg istovara')
+  await expect(stats).toContainText('od lokacije kamiona do poslednjeg istovara')
   await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
   await expect(page.getByText('Sve pošiljke su dodeljene kamionima.')).toBeVisible()
 

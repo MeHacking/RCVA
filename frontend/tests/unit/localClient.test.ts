@@ -398,6 +398,24 @@ describe('local storage on the device', () => {
     expect((await api.getLatestOptimizationJob())?.id).toBe(last)
     await written()
     expect(storedData(store).jobs).toHaveLength(KEPT_JOBS)
+
+    // When each was started is kept for all of them, also after a restart (the dashboard's chart).
+    const history = await api.getOptimizationHistory()
+    expect(history).toHaveLength(KEPT_JOBS + 2)
+    expect(history).toEqual([...history!].sort())
+    expect(await setup('small', steps, store).getOptimizationHistory()).toEqual(history)
+  })
+
+  it('starts the history of an older snapshot from the jobs it kept', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    await settle(api, (await api.createOptimizationJob(REQUEST)).id)
+    await written()
+    const { jobLog, ...older } = storedData(store)
+    expect(jobLog).toHaveLength(1)
+    const before = createMemoryStore<LocalData>()
+    await before.save(older)
+    expect(await setup('small', steps, before).getOptimizationHistory()).toEqual(older.jobs.map((j) => j.createdAt))
   })
 
   it('keeps committed import rows and their new places', async () => {

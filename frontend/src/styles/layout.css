@@ -634,15 +634,92 @@
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
-  gap: var(--space-4);
+  gap: var(--card-gap);
 }
 
 .dashboard-grid > .panel {
   margin-bottom: 0;
 }
 
-.dashboard-grid + .panel {
-  margin-top: var(--space-4);
+.dashboard-grid + .dashboard-grid {
+  margin-top: var(--card-gap);
+}
+
+.dashboard-grid + .panel,
+.dashboard-split + .panel {
+  margin-top: var(--card-gap);
+}
+
+/*
+ * The last job beside the warnings over the chart, level top and bottom. Two columns only
+ * when the content is wide enough (a container query, so the sidebar counts); there the
+ * warnings card fills the room the chart leaves, and what does not fit goes to the next
+ * page (WarningsPanel.tsx reads contain: size to know).
+ */
+.dashboard-split {
+  container-type: inline-size;
+  margin-top: var(--card-gap);
+}
+
+.dashboard-split__grid {
+  display: grid;
+  gap: var(--card-gap);
+}
+
+.dashboard-split .panel {
+  margin-bottom: 0;
+}
+
+.dashboard-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  min-width: 0;
+}
+
+.dashboard-warnings__viewport {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Every warning, unseen, at the card's width: where each one ends decides the pages. */
+.dashboard-warnings__measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 2rem + 0.5rem: PAGER_PX in WarningsPanel.tsx */
+.dashboard-warnings__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 2rem;
+  margin-top: 0.5rem;
+}
+
+@container (min-width: 46rem) {
+  .dashboard-split__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-warnings-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 12rem;
+    /* Its own content does not make the row taller: it takes the room left under the chart. */
+    contain: size;
+  }
+
+  .dashboard-warnings__viewport {
+    flex: 1;
+    min-height: 0;
+  }
 }
 
 .dashboard-panel h2 {
@@ -798,4 +875,562 @@ button.truck-3d__shipment[aria-pressed='true'] {
   border-top: 1px solid var(--nav-divider);
   font-size: var(--text-xs);
   color: var(--nav-text);
+}
+
+/* The user guide: readable lines, a contents list, chapters as panels. */
+.help__contents,
+.help__chapter {
+  max-width: 52rem;
+}
+
+.help__contents ol {
+  margin: 0;
+  padding-left: var(--space-5);
+  line-height: 1.8;
+}
+
+.help__chapter {
+  line-height: 1.6;
+  scroll-margin-top: var(--space-4);
+}
+
+.help__chapter p {
+  margin: 0 0 var(--space-3);
+}
+
+.help__chapter h3 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-lg);
+}
+
+.help__chapter ul,
+.help__chapter ol {
+  padding-left: var(--space-5);
+}
+
+.help__chapter li + li {
+  margin-top: var(--space-1);
+}
+
+.help__messages {
+  margin: 0;
+}
+
+.help__messages > div + div {
+  margin-top: var(--space-3);
+}
+
+.help__messages dt {
+  font-weight: var(--weight-semibold);
+}
+
+.help__messages dd {
+  margin: var(--space-1) 0 0;
+}
+
+/* Dashboard charts (DashboardCharts.tsx): meters, the status ring and bar lists. */
+.stat dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stat dt .icon {
+  color: var(--accent);
+}
+
+.dashboard-panel__subtitle {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* A load against its limit; the fill and its lighter track change together with the level. */
+.meter {
+  --meter-fill: var(--accent);
+  --meter-track: var(--accent-subtle);
+}
+
+.meter--high {
+  --meter-fill: var(--warning);
+  --meter-track: var(--warning-subtle);
+}
+
+.meter--over {
+  --meter-fill: var(--danger);
+  --meter-track: var(--danger-subtle);
+}
+
+.meter + .meter,
+.meter + .meter__plain,
+.meter__plain + .meter {
+  margin-top: var(--space-4);
+}
+
+.meter__head,
+.meter__plain {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.meter__label {
+  font-weight: var(--weight-semibold);
+}
+
+.meter__value {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.meter__track {
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--meter-track);
+  overflow: hidden;
+}
+
+.meter__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--meter-fill);
+  transition: width 0.4s ease;
+}
+
+.meter__note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+/* One row of a list: the track takes the room, the value stays to its right. */
+.meter--compact {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.meter--compact .meter__track {
+  height: 0.5rem;
+}
+
+.status-ring {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.status-ring__chart {
+  width: 8.5rem;
+  height: 8.5rem;
+  flex: none;
+}
+
+.status-ring__track,
+.status-ring__part {
+  fill: none;
+  stroke-width: 12;
+}
+
+.status-ring__track {
+  stroke: var(--gray-100);
+}
+
+.status-ring__part--ok {
+  stroke: var(--success);
+}
+
+.status-ring__part--manual {
+  stroke: var(--accent);
+}
+
+.status-ring__part--location_error {
+  stroke: var(--danger);
+}
+
+.status-ring__total {
+  font-size: 22px;
+  font-weight: var(--weight-heavy);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: var(--text);
+}
+
+.status-ring__unit {
+  font-size: 9px;
+  text-anchor: middle;
+  fill: var(--text-muted);
+}
+
+.status-ring__legend {
+  flex: 1;
+  min-width: 12rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-ring__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.status-ring__item + .status-ring__item {
+  border-top: 1px solid var(--border);
+}
+
+.status-ring__item strong {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-ring__key {
+  display: inline-flex;
+}
+
+.status-ring__item--ok .status-ring__key {
+  color: var(--success);
+}
+
+.status-ring__item--manual .status-ring__key {
+  color: var(--accent);
+}
+
+.status-ring__item--location_error .status-ring__key {
+  color: var(--danger);
+}
+
+/* Bars from one baseline: square at the start, a 4px rounded end. */
+.bar-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-list__item {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.bar-list__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-list__bar {
+  height: 0.75rem;
+  border-left: 1px solid var(--border-strong);
+}
+
+.bar-list__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+}
+
+.bar-list__item:hover .bar-list__fill {
+  background: var(--accent-hover);
+}
+
+.bar-list__value {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.truck-loads {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.truck-loads__item {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.truck-loads__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Jobs started per period (ActivityChart.tsx). */
+.activity__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--gray-100);
+}
+
+.segmented__option {
+  height: auto;
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.segmented__option[aria-pressed='true'] {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.activity__range {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.activity__frame {
+  position: relative;
+  border-radius: var(--radius-md);
+}
+
+.activity__frame:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.activity__chart {
+  display: block;
+  overflow: visible;
+}
+
+.activity__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.activity__tick,
+.activity__label {
+  font-size: 11px;
+  fill: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.activity__tick {
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+.activity__label {
+  text-anchor: middle;
+}
+
+.activity__area {
+  fill: var(--accent);
+  opacity: 0.1;
+}
+
+.activity__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.activity__point {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.activity__point--active {
+  fill: var(--accent-hover);
+}
+
+.activity__crosshair {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.activity__hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.activity__tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--card-edge), var(--shadow-card);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.activity__tooltip--below {
+  transform: translate(-50%, 0);
+}
+
+.activity__tooltip span {
+  color: var(--text-muted);
+}
+
+.activity__empty {
+  margin-top: var(--space-2);
+}
+
+/*
+ * The dashboard moves in each time it is opened: the cards rise in one after another, the
+ * bars grow from zero, the ring fills and the line draws itself.
+ */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes ring-fill {
+  from {
+    stroke-dasharray: 0 300;
+  }
+}
+
+@keyframes line-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes point-pop {
+  from {
+    transform: scale(0);
+  }
+}
+
+.dashboard .stat,
+.dashboard .panel {
+  animation: card-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+.dashboard .stat:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+.dashboard .stat:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+.dashboard .stat:nth-child(4) {
+  animation-delay: 0.15s;
+}
+
+.dashboard .stat:nth-child(5) {
+  animation-delay: 0.2s;
+}
+
+.dashboard .dashboard-grid > .panel {
+  animation-delay: 0.2s;
+}
+
+.dashboard .dashboard-grid > .panel + .panel,
+.dashboard .dashboard-split__grid > .panel {
+  animation-delay: 0.28s;
+}
+
+.dashboard .dashboard-stack > .panel {
+  animation-delay: 0.36s;
+}
+
+.dashboard .dashboard-stack > .panel + .panel {
+  animation-delay: 0.44s;
+}
+
+.dashboard .dashboard-split ~ .panel {
+  animation-delay: 0.52s;
+}
+
+.dashboard .meter__fill,
+.dashboard .bar-list__fill {
+  transform-origin: left center;
+  animation: bar-grow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s backwards;
+}
+
+.dashboard .status-ring__part {
+  animation: ring-fill 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s backwards;
+}
+
+.dashboard .activity__line {
+  stroke-dasharray: 1;
+  animation: line-draw 1.2s ease-out 0.4s backwards;
+}
+
+.dashboard .activity__area {
+  animation: fade-in 0.8s ease-out 0.9s backwards;
+}
+
+.dashboard .activity__point {
+  animation: point-pop 0.3s ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter__fill {
+    transition: none;
+  }
+
+  .dashboard .stat,
+  .dashboard .panel,
+  .dashboard .meter__fill,
+  .dashboard .bar-list__fill,
+  .dashboard .status-ring__part,
+  .dashboard .activity__line,
+  .dashboard .activity__area,
+  .dashboard .activity__point {
+    animation: none;
+  }
 }

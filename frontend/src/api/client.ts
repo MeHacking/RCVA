@@ -80,6 +80,12 @@ export interface ApiClient {
    * there is none. The backend does not have it yet, so over HTTP it is always null.
    */
   getLatestOptimizationJob(): Promise<OptimizationJob | null>
+  /**
+   * NOT IN SPEC v2: when each optimization job was started (ISO 8601), oldest first, for the
+   * dashboard. The device keeps them from 03.11.2026 on (and the jobs it had then); the mock
+   * while the page lives; null over HTTP (the backend does not keep them).
+   */
+  getOptimizationHistory(): Promise<string[] | null>
   /** Only for COMPLETED jobs; 409 otherwise */
   getOptimizationResult(id: number): Promise<OptimizationResult>
   /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */

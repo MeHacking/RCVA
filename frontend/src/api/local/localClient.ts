@@ -109,6 +109,8 @@ const PROFILE_LABELS: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna 
 
 /** Jobs kept on the device; older finished jobs are dropped (the screens show only the last one). */
 export const KEPT_JOBS = 10
+/** Start times of jobs kept for the dashboard's chart: years of weekly planning. */
+export const KEPT_JOB_LOG = 5000
 /** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
 export const KEPT_ROUTE_LINES = 50
 
@@ -147,6 +149,8 @@ export interface LocalData {
   distanceCache?: Record<string, number | null>
   /** ORS road lines by `lineKey` (profile and the stops in order), oldest first */
   routeLineCache?: Record<string, RouteLine['path']>
+  /** when each job was started (ISO 8601), oldest first; the last KEPT_JOB_LOG */
+  jobLog?: string[]
 }
 
 /** Coordinates written to 6 decimals (about 10 cm), so a moved place is a new pair. */
@@ -179,6 +183,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   let geocodeCache: Record<string, GeocodeAnswer> = {}
   let distanceCache: Record<string, number | null> = {}
   let routeLineCache: Record<string, RouteLine['path']> = {}
+  let jobLog: string[] = []
   const roadDistances = createOrsDistances(ors)
   const roadLines = createOrsLines(ors)
   // A line being asked for, by `lineKey`: a second request for it waits for the same answer.
@@ -268,6 +273,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     geocodeCache = data.geocodeCache ?? {}
     distanceCache = data.distanceCache ?? {}
     routeLineCache = data.routeLineCache ?? {}
+    // Older data has no log: it starts from the jobs kept then.
+    jobLog = data.jobLog ?? data.jobs.map((j) => j.createdAt).sort()
     jobs.clear()
     let interrupted = false
     for (const job of data.jobs) {
@@ -294,6 +301,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       geocodeCache,
       distanceCache,
       routeLineCache,
+      jobLog,
     }
   }
 
@@ -472,6 +480,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       distanceSource: source,
     }
     jobs.set(job.id, job)
+    jobLog.push(job.createdAt)
+    if (jobLog.length > KEPT_JOB_LOG) jobLog.splice(0, jobLog.length - KEPT_JOB_LOG)
     dropOldJobs()
     queue = queue.then(() => run(job))
     return job
@@ -769,6 +779,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         const latest = Math.max(0, ...jobs.keys())
         return latest > 0 ? view(findJob(latest)) : null
       }),
+
+    getOptimizationHistory: () => respond(() => jobLog),
 
     getOptimizationResult: (id) => respond(() => completedResult(findJob(id))),
 

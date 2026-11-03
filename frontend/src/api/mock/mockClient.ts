@@ -208,6 +208,8 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         return latest > 0 ? jobView(findJob(latest)) : null
       }),
 
+    getOptimizationHistory: () => respond(() => [...jobs.values()].map((job) => iso(job.createdAtMs))),
+
     getOptimizationResult: (id) => respond(() => completedResult(id)),
 
     getLoadPlan: (jobId, truckId) =>

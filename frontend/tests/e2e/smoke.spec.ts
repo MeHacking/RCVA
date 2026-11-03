@@ -8,6 +8,7 @@ const ROUTES = [
   { path: '/optimization', heading: 'Rezultati optimizacije' },
   { path: '/truck-3d', heading: '3D prikaz kamiona' },
   { path: '/route-map', heading: 'Mapa ruta' },
+  { path: '/help', heading: 'Uputstvo' },
 ]
 
 for (const route of ROUTES) {
@@ -55,4 +56,11 @@ test('shows the logo in the sidebar and has it as the favicon', async ({ page, r
   expect(favicon.status()).toBe(200)
   // An .ico file: reserved 0, type 1 (icon), three images.
   expect([...(await favicon.body()).subarray(0, 6)]).toEqual([0, 0, 1, 0, 3, 0])
+})
+
+test('the guide leaves out what only the application on the device has', async ({ page }) => {
+  await page.goto('/help')
+  await expect(page.getByText('Aplikacija sada ne radi na uređaju')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Kako se koristi, korak po korak' })).not.toContainText('Lokacije kamiona')
+  await expect(page.getByRole('heading', { name: 'Preporuka dodatnog kamiona' })).toHaveCount(0)
 })

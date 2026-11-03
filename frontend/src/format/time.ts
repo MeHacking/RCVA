@@ -14,3 +14,25 @@ export function formatDateTime(iso: string | null): string {
   const two = (n: number) => String(n).padStart(2, '0')
   return `${two(date.getDate())}.${two(date.getMonth() + 1)}.${date.getFullYear()}. ${two(date.getHours())}:${two(date.getMinutes())}`
 }
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'avg', 'sep', 'okt', 'nov', 'dec']
+
+/** A local date -> "3.11." (day and month, as on chart axes) */
+export function formatDayMonth(date: Date): string {
+  return `${date.getDate()}.${date.getMonth() + 1}.`
+}
+
+/** A local date -> "3.11.2026." */
+export function formatDate(date: Date): string {
+  return `${formatDayMonth(date)}${date.getFullYear()}.`
+}
+
+/** A local date -> "nov 2026" */
+export function formatMonthYear(date: Date): string {
+  return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`
+}
+
+/** A local date -> "nov" */
+export function formatMonth(date: Date): string {
+  return MONTHS[date.getMonth()]
+}

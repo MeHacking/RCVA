@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDashboardModel } from '../../src/features/dashboard/dashboardModel'
+import { buildDashboardModel, loadLevel, truckLoads } from '../../src/features/dashboard/dashboardModel'
 import { SCENARIOS } from '../../src/fixtures'
 import { shipment, truck } from '../../src/fixtures/scenario'
 import type { TruckStart } from '../../src/api/types'
@@ -24,6 +24,10 @@ describe('buildDashboardModel', () => {
       availableCapacityTenths: 272,
       trucksLowerBound: 2,
       warnings: [],
+      totalWeightKg: 16_300,
+      // Šleper 1 and 2 have no payload: weight is not limited.
+      availableCapacityKg: null,
+      statusCounts: { OK: 5, MANUAL: 0, LOCATION_ERROR: 0 },
     })
   })
 
@@ -105,5 +109,35 @@ describe('buildDashboardModel', () => {
     ])
     const settled = starts.map((s) => ({ ...s, location: beograd, proposal: null }))
     expect(buildDashboardModel(shipments, locations, trucks, settled).warnings).toEqual([])
+  })
+})
+
+describe('dashboard charts', () => {
+  it('says how full a load is: normal up to 85 %, high up to 100 %, then over', () => {
+    expect([loadLevel(85, 100), loadLevel(86, 100), loadLevel(100, 100), loadLevel(101, 100)]).toEqual(['normal', 'high', 'high', 'over'])
+  })
+
+  it('adds up the payload of the available trucks, and counts statuses', () => {
+    const trucks = [truck(1, 'A', 136, null, true, 24_000), truck(2, 'B', 136, null, true, 10_000), truck(3, 'C', 136, null, false, 5_000)]
+    const unclear = { ...locations[1], id: 9, lat: null, lon: null, geocodeStatus: 'FAILED' as const }
+    const shipments = [shipment(1, 'A', 10, 1, 5, { weightKg: 1200 }), shipment(2, 'B', 10, 9, 5)]
+    const result = buildDashboardModel(shipments, [...locations, unclear], trucks)
+    expect(result).toMatchObject({ totalWeightKg: 1200, availableCapacityKg: 34_000, statusCounts: { OK: 1, MANUAL: 0, LOCATION_ERROR: 1 } })
+  })
+
+  it('gives each truck of a result its load, weight, kilometres and route color', () => {
+    const { shipments, trucks, outcome } = SCENARIOS.small
+    if (outcome.kind !== 'COMPLETED') throw new Error('small is COMPLETED')
+    const loads = truckLoads(outcome.result, trucks, shipments)
+    expect(loads.map((l) => [l.name, l.color, l.capacityLdmTenths])).toEqual(
+      outcome.result.routes.map((r, i) => [trucks.find((t) => t.id === r.truckId)!.name, i + 1, 136]),
+    )
+    for (const [i, route] of outcome.result.routes.entries()) {
+      const picked = route.stops.filter((s) => s.type === 'PICKUP').map((s) => s.shipmentId)
+      const weight = shipments.filter((s) => picked.includes(s.id)).reduce((sum, s) => sum + (s.weightKg ?? 0), 0)
+      expect(loads[i]).toMatchObject({ usedLdmTenths: route.usedLdmTenths, weightKg: weight, meters: route.totalMeters })
+    }
+    // A truck removed since keeps its route, without a capacity.
+    expect(truckLoads(outcome.result, [], shipments)[0]).toMatchObject({ name: `Kamion #${outcome.result.routes[0].truckId}`, capacityLdmTenths: null })
   })
 })
