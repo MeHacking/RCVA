@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
-import { apiMode } from '../../api/apiMode'
 import { Badge } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
@@ -15,9 +14,13 @@ import { buildDashboardModel, type DashboardModel } from './dashboardModel'
 export function DashboardPage() {
   const api = useApi()
   const load = useCallback(async () => {
-    const [shipments, locations, trucks] = await Promise.all([api.listShipments(), api.listLocations(), api.listTrucks()])
-    // On the device the application adds standard trucks to every job (B1).
-    return buildDashboardModel(shipments, locations, trucks, { unlimitedFleet: apiMode() === 'local' })
+    const [shipments, locations, trucks, starts] = await Promise.all([
+      api.listShipments(),
+      api.listLocations(),
+      api.listTrucks(),
+      api.getTruckStarts(),
+    ])
+    return buildDashboardModel(shipments, locations, trucks, starts)
   }, [api])
   const [model, reload] = useAsyncData(load)
 
@@ -64,7 +67,6 @@ function Cards({ model }: { model: DashboardModel }) {
         <dd className="stat__value">{model.availableTrucks}</dd>
         <dd className="stat__hint">
           dostupno od {model.totalTrucks} · {formatLdm(model.availableCapacityTenths)} LDM
-          {model.unlimitedFleet && ' + standardne cerade po potrebi'}
         </dd>
       </div>
       <div className="stat">
@@ -185,7 +187,17 @@ function QuickActions() {
         <button type="button" onClick={() => navigate('/trucks')}>
           <Icon name="truck" /> Uredi kamione
         </button>
-        <button type="button" className="button--primary" onClick={() => void start()} disabled={isLastJobBusy(state)}>
+        <button
+          type="button"
+          className="button--primary"
+          onClick={() =>
+            void start().then((kind) => {
+              // Truck locations and missing trucks are answered on the results screen.
+              if (kind === 'needsLocations' || kind === 'proven') navigate('/optimization')
+            })
+          }
+          disabled={isLastJobBusy(state)}
+        >
           <Icon name="play" size={14} /> Pokreni optimizaciju
         </button>
         <button type="button" onClick={() => navigate('/optimization')}>

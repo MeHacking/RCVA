@@ -59,9 +59,14 @@ test('with a key the job uses road distances from ORS, asked once', async ({ pag
   )
   expect(asked).toEqual([{ profile: 'driving-hgv', key: 'probni-kljuc' }])
 
-  // The distances are kept: after a reload a new job asks nothing.
+  // The distances are kept: after a reload a new job asks nothing. The trucks' last
+  // deliveries are proposed first; the same week again keeps where they were.
   await page.reload()
   await start(page)
+  const check = page.getByRole('region', { name: 'Gde su kamioni?' })
+  await check.getByRole('button', { name: 'Zadrži sve sadašnje lokacije' }).click()
+  await expect(check.getByRole('status').last()).toHaveText('Svi kamioni imaju potvrđenu lokaciju.')
+  await check.getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByTestId('last-job-status')).toContainText('Završeno', { timeout: 20_000 })
   expect(asked).toHaveLength(1)
   expect(errors).toEqual([])

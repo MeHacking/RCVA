@@ -23,6 +23,9 @@ import type {
   ShipmentUpdateResult,
   Truck,
   TruckInput,
+  TruckStart,
+  TruckStartInput,
+  TruckStartResult,
 } from './types'
 
 /**
@@ -53,6 +56,18 @@ export interface ApiClient {
   updateTruck(id: number, input: TruckInput): Promise<Truck>
   /** DELETE /trucks/{id} (204); 409 while an optimization job is queued or running */
   deleteTruck(id: number): Promise<void>
+  /**
+   * NOT IN SPEC v2: where every available truck starts the next job, with the location
+   * proposed from its last delivery; null where trucks have no location (mock, backend).
+   */
+  getTruckStarts(): Promise<TruckStart[] | null>
+  /**
+   * NOT IN SPEC v2: sets where a truck is, from a place typed by hand (looked up like a
+   * shipment's place; coordinates by hand allowed) or from a job's proposal. 400 by field,
+   * 404, 409 while a job waits or runs (and for a proposal that no longer exists); 404 over
+   * HTTP and in the mock.
+   */
+  setTruckStart(truckId: number, input: TruckStartInput): Promise<TruckStartResult>
 
   getBase(): Promise<BaseSettings>
 

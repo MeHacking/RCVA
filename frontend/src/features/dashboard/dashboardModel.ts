@@ -1,4 +1,4 @@
-import type { Location, Shipment, Truck } from '../../api/types'
+import type { Location, Shipment, Truck, TruckStart } from '../../api/types'
 import { availableCapacity } from '../../domain/capacity'
 import { planningFleet } from '../../domain/fleet'
 import { provenFindings, trucksLowerBound } from '../../domain/optimization/feasibility'
@@ -17,8 +17,6 @@ export interface DashboardModel {
   availableTrucks: number
   totalTrucks: number
   availableCapacityTenths: number
-  /** the application adds standard trucks as needed (on the device), so their number is not limited */
-  unlimitedFleet: boolean
   /** by LDM and weight; null when the fleet cannot carry everything (or a shipment fits no truck) */
   trucksLowerBound: number | null
   warnings: DashboardWarning[]
@@ -27,23 +25,39 @@ export interface DashboardModel {
 /**
  * Figures and warnings for the dashboard. The danger warnings are the checks a job makes
  * before solving (PROVEN, feasibility.ts), over the fleet the job would get
- * (planningFleet: on the device with standard trucks added), so the user sees exactly
- * the reasons a job would be refused with HTTP 422, weight included.
+ * (planningFleet: the available trucks), so the user sees exactly
+ * the reasons a job would be refused with HTTP 422, weight included. On the device (`starts`)
+ * it also warns about available trucks that do not know where they are, or whose proposed
+ * location waits to be confirmed: a job asks for them first.
  */
 export function buildDashboardModel(
   shipments: Shipment[],
   locations: Location[],
   trucks: Truck[],
-  { unlimitedFleet = false }: { unlimitedFleet?: boolean } = {},
+  starts: TruckStart[] | null = null,
 ): DashboardModel {
   const totals = shipmentTotals(buildShipmentRows(shipments, locations))
-  const fleet = planningFleet(trucks, shipments.length, unlimitedFleet)
-  const findings = provenFindings(shipments, fleet, { totals: !unlimitedFleet })
+  const fleet = planningFleet(trucks)
+  const findings = provenFindings(shipments, fleet)
   const warnings: DashboardWarning[] = findings.map((finding) => ({
     tone: 'danger',
     text: finding.text,
     link: finding.about === 'shipment' ? { to: '/shipments', label: 'Pošiljke' } : { to: '/trucks', label: 'Kamioni' },
   }))
+
+  if (starts) {
+    const available = new Set(trucks.filter((t) => t.available).map((t) => t.id))
+    const mine = starts.filter((s) => available.has(s.truckId))
+    const missing = mine.filter((s) => !s.location).length
+    const proposed = mine.filter((s) => s.location && s.proposal).length
+    const toTrucks = { to: '/trucks', label: 'Kamioni' }
+    if (missing > 0) {
+      warnings.push({ tone: 'warning', text: `Kamioni bez lokacije: ${missing}. Pre optimizacije unesite gde se nalaze.`, link: toTrucks })
+    }
+    if (proposed > 0) {
+      warnings.push({ tone: 'warning', text: `Predlozi novih lokacija kamiona čekaju potvrdu: ${proposed}.`, link: toTrucks })
+    }
+  }
 
   if (totals.withErrors > 0) {
     warnings.push({
@@ -60,7 +74,6 @@ export function buildDashboardModel(
     availableTrucks: trucks.filter((t) => t.available).length,
     totalTrucks: trucks.length,
     availableCapacityTenths: availableCapacity(trucks),
-    unlimitedFleet,
     // A bound next to a proven reason would suggest a solution exists.
     trucksLowerBound: shipments.length > 0 && findings.length === 0 ? trucksLowerBound(shipments, fleet) : null,
     warnings,

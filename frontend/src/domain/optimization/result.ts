@@ -1,6 +1,6 @@
 import type { OptimizationResult, RoutePlan, RouteStop, StopType } from '../../api/types'
 import { trucksLowerBound } from './feasibility'
-import { locationIndex, type JobInput } from './job'
+import { locationIndex, startOf, type JobInput } from './job'
 import type { Route } from './routePlanner'
 import { validate } from './validator'
 
@@ -14,12 +14,15 @@ export interface TruckRoute {
   route: Route
 }
 
-/** Only for a feasible solution; otherwise the job ends as INFEASIBLE / NOT_FOUND without a result. */
+/**
+ * Only for a feasible solution; otherwise the job ends as INFEASIBLE / NOT_FOUND without a
+ * result. Shipments on no route are listed as unassigned (allowUnassigned).
+ */
 export function toOptimizationResult(job: JobInput, routes: TruckRoute[]): OptimizationResult {
   const byTruck = new Map(routes.filter((r) => r.route.pickups.length > 0).map((r) => [r.truckId, r.route]))
   const plans = job.trucks.flatMap((truck) => {
     const route = byTruck.get(truck.id)
-    return route ? [routePlan(job, truck.id, route)] : []
+    return route ? [routePlan(job, truck.id, startOf(job, truck), route)] : []
   })
   const assigned = new Set(plans.flatMap((p) => p.stops.map((s) => s.shipmentId)))
   const result: OptimizationResult = {
@@ -35,10 +38,10 @@ export function toOptimizationResult(job: JobInput, routes: TruckRoute[]): Optim
   return { ...result, validation: validate(job, result) }
 }
 
-function routePlan(job: JobInput, truckId: number, route: Route): RoutePlan {
+function routePlan(job: JobInput, truckId: number, start: number | null, route: Route): RoutePlan {
   const index = locationIndex(job)
   const stops: RouteStop[] = []
-  let at = job.rules.start
+  let at = start
   let load = 0
   let maxLoad = 0
   let meters = 0
@@ -60,5 +63,8 @@ function routePlan(job: JobInput, truckId: number, route: Route): RoutePlan {
     }
   }
   if (job.rules.end !== null && at !== null) meters += job.distance[at][job.rules.end]
-  return { truckId, usedLdmTenths: maxLoad, totalMeters: meters, stops }
+  const plan: RoutePlan = { truckId, usedLdmTenths: maxLoad, totalMeters: meters, stops }
+  // Only a truck's own start is named; the rules' start (the base) is not a place of this truck.
+  const own = job.trucks.find((t) => t.id === truckId)?.startLocationId
+  return own == null ? plan : { ...plan, startLocationId: own }
 }

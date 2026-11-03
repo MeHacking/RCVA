@@ -1,15 +1,28 @@
 import { createContext, useContext } from 'react'
 import type { OptimizationJob, OptimizationResult } from '../../api/types'
 
+/** How a job is started; the same options start it again (e.g. after the truck locations). */
+export interface StartOptions {
+  timeLimitSeconds?: number
+  /** NOT IN SPEC v2: plan without the shipments the trucks cannot carry */
+  allowUnassigned?: boolean
+  /** NOT IN SPEC v2: up to this many trucks at no cost (after the advice "one more truck") */
+  freeTrucks?: number
+}
+
 export type LastJobState =
   | { kind: 'idle' }
   | { kind: 'starting' }
+  /** on the device: an available truck has no confirmed location, or a proposal waits; no job yet */
+  | { kind: 'needsLocations'; options: StartOptions }
   /** 422 from POST /optimization-jobs: no job was created */
-  | { kind: 'proven'; detail: string; causes: string[] }
+  | { kind: 'proven'; detail: string; causes: string[]; missingTrucks: number | null; options: StartOptions }
   | { kind: 'startFailed'; message: string }
   | {
       kind: 'tracking'
       jobId: number
+      /** how the job was started, to start it again with a change */
+      options: StartOptions
       /** null until the first status response */
       job: OptimizationJob | null
       /** set once the job is COMPLETED */
@@ -19,8 +32,11 @@ export type LastJobState =
 
 export interface LastJobContextValue {
   state: LastJobState
-  /** Starts a job on all available trucks and all shipments, then polls its status. */
-  start: (timeLimitSeconds?: number) => Promise<void>
+  /**
+   * Starts a job on all available trucks and all shipments, then polls its status. On the
+   * device the truck locations are checked first. Resolves to the state it ends in.
+   */
+  start: (options?: StartOptions) => Promise<LastJobState['kind']>
 }
 
 export const LastJobContext = createContext<LastJobContextValue | null>(null)

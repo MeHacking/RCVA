@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { TruckForm } from './TruckForm'
+import { TruckLocations } from './TruckLocations'
 
 type Editing = { mode: 'create' } | { mode: 'edit'; truck: Truck } | null
 
@@ -14,6 +15,9 @@ export function TrucksPage() {
   const api = useApi()
   const load = useCallback(() => api.listTrucks(), [api])
   const [trucks, reload] = useAsyncData(load)
+  // Only the application on the device knows where the trucks are (null elsewhere).
+  const loadStarts = useCallback(() => api.getTruckStarts(), [api])
+  const [starts, reloadStarts] = useAsyncData(loadStarts)
   const [editing, setEditing] = useState<Editing>(null)
   /** truck waiting for the user to confirm removal */
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
@@ -23,6 +27,7 @@ export function TrucksPage() {
   const handleSaved = () => {
     setEditing(null)
     reload()
+    reloadStarts()
   }
 
   const askDelete = (truck: Truck) => {
@@ -38,6 +43,7 @@ export function TrucksPage() {
       if (editing?.mode === 'edit' && editing.truck.id === truck.id) setEditing(null)
       setConfirmingId(null)
       reload()
+      reloadStarts()
     } catch (error) {
       setDeleteError(`Kamion „${truck.name}“ nije uklonjen: ${describeError(error)}`)
     } finally {
@@ -92,6 +98,18 @@ export function TrucksPage() {
             onCancelDelete={() => setConfirmingId(null)}
           />
         ))}
+
+      {trucks.status === 'success' && trucks.data.length > 0 && starts.status === 'success' && starts.data && (
+        <section className="panel truck-locations" aria-labelledby="truck-locations">
+          <h2 id="truck-locations">Lokacije kamiona</h2>
+          <p className="text--muted">
+            Ruta svakog kamiona počinje tamo gde se kamion nalazi, pa se i vožnja do prvog utovara računa u kilometre.
+            Posle optimizacije aplikacija predlaže mesto poslednje isporuke; predlog važi tek kada ga potvrdite.
+          </p>
+          <TruckLocations trucks={trucks.data} starts={starts.data} onChanged={reloadStarts} />
+        </section>
+      )}
+      {starts.status === 'error' && <ErrorState title="Lokacije kamiona nisu učitane" message={starts.message} onRetry={reloadStarts} />}
     </section>
   )
 }
@@ -117,7 +135,7 @@ function TruckTable({
 }) {
   return (
     <div className="table-wrap">
-      <table className="table">
+      <table className="table" aria-label="Kamioni">
         <thead>
           <tr>
             <th scope="col">ID</th>

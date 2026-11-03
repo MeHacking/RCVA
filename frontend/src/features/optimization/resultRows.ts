@@ -32,6 +32,8 @@ export interface TruckRow {
   baseName: string
   /** starts at the first pickup and ends at the last delivery, without the base */
   openRoute: boolean
+  /** NOT IN SPEC v2: where the truck was when the job started (the first leg is from there); null: not known */
+  startName: string | null
 }
 
 export interface UnassignedRow {
@@ -68,6 +70,7 @@ export function buildTruckRows(result: OptimizationResult, ref: ReferenceData): 
       returnLegMeters: route.totalMeters - legs,
       baseName: names.location(ref.base.baseLocationId),
       openRoute: result.openRoute ?? false,
+      startName: route.startLocationId === undefined ? null : names.location(route.startLocationId),
     }
   })
 }

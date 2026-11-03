@@ -8,6 +8,8 @@ import { formatKm, formatLdm, formatScore } from '../../format/units'
 import { buildTruckRows, buildUnassignedRows, type ReferenceData } from './resultRows'
 import { RouteTable } from './RouteTable'
 import { useReferenceData } from './useReferenceData'
+import { ExtraTruckNotice, ShortageActions } from './FleetActions'
+import type { StartOptions } from './lastJobContext'
 
 /** Only the application on the device says where the distances come from. */
 const DISTANCE_SOURCES: Record<DistanceSource, string> = {
@@ -16,7 +18,16 @@ const DISTANCE_SOURCES: Record<DistanceSource, string> = {
   airline: 'vazdušna linija, ne po putu (nema ključa za OpenRouteService u Podešavanjima)',
 }
 
-export function ResultView({ job, result }: { job: OptimizationJob; result: OptimizationResult }) {
+/** `options`: how the job was started, on the device; there the result offers trucks to add. */
+export function ResultView({
+  job,
+  result,
+  options = null,
+}: {
+  job: OptimizationJob
+  result: OptimizationResult
+  options?: StartOptions | null
+}) {
   const [reference, reload] = useReferenceData()
 
   return (
@@ -27,6 +38,13 @@ export function ResultView({ job, result }: { job: OptimizationJob; result: Opti
 
       <Summary job={job} result={result} />
       <Validation result={result} />
+      {options && <ExtraTruckNotice result={result} options={options} />}
+      {options && result.unassignedShipmentIds.length > 0 && (
+        <Notice tone="warning" title={`Nema dovoljno kamiona: nedodeljenih pošiljki ${result.unassignedShipmentIds.length}`} role="status">
+          <p>Kamioni nisu mogli da ponesu sve pošiljke; nedodeljene su navedene ispod ruta.</p>
+          <ShortageActions add={1} options={options} />
+        </Notice>
+      )}
 
       {reference.status === 'loading' && <LoadingState label="Učitavanje kamiona i pošiljki…" />}
       {reference.status === 'error' && (
@@ -75,7 +93,10 @@ function Summary({ job, result }: { job: OptimizationJob; result: OptimizationRe
       <div className="stat">
         <dt>Skor (Hard/Medium/Soft)</dt>
         <dd className="stat__value stat__value--mono">{score}</dd>
-        <dd className="stat__hint">medium = −kamioni, soft = −metri</dd>
+        <dd className="stat__hint">
+          {/* On the device medium also counts LDM left out, and trucks only above the ones at no cost. */}
+          {result.openRoute ? 'medium = −kamioni (i izostavljeni LDM), soft = −metri' : 'medium = −kamioni, soft = −metri'}
+        </dd>
       </div>
       <div className="stat">
         <dt>Validator</dt>

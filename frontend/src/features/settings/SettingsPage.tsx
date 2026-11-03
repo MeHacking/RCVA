@@ -34,7 +34,7 @@ export function SettingsPage() {
   )
 }
 
-type Field = 'contactEmail' | 'orsApiKey' | 'orsProfile'
+type Field = 'contactEmail' | 'orsApiKey' | 'orsProfile' | 'extraTruckSavingPercent'
 
 function SettingsForm({ initial }: { initial: DeviceSettings }) {
   const api = useApi()
@@ -43,6 +43,7 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
   const [contactEmail, setContactEmail] = useState(initial.contactEmail ?? '')
   const [orsApiKey, setOrsApiKey] = useState(initial.orsApiKey ?? '')
   const [orsProfile, setOrsProfile] = useState<OrsProfile>(initial.orsProfile)
+  const [savingPercent, setSavingPercent] = useState(initial.extraTruckSavingPercent === null ? '' : String(initial.extraTruckSavingPercent))
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -60,8 +61,11 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
         contactEmail: contactEmail.trim() || null,
         orsApiKey: orsApiKey.trim() || null,
         orsProfile,
+        // Empty: no advice; anything but a whole number is refused by the device with the reason.
+        extraTruckSavingPercent: savingPercent.trim() === '' ? null : Number(savingPercent.trim()),
       })
       setContactEmail(stored.contactEmail ?? '')
+      setSavingPercent(stored.extraTruckSavingPercent === null ? '' : String(stored.extraTruckSavingPercent))
       setOrsApiKey(stored.orsApiKey ?? '')
       setSaved(true)
     } catch (error) {
@@ -163,6 +167,23 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
           <option value="driving-car">automobile</option>
         </select>
         {fieldError('orsProfile')}
+      </div>
+
+      <div className="field">
+        <label htmlFor={`${id}-extraTruckSavingPercent`}>Preporuka dodatnog kamiona: najmanja ušteda (%)</label>
+        <input
+          id={`${id}-extraTruckSavingPercent`}
+          inputMode="numeric"
+          value={savingPercent}
+          onChange={(e) => setSavingPercent(e.target.value)}
+          aria-invalid={errors.extraTruckSavingPercent ? true : undefined}
+          aria-describedby={described('extraTruckSavingPercent', true)}
+        />
+        {hint(
+          'extraTruckSavingPercent',
+          'Posle optimizacije aplikacija proba i sa jednim kamionom više i predloži ga kada je kilometara bar toliko posto manje. Prazno = bez preporuke (optimizacija tada traje upola kraće).',
+        )}
+        {fieldError('extraTruckSavingPercent')}
       </div>
 
       {formError && (

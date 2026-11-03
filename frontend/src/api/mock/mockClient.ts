@@ -231,6 +231,12 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
     updateImportRow: (importId, rowNumber, patch) => respond(() => imports.updateRow(importId, rowNumber, patch)),
     commitImport: (importId, commitOptions) => respond(() => imports.commit(importId, commitOptions?.onProgress)),
 
+    // Trucks have no location in the mock: its result is fixed per scenario.
+    getTruckStarts: () => respond(() => null),
+    setTruckStart: () =>
+      respond(() => {
+        throw notFound('Lokacije kamiona postoje samo u aplikaciji na uređaju.')
+      }),
     getDeviceSettings: () => respond(() => null),
     updateDeviceSettings: () =>
       respond(() => {

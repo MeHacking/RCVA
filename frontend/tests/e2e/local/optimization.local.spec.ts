@@ -22,14 +22,15 @@ test('solves in the browser and shows open routes, the validator and the 3D plan
   await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
   await expect(page.getByText('Sve pošiljke su dodeljene kamionima.')).toBeVisible()
 
-  // An open route: no base before the first stop and no return after the last.
+  // An open route from where the truck is (the scenario's trucks are at its base), without a return.
   const toggle = routes.getByRole('button', { name: /^Stanice \(\d+\)$/ }).first()
   const count = Number((await toggle.textContent())?.match(/\d+/)?.[0])
   await toggle.click()
   const stops = page.getByRole('list', { name: /^Stanice: / }).getByRole('listitem')
-  await expect(stops).toHaveCount(count)
-  await expect(stops.first()).toContainText('Preuzimanje')
-  await expect(stops.first()).toContainText('početak rute')
+  await expect(stops).toHaveCount(1 + count)
+  await expect(stops.first()).toContainText('Polazak')
+  await expect(stops.first()).toContainText('Beograd – magacin · lokacija kamiona')
+  await expect(stops.nth(1)).toContainText('Preuzimanje')
   await expect(stops.last()).toContainText('Isporuka')
 
   await page.getByRole('navigation').getByRole('link', { name: '3D prikaz kamiona' }).click()

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useApi } from '../../api/apiContext'
-import { describeError, isProvenInfeasible } from '../../api/client'
+import { describeError, isProvenInfeasible, type ApiClient } from '../../api/client'
 import { isTerminal } from './jobStatus'
-import { LastJobContext, type LastJobState } from './lastJobContext'
+import { LastJobContext, type LastJobState, type StartOptions } from './lastJobContext'
 
 const POLL_INTERVAL_MS = 1000
 const DEFAULT_TIME_LIMIT_SECONDS = 60
@@ -24,7 +24,9 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
         // A job started in the meantime wins.
         if (!cancelled && job) {
           setState((previous) =>
-            previous.kind === 'idle' ? { kind: 'tracking', jobId: job.id, job: null, result: null, pollError: null } : previous,
+            previous.kind === 'idle'
+              ? { kind: 'tracking', jobId: job.id, options: { timeLimitSeconds: job.timeLimitSeconds }, job: null, result: null, pollError: null }
+              : previous,
           )
         }
       },
@@ -38,17 +40,29 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
   }, [api])
 
   const start = useCallback(
-    async (timeLimitSeconds = DEFAULT_TIME_LIMIT_SECONDS) => {
-      setState({ kind: 'starting' })
+    async (options: StartOptions = {}): Promise<LastJobState['kind']> => {
+      const set = (next: LastJobState) => {
+        setState(next)
+        return next.kind
+      }
+      set({ kind: 'starting' })
       try {
-        const created = await api.createOptimizationJob({ timeLimitSeconds, truckIds: null, shipmentIds: null })
-        setState({ kind: 'tracking', jobId: created.id, job: null, result: null, pollError: null })
+        if (await locationsMissing(api)) return set({ kind: 'needsLocations', options })
+        const created = await api.createOptimizationJob({
+          timeLimitSeconds: options.timeLimitSeconds ?? DEFAULT_TIME_LIMIT_SECONDS,
+          truckIds: null,
+          shipmentIds: null,
+          // Sent only when asked for: the backend does not know them.
+          ...(options.allowUnassigned ? { allowUnassigned: true } : {}),
+          ...(options.freeTrucks ? { freeTrucks: options.freeTrucks } : {}),
+        })
+        return set({ kind: 'tracking', jobId: created.id, options, job: null, result: null, pollError: null })
       } catch (error) {
         if (isProvenInfeasible(error)) {
-          setState({ kind: 'proven', detail: error.message, causes: error.problem.causes ?? [] })
-        } else {
-          setState({ kind: 'startFailed', message: describeError(error) })
+          const { causes = [], missingTrucks = null } = error.problem
+          return set({ kind: 'proven', detail: error.message, causes, missingTrucks, options })
         }
+        return set({ kind: 'startFailed', message: describeError(error) })
       }
     },
     [api],
@@ -85,4 +99,15 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ state, start }), [state, start])
   return <LastJobContext value={value}>{children}</LastJobContext>
+}
+
+/**
+ * On the device: an available truck has no confirmed location, or the location proposed
+ * from its last delivery waits for the user (it is used only once confirmed).
+ */
+async function locationsMissing(api: ApiClient): Promise<boolean> {
+  const starts = await api.getTruckStarts()
+  if (!starts) return false
+  const available = new Set((await api.listTrucks()).filter((t) => t.available).map((t) => t.id))
+  return starts.some((s) => available.has(s.truckId) && (!s.location || s.proposal))
 }

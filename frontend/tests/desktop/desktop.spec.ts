@@ -111,10 +111,22 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
   await page.getByRole('button', { name: 'Dalje: pregled redova' }).click()
   await page.getByRole('button', { name: 'Dalje: potvrda' }).click()
   await page.getByRole('button', { name: /^Upiši pošiljke/ }).click()
-  // Three places; the two Teststads share one remembered answer (kept by name and country).
-  await expect(page.getByText('Koordinate novih mesta: pronađeno 3, nije pronađeno 0.')).toBeVisible({ timeout: 15_000 })
+  // Two places: Teststad with and without its number is one place (the number is not compared).
+  await expect(page.getByText('Koordinate novih mesta: pronađeno 2, nije pronađeno 0.')).toBeVisible({ timeout: 15_000 })
   expect(outside.map((r) => new URL(r.url).searchParams.get('q'))).toEqual(['Primerovo', 'Teststad'])
   expect(outside.every((r) => r.userAgent.startsWith('RCVA/1.0.0 '))).toBe(true)
+
+  // An empty device has no trucks: one is added, at a place the device knows now (no lookup).
+  await page.getByRole('navigation').getByRole('link', { name: 'Kamioni' }).click()
+  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
+  await page.getByLabel('Naziv').fill('Kamion 1')
+  await page.getByLabel('Kapacitet (LDM)').fill('13.6')
+  await page.getByRole('button', { name: 'Sačuvaj' }).click()
+  await page.getByRole('button', { name: 'Unesi lokaciju za Kamion 1' }).click()
+  await page.getByRole('form', { name: 'Lokacija kamiona Kamion 1' }).getByLabel('Mesto').fill('Primerovo')
+  await page.getByRole('button', { name: 'Sačuvaj lokaciju' }).click()
+  await expect(page.getByRole('table', { name: 'Lokacije kamiona' })).toContainText('Sačuvano: „Primerovo“.')
+  expect(outside).toHaveLength(2)
 
   await page.getByRole('navigation').getByRole('link', { name: 'Rezultati optimizacije' }).click()
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')

@@ -1,10 +1,11 @@
 import type { OptimizationResult, RouteStop, ValidationReport } from '../../api/types'
 import { formatKg, formatLdm } from '../../format/units'
-import { weightOf, type JobInput } from './job'
+import { locationIndex, weightOf, type JobInput } from './job'
 
 // Port of backend/.../optimization/SolutionValidator.java with the process owner's model:
 // start and end of a route from job.rules (open route: no leg before the first stop and
-// none after the last), weight against the truck's payload, and rear loading.
+// none after the last) or the truck's own start, weight against the truck's payload, and
+// rear loading.
 // Independent of the solver and of RoutePlanner: it recomputes loads and distances from
 // the stops alone, so a bug in either shows up here as a violation. Messages are shown to
 // users.
@@ -37,6 +38,12 @@ export function validate(job: JobInput, result: OptimizationResult): ValidationR
     let maxWeight = 0
     let meters = 0
     let previous = job.rules.start
+    if (truck?.startLocationId != null) {
+      previous = locationIndex(job)(truck.startLocationId)
+      if (route.startLocationId !== truck.startLocationId) {
+        violations.push(`${name}: ruta kreće sa lokacije #${route.startLocationId ?? '–'}, a kamion je na #${truck.startLocationId}.`)
+      }
+    }
     route.stops.forEach((stop, i) => {
       const where = `${name}, stanica ${i + 1}`
       if (stop.sequence !== i + 1) violations.push(`${where}: redni broj je ${stop.sequence}.`)

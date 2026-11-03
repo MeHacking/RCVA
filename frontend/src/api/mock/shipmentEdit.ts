@@ -8,14 +8,26 @@ const ROLES: readonly Role[] = ['pickup', 'delivery']
 const LOCATION_ID = { pickup: 'pickupLocationId', delivery: 'deliveryLocationId' } as const
 const MISSING_PLACE: Record<Role, string> = { pickup: 'Unesite mesto preuzimanja.', delivery: 'Unesite mesto isporuke.' }
 
-/** What one place of the edited shipment becomes; decided before anything is changed. */
-interface PlacePlan {
-  role: Role
+/** What one place becomes; decided before anything is changed. */
+interface PlaceAnswer {
   place: PlaceGuess
-  /** the place was given in the patch (not only looked up again) */
+  /** the place was typed by hand (not only looked up again) */
   given: boolean
   outcome: PlaceLookup['outcome']
   coordinates: { lat: number; lon: number } | null
+  message: string | null
+}
+
+interface PlacePlan extends PlaceAnswer {
+  role: Role
+}
+
+/** A place where a truck is (or anything but a shipment), looked up like a shipment's place. */
+export interface LocatedPlace {
+  /** null when it has no coordinates: nothing was made or changed */
+  location: Location | null
+  name: string
+  outcome: PlaceLookup['outcome']
   message: string | null
 }
 
@@ -61,25 +73,26 @@ export function createShipmentEditor(deps: {
     }
     for (const role of ROLES) {
       const input = patch[role]
-      if (!input) continue
-      const place = cleanPlace(input)
-      if (!place.name) {
-        errors[role] = MISSING_PLACE[role]
-        continue
-      }
-      const coordinates = input.coordinates
-      if (!coordinates) continue
-      const { lat, lon } = coordinates
-      if (!(Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) {
-        errors[`${role}Coordinates`] = 'Geografska širina mora biti između -90 i 90, a dužina između -180 i 180.'
-        continue
-      }
-      const known = findPlace(locations, place)
-      if (known && hasCoordinates(known) && (known.lat !== lat || known.lon !== lon)) {
-        errors[`${role}Coordinates`] = `Mesto „${known.name}“ već ima koordinate; ručno se unose samo za mesto bez njih.`
-      }
+      if (input) Object.assign(errors, placeErrors(input, role, `${role}Coordinates`, MISSING_PLACE[role]))
     }
     return errors
+  }
+
+  /** The errors of a place typed by hand, under the given field names. */
+  function placeErrors(input: PlaceInput, nameField: string, coordinatesField: string, missing: string): Record<string, string> {
+    const place = cleanPlace(input)
+    if (!place.name) return { [nameField]: missing }
+    const coordinates = input.coordinates
+    if (!coordinates) return {}
+    const { lat, lon } = coordinates
+    if (!(Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) {
+      return { [coordinatesField]: 'Geografska širina mora biti između -90 i 90, a dužina između -180 i 180.' }
+    }
+    const known = findPlace(locations, place)
+    if (known && hasCoordinates(known) && (known.lat !== lat || known.lon !== lon)) {
+      return { [coordinatesField]: `Mesto „${known.name}“ već ima koordinate; ručno se unose samo za mesto bez njih.` }
+    }
+    return {}
   }
 
   /** Each place of the shipment after the patch, with its coordinates; asks the lookup where needed. */
@@ -92,32 +105,31 @@ export function createShipmentEditor(deps: {
       const place = input ? cleanPlace(input) : current ? asPlace(current) : null
       // A shipment always has its places; one without them cannot be looked up again.
       if (!place) continue
-      const known = findPlace(locations, place)
-      const base = { role, place, given: !!input, message: null }
-      if (known && hasCoordinates(known)) {
-        plans.push({ ...base, outcome: 'known', coordinates: { lat: known.lat, lon: known.lon } })
-      } else if (input?.coordinates) {
-        plans.push({ ...base, outcome: 'manual', coordinates: input.coordinates })
-      } else {
-        const id = `${place.name.toLowerCase()}|${place.country ?? ''}`
-        let result = asked.get(id)
-        if (!result) {
-          // A name typed by hand is asked again, also when it was not found before.
-          result = await locate(place, { again: !!input })
-          asked.set(id, result)
-        }
-        plans.push(
-          result.kind === 'found'
-            ? { ...base, outcome: 'found', coordinates: { lat: result.lat, lon: result.lon } }
-            : { ...base, outcome: result.kind, coordinates: null, message: result.kind === 'failed' ? result.message : null },
-        )
-      }
+      plans.push({ role, ...(await answer(place, input, asked)) })
     }
     return plans
   }
 
+  /** Coordinates of one place: known, typed by hand, or looked up (once per name in `asked`). */
+  async function answer(place: PlaceGuess, input: PlaceInput | undefined, asked: Map<string, LocateResult>): Promise<PlaceAnswer> {
+    const known = findPlace(locations, place)
+    const base = { place, given: !!input, message: null }
+    if (known && hasCoordinates(known)) return { ...base, outcome: 'known', coordinates: { lat: known.lat, lon: known.lon } }
+    if (input?.coordinates) return { ...base, outcome: 'manual', coordinates: input.coordinates }
+    const id = `${place.name.toLowerCase()}|${place.country ?? ''}`
+    let result = asked.get(id)
+    if (!result) {
+      // A name typed by hand is asked again, also when it was not found before.
+      result = await locate(place, { again: !!input })
+      asked.set(id, result)
+    }
+    return result.kind === 'found'
+      ? { ...base, outcome: 'found', coordinates: { lat: result.lat, lon: result.lon } }
+      : { ...base, outcome: result.kind, coordinates: null, message: result.kind === 'failed' ? result.message : null }
+  }
+
   /** The location of a planned place: a known one (given coordinates if it has none) or a new one. */
-  function placeFor(plan: PlacePlan): Location {
+  function placeFor(plan: PlaceAnswer): Location {
     const status = plan.outcome === 'manual' || (plan.outcome === 'found' && plan.given) ? 'MANUAL' : 'OK'
     const known = findPlace(locations, plan.place)
     if (known) {
@@ -149,6 +161,24 @@ export function createShipmentEditor(deps: {
   }
 
   return {
+    /**
+     * A place typed by hand that is not a shipment's (where a truck is): checked (400 with
+     * `place` and `coordinates`) and looked up as a shipment's. A location is made, or
+     * given its coordinates, only when it has them. Whether anything may change now is up to
+     * the caller.
+     */
+    async locatePlace(input: PlaceInput): Promise<LocatedPlace> {
+      const errors = placeErrors(input, 'place', 'coordinates', 'Unesite mesto.')
+      if (Object.keys(errors).length > 0) throw new ApiError({ title: 'Neispravno mesto', status: 400, errors })
+      const planned = await answer(cleanPlace(input), input, new Map())
+      return {
+        location: planned.coordinates ? placeFor(planned) : null,
+        name: planned.place.name,
+        outcome: planned.outcome,
+        message: planned.message,
+      }
+    },
+
     async update(id: number, patch: ShipmentPatch): Promise<ShipmentUpdateResult> {
       assertCanChange()
       const errors = check(find(id), patch)

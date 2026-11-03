@@ -1,4 +1,4 @@
-import { compareScores, plannerFor, scoreOf, type Score, type SolverInput } from '../../src/domain/optimization/solver'
+import { compareScores, plannersFor, scoreOf, type Score, type SolverInput } from '../../src/domain/optimization/solver'
 import { baseRules, OPEN_ROUTE_REAR_LOADING, type RouteRules } from '../../src/domain/optimization/routePlanner'
 import { SeededRandom } from '../../src/domain/optimization/random'
 
@@ -74,13 +74,13 @@ export function smallOpenInput(random: SeededRandom, shipments: number, trucks: 
 
 /** Best score over every assignment of shipments to trucks (trucks^shipments of them). */
 export function bruteForceScore(input: SolverInput): Score {
-  const planner = plannerFor(input)
+  const planners = plannersFor(input)
   const n = input.shipments.length
   const k = input.trucks.length
   const assignment = new Array<number>(n).fill(0)
   let best: Score | null = null
   for (;;) {
-    const score = scoreOf(input, assignment, planner)
+    const score = scoreOf(input, assignment, planners)
     if (best === null || compareScores(score, best) > 0) best = score
     let i = 0
     while (i < n && assignment[i] === k - 1) assignment[i++] = 0

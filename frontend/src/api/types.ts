@@ -47,10 +47,47 @@ export interface Truck {
   innerLengthMm: number | null
   innerWidthMm: number | null
   innerHeightMm: number | null
+  /**
+   * NOT IN SPEC v2 (only on the device): the place (location id, with coordinates) where the
+   * truck is now, entered or confirmed by the user; a job's routes start here. Missing or
+   * null: not known yet, so the truck cannot be used.
+   */
+  startLocationId?: number | null
+  /**
+   * NOT IN SPEC v2: the newest job when the location was set. The last delivery of a later
+   * completed job is proposed as the new location, to be confirmed.
+   */
+  startSetAfterJobId?: number | null
 }
 
-/** Body of POST /trucks and PUT /trucks/{id} */
-export type TruckInput = Omit<Truck, 'id'>
+/** Body of POST /trucks and PUT /trucks/{id}; the location is set with setTruckStart */
+export type TruckInput = Omit<Truck, 'id' | 'startLocationId' | 'startSetAfterJobId'>
+
+/** NOT IN SPEC v2: where a truck starts the next job, and the location proposed for it */
+export interface TruckStart {
+  truckId: number
+  /** confirmed; null: not known yet */
+  location: Location | null
+  /** the truck's last delivery in a completed job newer than the confirmed location */
+  proposal: { location: Location; jobId: number; finishedAt: string | null } | null
+}
+
+/**
+ * NOT IN SPEC v2: a place typed by hand, the proposal of a job confirmed by the user, or the
+ * location the truck has kept (the proposal is then no longer offered)
+ */
+export type TruckStartInput = { place: PlaceInput } | { proposalJobId: number } | { keep: true }
+
+/** NOT IN SPEC v2: answer of setTruckStart; the location is set only when it has coordinates */
+export interface TruckStartResult {
+  truck: Truck
+  /** what the lookup gave; `notFound` and `failed` leave the truck as it was */
+  outcome: PlaceLookup['outcome']
+  /** the place as typed (or proposed) */
+  name: string
+  /** why the lookup failed (`failed` only) */
+  message: string | null
+}
 
 export interface BaseSettings {
   baseLocationId: number
@@ -73,6 +110,16 @@ export interface OptimizationJobRequest {
   truckIds: number[] | null
   /** null = all shipments */
   shipmentIds: number[] | null
+  /**
+   * NOT IN SPEC v2 (only on the device): when the trucks are not enough, plan what fits and
+   * list the rest as unassigned, instead of refusing (422) or ending NOT_FOUND.
+   */
+  allowUnassigned?: boolean
+  /**
+   * NOT IN SPEC v2: up to this many trucks may be used at no cost, so only the kilometres
+   * decide between them (after the advice "one more truck, fewer kilometres"). Default 0.
+   */
+  freeTrucks?: number
 }
 
 /** Body of 202 Accepted from POST /optimization-jobs */
@@ -113,6 +160,11 @@ export interface RouteStop {
 
 export interface RoutePlan {
   truckId: number
+  /**
+   * NOT IN SPEC v2: where the truck starts (its location on the device); the first leg is
+   * from here. Missing: from the base (Spec v2) or, with openRoute, from the first pickup.
+   */
+  startLocationId?: number
   usedLdmTenths: number
   /** includes the return leg to the base, which is not a stop */
   totalMeters: number
@@ -143,6 +195,24 @@ export interface OptimizationResult {
   openRoute?: boolean
   /** NOT IN SPEC v2: set only on the device; the mock and the backend use great-circle distances */
   distanceSource?: DistanceSource
+  /**
+   * NOT IN SPEC v2 (only on the device): one more truck would save at least the share of
+   * kilometres set in the settings. Missing: no such advice (or it was not looked for).
+   */
+  extraTruck?: ExtraTruckAdvice
+}
+
+/** NOT IN SPEC v2: the same shipments solved again with one truck more */
+export interface ExtraTruckAdvice {
+  trucksUsed: number
+  totalMeters: number
+  /** whole percent of the result's kilometres saved */
+  savingPercent: number
+  /**
+   * the extra truck is a new one, counted as if it started at its first pickup (no empty
+   * drive); false: one of the available trucks the result does not use
+   */
+  newTruck: boolean
 }
 
 export type LoadPlanMode = 'ILLUSTRATIVE_LDM' | 'DIMENSIONAL'
@@ -313,6 +383,11 @@ export interface DeviceSettings {
   /** OpenRouteService key made by the user, kept only on the device; null: great-circle distances */
   orsApiKey: string | null
   orsProfile: OrsProfile
+  /**
+   * After a job, solve again with one truck more and advise it when the kilometres fall by
+   * at least this whole percent (1 to 99); null: never (the job then takes half as long).
+   */
+  extraTruckSavingPercent: number | null
 }
 
 /** NOT IN SPEC v2: OpenRouteService routing for trucks or for cars (question D3 is open) */
@@ -365,6 +440,11 @@ export interface ProblemDetails {
   /** 422 from POST /optimization-jobs */
   infeasibilityKind?: InfeasibilityKind
   causes?: string[]
+  /**
+   * NOT IN SPEC v2: with a 422 about the fleet, how many standard curtain-siders would at
+   * least be needed besides the available trucks; missing when more trucks would not help
+   */
+  missingTrucks?: number
   /** field name -> message, for 400 validation errors */
   errors?: Record<string, string>
 }

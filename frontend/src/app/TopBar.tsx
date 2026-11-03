@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router'
 import { Badge, type BadgeTone } from '../components/Badge'
 import { Icon } from '../components/Icon'
 import { formatKm } from '../format/units'
@@ -6,7 +7,14 @@ import { useLastJob, type LastJobState } from '../features/optimization/lastJobC
 
 export function TopBar() {
   const { state, start } = useLastJob()
+  const navigate = useNavigate()
   const view = describe(state)
+
+  // What the user must answer (truck locations, missing trucks) is on the results screen.
+  async function startJob() {
+    const kind = await start()
+    if (kind === 'needsLocations' || kind === 'proven') navigate('/optimization')
+  }
 
   return (
     <div className="top-bar">
@@ -28,7 +36,7 @@ export function TopBar() {
           ))}
         </span>
       </div>
-      <button type="button" className="button--primary" onClick={() => void start()} disabled={view.busy}>
+      <button type="button" className="button--primary" onClick={() => void startJob()} disabled={view.busy}>
         <Icon name="play" size={14} />
         Pokreni optimizaciju
       </button>
@@ -51,6 +59,8 @@ function describe(state: LastJobState): StatusView {
       return { tone: 'neutral', label: 'Nije pokretano', details: ['Optimizacija još nije pokretana.'], busy: false, detailClass: 'text--muted' }
     case 'starting':
       return { tone: 'info', label: 'Pokretanje', details: ['Slanje zahteva…'], busy: true }
+    case 'needsLocations':
+      return { tone: 'warning', label: 'Lokacije kamiona', details: ['Potvrdite gde su kamioni pre pokretanja.'], busy: false }
     case 'proven':
       return {
         tone: 'danger',

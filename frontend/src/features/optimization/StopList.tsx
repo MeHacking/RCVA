@@ -3,11 +3,23 @@ import type { TruckRow } from './resultRows'
 
 /**
  * Ordered stops of one route: base, pickups, deliveries and the return leg; an open route
- * has no base and no return, and nothing to drive before its first stop.
+ * has no base and no return, and starts where the truck was (or, when that is not known, at
+ * its first stop, with nothing to drive before it).
  */
 export function StopList({ id, row }: { id: string; row: TruckRow }) {
   return (
     <ol id={id} className="stops" aria-label={`Stanice: ${row.truckName}`}>
+      {row.openRoute && row.startName !== null && (
+        <li className="stops__item stops__item--base">
+          <span className="stops__seq">0</span>
+          <StopTag label="Polazak" />
+          <span className="stops__place">
+            {row.startName} <span className="text--muted">· lokacija kamiona</span>
+          </span>
+          <span className="stops__meta" />
+          <span className="stops__meta" />
+        </li>
+      )}
       {!row.openRoute && (
         <li className="stops__item stops__item--base">
           <span className="stops__seq">0</span>
@@ -28,7 +40,7 @@ export function StopList({ id, row }: { id: string; row: TruckRow }) {
           <span className="stops__place">
             {stop.locationName} <span className="text--muted">· {stop.shipmentLabel}</span>
           </span>
-          <span className="stops__meta">{row.openRoute && i === 0 ? 'početak rute' : `+${formatKm(stop.legMeters)}`}</span>
+          <span className="stops__meta">{row.openRoute && row.startName === null && i === 0 ? 'početak rute' : `+${formatKm(stop.legMeters)}`}</span>
           <span className="stops__meta">na kamionu {formatLdm(stop.loadAfterLdmTenths)} LDM</span>
         </li>
       ))}

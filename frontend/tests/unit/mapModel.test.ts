@@ -144,3 +144,22 @@ describe('route map model', () => {
     expect(routeColor(many, 100 + ROUTE_COLORS)).toBe(1)
   })
 })
+
+describe('route map model with a truck location (on the device)', () => {
+  it('starts the route where the truck was, and marks that place', () => {
+    const started = result(true)
+    started.routes[0] = { ...started.routes[0], startLocationId: 1 }
+    const model = buildMapModel(started, REFERENCE, [2])
+    expect(model.routes[0].path[0]).toEqual([44, 20])
+    expect(model.routes[0].path).toHaveLength(1 + 4)
+    expect(model.places.find((p) => p.locationId === 1)).toMatchObject({ kind: 'base', visits: ['Cerada 2 · polazak'] })
+  })
+
+  it('lists a starting place without coordinates as missing', () => {
+    const started = result(true)
+    started.routes[0] = { ...started.routes[0], startLocationId: 6 }
+    const model = buildMapModel(started, REFERENCE, [2])
+    expect(model.missing).toContain('Bez koordinata')
+    expect(model.routes[0].path).toHaveLength(4)
+  })
+})

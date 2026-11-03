@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { buildDashboardModel } from '../../src/features/dashboard/dashboardModel'
 import { SCENARIOS } from '../../src/fixtures'
 import { shipment, truck } from '../../src/fixtures/scenario'
+import type { TruckStart } from '../../src/api/types'
 
-const model = (name: keyof typeof SCENARIOS, unlimitedFleet = false) => {
+const model = (name: keyof typeof SCENARIOS) => {
   const { shipments, locations, trucks } = SCENARIOS[name]
-  return buildDashboardModel(shipments, locations, trucks, { unlimitedFleet })
+  return buildDashboardModel(shipments, locations, trucks)
 }
 
 const { locations } = SCENARIOS.small
@@ -21,19 +22,16 @@ describe('buildDashboardModel', () => {
       availableTrucks: 2,
       totalTrucks: 3,
       availableCapacityTenths: 272,
-      unlimitedFleet: false,
       trucksLowerBound: 2,
       warnings: [],
     })
   })
 
   it('warns about a shipment larger than any truck (the PROVEN scenario), with the text of the job', () => {
-    for (const unlimited of [false, true]) {
-      expect(model('proven', unlimited).trucksLowerBound).toBeNull()
-      expect(model('proven', unlimited).warnings).toEqual([
-        { tone: 'danger', text: 'Pošiljka S-401 (14,0 LDM) je veća od najvećeg kamiona (13,6 LDM).', link: TO_SHIPMENTS },
-      ])
-    }
+    expect(model('proven').trucksLowerBound).toBeNull()
+    expect(model('proven').warnings).toEqual([
+      { tone: 'danger', text: 'Pošiljka S-401 (14,0 LDM) je veća od najvećeg kamiona (13,6 LDM).', link: TO_SHIPMENTS },
+    ])
   })
 
   it('does not warn for NOT_FOUND: the total fits, infeasibility is not provable', () => {
@@ -46,7 +44,7 @@ describe('buildDashboardModel', () => {
     ])
   })
 
-  it('warns when the total exceeds the available fleet, but not when trucks are added as needed', () => {
+  it('warns when the total exceeds the available fleet (also on the device: trucks are not added by themselves)', () => {
     const shipments = [shipment(1, 'A', 136, 1, 5), shipment(2, 'B', 136, 1, 5), shipment(3, 'C', 30, 1, 5)]
     const trucks = [truck(1, 'T1', 136, null), truck(2, 'T2', 136, null), truck(3, 'T3', 136, null, false)]
     const limited = buildDashboardModel(shipments, locations, trucks)
@@ -55,28 +53,27 @@ describe('buildDashboardModel', () => {
       { tone: 'danger', text: 'Ukupno 30,2 LDM je više od kapaciteta dostupnih kamiona (27,2 LDM).', link: TO_TRUCKS },
     ])
 
-    const unlimited = buildDashboardModel(shipments, locations, trucks, { unlimitedFleet: true })
-    expect(unlimited.warnings).toEqual([])
-    expect(unlimited.trucksLowerBound).toBe(3)
-    expect(unlimited.unlimitedFleet).toBe(true)
+    const enough = buildDashboardModel(shipments, locations, trucks.map((t) => ({ ...t, available: true })))
+    expect(enough.warnings).toEqual([])
+    expect(enough.trucksLowerBound).toBe(3)
   })
 
-  it('warns when no truck is available, but not when trucks are added as needed', () => {
+  it('warns when no truck is available', () => {
     const { shipments, trucks } = SCENARIOS.small
     const none = trucks.map((t) => ({ ...t, available: false }))
     const result = buildDashboardModel(shipments, locations, none)
     expect(result.availableTrucks).toBe(0)
     expect(result.warnings).toEqual([{ tone: 'danger', text: 'Nijedan kamion nije dostupan.', link: TO_TRUCKS }])
-    expect(buildDashboardModel(shipments, locations, none, { unlimitedFleet: true })).toMatchObject({ warnings: [], trucksLowerBound: 2 })
   })
 
   it('warns about weight: a shipment heavier than any payload, and a total over the payload of the fleet', () => {
     const heavy = [shipment(1, 'TESKA', 20, 1, 5, { weightKg: 30_000 })]
     // Trucks without a payload limit (the mock, the backend) never refuse weight.
     expect(buildDashboardModel(heavy, locations, SCENARIOS.small.trucks).warnings).toEqual([])
-    // On the device every job has standard curtain-siders of 24 t.
-    expect(buildDashboardModel(heavy, locations, [], { unlimitedFleet: true }).warnings).toEqual([
+    const curtainSider = [truck(1, 'Kamion 1', 136, null, true, 24_000)]
+    expect(buildDashboardModel(heavy, locations, curtainSider).warnings).toEqual([
       { tone: 'danger', text: 'Pošiljka TESKA (30000 kg) je teža od najveće nosivosti kamiona (24000 kg).', link: TO_SHIPMENTS },
+      { tone: 'danger', text: 'Ukupno 30000 kg je više od nosivosti dostupnih kamiona (24000 kg).', link: TO_TRUCKS },
     ])
 
     const twoOfTen = [shipment(1, 'A', 20, 1, 5, { weightKg: 8000 }), shipment(2, 'B', 20, 1, 5, { weightKg: 8000 })]
@@ -89,6 +86,24 @@ describe('buildDashboardModel', () => {
   it('counts the trucks needed by weight too', () => {
     // 3 x 2,0 LDM fit one truck by LDM, but 3 x 20 t (60 t) need three trucks of 24 t.
     const shipments = [1, 2, 3].map((id) => shipment(id, `T${id}`, 20, 1, 5, { weightKg: 20_000 }))
-    expect(buildDashboardModel(shipments, locations, [], { unlimitedFleet: true }).trucksLowerBound).toBe(3)
+    const curtainSiders = [1, 2, 3, 4].map((id) => truck(id, `Kamion ${id}`, 136, null, true, 24_000))
+    expect(buildDashboardModel(shipments, locations, curtainSiders).trucksLowerBound).toBe(3)
+  })
+
+  it('warns on the device about available trucks without a location, and about proposals waiting', () => {
+    const { shipments, trucks } = SCENARIOS.small
+    const beograd = locations[0]
+    const starts: TruckStart[] = [
+      { truckId: 1, location: null, proposal: null },
+      { truckId: 2, location: beograd, proposal: { location: locations[1], jobId: 4, finishedAt: null } },
+      // Solo 1 is unavailable: not asked for.
+      { truckId: 3, location: null, proposal: null },
+    ]
+    expect(buildDashboardModel(shipments, locations, trucks, starts).warnings).toEqual([
+      { tone: 'warning', text: 'Kamioni bez lokacije: 1. Pre optimizacije unesite gde se nalaze.', link: TO_TRUCKS },
+      { tone: 'warning', text: 'Predlozi novih lokacija kamiona čekaju potvrdu: 1.', link: TO_TRUCKS },
+    ])
+    const settled = starts.map((s) => ({ ...s, location: beograd, proposal: null }))
+    expect(buildDashboardModel(shipments, locations, trucks, settled).warnings).toEqual([])
   })
 })

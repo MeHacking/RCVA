@@ -11,7 +11,14 @@ async function addTruck(page: Page, name: string) {
   await page.getByLabel('Naziv').fill(name)
   await page.getByLabel('Kapacitet (LDM)').fill('13.6')
   await page.getByRole('button', { name: 'Sačuvaj' }).click()
-  await expect(page.getByRole('row', { name: new RegExp(name) })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: new RegExp(name) })).toBeVisible()
+  // Where it is, so a job can use it: Subotica is a place the device knows (no lookup).
+  await page.getByRole('button', { name: `Unesi lokaciju za ${name}` }).click()
+  await page.getByRole('form', { name: `Lokacija kamiona ${name}` }).getByLabel('Mesto').fill('Subotica')
+  await page.getByRole('button', { name: 'Sačuvaj lokaciju' }).click()
+  await expect(page.getByRole('table', { name: 'Lokacije kamiona' }).getByRole('row').filter({ has: page.getByRole('cell', { name: name, exact: true }) })).toContainText(
+    'Subotica',
+  )
 }
 
 async function saveKey(page: Page, key: string) {
@@ -61,7 +68,7 @@ test('imports a file only after showing what it holds, and keeps the key of the 
   await page.goto('/trucks')
   await page.getByRole('button', { name: 'Ukloni Izvozna cerada' }).click()
   await page.getByRole('button', { name: 'Da, ukloni' }).click()
-  await expect(page.getByRole('row', { name: /Izvozna cerada/ })).toBeHidden()
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Izvozna cerada/ })).toBeHidden()
   await saveKey(page, 'kljuc-ovog-uredjaja')
 
   await choose(page, file.name, file.content)
@@ -78,7 +85,7 @@ test('imports a file only after showing what it holds, and keeps the key of the 
   await expect(page.getByLabel('Ključ za OpenRouteService')).toHaveValue('kljuc-ovog-uredjaja')
 
   await page.goto('/trucks')
-  await expect(page.getByRole('row', { name: /Izvozna cerada/ })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Izvozna cerada/ })).toBeVisible()
   await page.goto('/optimization')
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible()
   expect(errors).toEqual([])
@@ -93,5 +100,5 @@ test('refuses a bad file and changes nothing', async ({ page }) => {
   )
   await expect(page.getByRole('button', { name: 'Zameni podatke' })).toHaveCount(0)
   await page.goto('/trucks')
-  await expect(page.getByRole('row', { name: /Ostaje cerada/ })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Ostaje cerada/ })).toBeVisible()
 })

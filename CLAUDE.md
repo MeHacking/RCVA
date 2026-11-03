@@ -4,14 +4,68 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 02.11.2026 (izmena pošiljki posle uvoza; broj uz mesto se skriva i
-zanemaruje); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 02.11.2026 (izmena pošiljki i skrivanje broja uz mesto, dva commit-a).
+Poslednje ažuriranje: 03.11.2026 (lokacije kamiona, nedostatak kamiona, preporuka dodatnog
+kamiona); videti „Gde smo stali“.
+Na `origin/main` su izmena pošiljki i skrivanje broja uz mesto (02.11.2026); ponovno traženje
+upisanog naziva (02.11.) i sve od 03.11.2026 još nije commit-ovano.
 
-## Gde smo stali (02.11.2026)
+## Gde smo stali (03.11.2026)
 
-**Sledeće**: i dalje aplikacija za **telefon** (videti 01.11.2026); pitanja za Gojka još
-nisu poslata (spisak od 30.10. dopunjen 02.11.).
+**Sledeće**: aplikacija za **telefon** (plan predložiti i potvrditi pre početka). Ideja o
+utovaru i istovaru usput je razmotrena 03.11.2026: **dve faze ostaju** (Gojko potvrdio A1),
+a ideja je zapisana u „Mogući pravci razvoja“.
+Pitanja za Gojka još nisu poslata (spisak od 30.10. dopunjen 02. i 03.11.).
+
+**Lokacije kamiona, nedostatak kamiona i preporuka dodatnog kamiona (urađeno 03.11.2026)**.
+Odluke korisnika: lokacija se unosi za svaki kamion pre optimizacije; poslednja adresa
+(poslednja isporuka) je samo **predlog koji korisnik potvrđuje** („kad stigne nov predlog“);
+nov kamion dobija mesto koje korisnik unese; kad kamioni ne stanu, korisnik bira „dodaj
+kamione“ ili „optimizuj bez nekih pošiljki“; dodatni kamion se preporučuje kad k+1 kamiona
+daje bar **10 %** manje km (prag u Podešavanjima, prazno = isključeno), drugo rešavanje traje
+**koliko i prvo**. Pitanje „računa li se prazna vožnja isto kao vožnja sa robom“ ide Gojku.
+- **B1 zamenjeno**: posao koristi samo kamione sa spiska; cerade se više ne dodaju same.
+  Svaki dostupni kamion mora imati potvrđenu lokaciju (`Truck.startLocationId`, NOT IN SPEC
+  v2), inače 409 „Kamioni bez potvrđene lokacije“. Probni scenario na praznom uređaju stavlja
+  svoje kamione u svoju bazu. Mesta kamiona se čuvaju i pri „Ukloni sve pošiljke“ i izmeni
+  pošiljke (`keptPlaces`).
+- **Solver** (`solver.ts`, sve isključeno podrazumevano, pa je ponašanje kao ranije; orakl sa
+  2 s daje iste brojeve kao 29.10.: 21 bolji, 9 isti, 1 lošiji `random-1004` +26 km):
+  `SolverTruck.start` (planer po polaznoj tački, `plannersFor`), `allowUnassigned`
+  (pošiljke van kamiona; medium = prvo izostavljeni LDM × (kamioni + 1), pa kamioni),
+  `freeTrucks` (do toliko kamiona bez cene, za „pokreni sa N kamiona“) i `exactTrucks`
+  (tačno toliko kamiona, za poređenje). Broj korišćenih kamiona se vodi usput (`used`), da
+  `withAdded` ostane O(1). `JobTruck.startLocationId`, `startOf`, prva deonica i validator
+  (ruta mora krenuti sa mesta kamiona), `RoutePlan.startLocationId`.
+- **Zamka nađena testom**: preporuka sa `freeTrucks` je poredila pogrešno: zamišljeni kamion
+  bez prazne vožnje samo bi **zamenio** postojeći (2 kamiona, 390 km umesto 1000 km). Zato
+  `exactTrucks = k + 1`: poredi se baš „k kamiona“ sa „k+1 kamiona“.
+- API (NOT IN SPEC v2): `getTruckStarts` (potvrđena lokacija i predlog: poslednja isporuka
+  najnovijeg završenog posla posle `startSetAfterJobId`), `setTruckStart` (`{ place }` kao
+  mesto pošiljke, preko `shipmentEdit.locatePlace`, bez pravljenja mesta ako nije nađeno;
+  `{ proposalJobId }`; `{ keep: true }`), `OptimizationJobRequest.allowUnassigned` i
+  `freeTrucks`, 422 sa `missingTrucks` (`fleet.missingTrucks`: najmanje standardnih cerada
+  da ništa ne bude dokazano), `OptimizationResult.extraTruck` (`trucksUsed`, `totalMeters`,
+  `savingPercent`, `newTruck`), `DeviceSettings.extraTruckSavingPercent`. Mock i
+  `httpClient`: lokacija nema (`null` / 404). Fajl sa podacima nosi nova polja (sva
+  neobavezna, stari fajlovi rade) i proverava da je kamion na postojećem mestu.
+- Ekrani: Kamioni, odeljak „Lokacije kamiona“ (`TruckLocations.tsx`: unos mesta, „Potvrdi
+  predlog“, „Zadrži sadašnju“, i za sve odjednom); pokretanje na uređaju prvo proverava
+  lokacije (`LastJobState` `needsLocations`, `LocationsCheck` na Rezultatima; gornja traka i
+  Pregled tada vode na Rezultate); 422 i NOT_FOUND nude „Dodaj N cerada“ / „Optimizuj bez
+  nekih pošiljki“ (`FleetActions.tsx`); rezultat sa nedodeljenim pošiljkama i preporuka sa
+  dugmetom „Dodaj kamion i pokreni ponovo“ ili „Pokreni sa N kamiona“; Podešavanja: prag;
+  Pregled: upozorenja o kamionima bez lokacije i predlozima; spisak stanica „Polazak“, mapa
+  počinje od mesta kamiona; tabela kamiona ima ime „Kamioni“.
+- Testovi: `truckStart.test.ts` (11), nove grupe u `solver.test.ts`, `validator.test.ts`,
+  `mapModel.test.ts`, `resultRows.test.ts`, `dashboardModel.test.ts`, slučajevi u
+  `deviceFile.test.ts`; izmenjeni `localClient.test.ts` (nema više dodavanja cerada);
+  e2e `tests/e2e/local/fleet.local.spec.ts` (4) i prepravljeni lokalni e2e (polazak, predlozi,
+  tabela „Kamioni“; u `trucks.spec.ts` test sačeka da posao postoji, jer pokretanje prvo
+  pita za lokacije). Dva testa provere svih kombinacija u `solver.test.ts` dobila su 30 s
+  (trajala su 2–3 s sama, blizu 5 s kada se svi fajlovi puštaju odjednom).
+- **Upotrebljivost (za razgovor sa korisnikom)**: posle **svakog** završenog posla korišćeni
+  kamioni dobijaju predlog, pa ponovno pokretanje iste nedelje traži odgovor (zato
+  „Zadrži sve sadašnje lokacije“). Moguća dorada: predlog samo kad se pošiljke promene.
 
 **Izmena pošiljki posle uvoza (urađeno 02.11.2026)**, na zahtev korisnika (pošiljka sa
 „Nejasna lokacija“ se ranije popravljala samo novim uvozom). Odluke korisnika: ispravka
@@ -357,7 +411,8 @@ ne kad se posao završi:
   vazdušna linija (`distance.ts`, ista formula kao Java) dok ne dođe ORS.
 - **Flota (B1)**: posao dobija dostupne kamione + po jedan standardni kamion po pošiljci
   (broj kamiona neograničen); standardni kamioni koje rezultat koristi upisuju se u spisak
-  kao „Kamion N“ (prvi slobodan broj) kada se posao završi.
+  kao „Kamion N“ (prvi slobodan broj) kada se posao završi. **Zamenjeno 03.11.2026**: posao
+  koristi samo kamione sa spiska (videti „Gde smo stali“).
 - **Otvorena ruta na ekranu**: `OptimizationResult.openRoute` (NOT IN SPEC v2); `StopList`
   tada nema bazu ni povratak, prva stanica piše „početak rute“, a rezime „od prvog utovara
   do poslednjeg istovara“.
@@ -437,7 +492,9 @@ posebna pošiljka); poštanski broj napisan uz mesto utovara, a pripada mestu is
 ga do odgovora skriva i zanemaruje); da li
 je mesto (grad) dovoljno ili će biti adrese; utovar u više zemalja i istovar u Švedskoj i
 Norveškoj u istom kamionu (granice, carina); da li sve iz tabele mora iste nedelje i koliko
-kamiona najviše ima; uloga vozača.
+kamiona najviše ima; uloga vozača; (dodato 03.11.2026) da li se prazna vožnja kamiona od
+njegove lokacije do prvog utovara računa isto kao vožnja sa robom, i da li je lokacija
+kamiona na početku nedelje mesto njegove poslednje isporuke iz prethodne nedelje.
 
 **Sledeće na putu B** (predlog, potvrditi plan sa korisnikom pre početka):
 1. ~~Gojkove promene modela u TS~~ (urađeno 30.10.2026, videti gore).
@@ -642,8 +699,11 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (02.11.2026, posle izmene pošiljki i skrivanja broja uz mesto, na Node 24.14.0): frontend tsc, lint i build
-čisti, 366 Vitest testova i Playwright 63 (mock 43 + local 19 + local-empty 1) prolaze.
+Stanje (03.11.2026, posle lokacija kamiona i preporuke dodatnog kamiona, na Node 24.14.0):
+frontend tsc, lint i build čisti, 395 Vitest testova, Playwright 68 (mock 43 + local 24 +
+local-empty 1) i desktop 4 prolaze; `test:oracle` sa 2 s (`ORACLE_MS=2000`) daje iste brojeve kao 29.10.
+Provereno na pokvarenom kodu (33 izmene): 32 obaraju testove, jedna je ekvivalentna
+(potvrđen predlog bez zapisa vremena: predlog je tada ionako mesto kamiona).
 Prvi pun Playwright posle `npm install` na novom računaru trajao je 10,9 min i 2 testa su
 pala (test 9 u `truck3d.spec.ts` i razmak od 1 s u `geocoding.local.spec.ts`); sami i u
 drugom punom prolazu (2,2 min) prolaze. Desktop 4 poslednji put 01.11.2026 (na drugom
@@ -734,6 +794,21 @@ Optimizacija na serveru:
    Dalje na putu B: videti „Sledeće na putu B“ u „Gde smo stali“.
 6. ~~Mapa (Leaflet)~~ i ~~trajno čuvanje na putu B (IndexedDB)~~ (urađeno 31.10.2026), ~~izvoz i uvoz podataka u fajl~~ (urađeno 01.11.2026).
    Kasnije: završno testiranje (svih 9 testova).
+
+## Mogući pravci razvoja
+
+Zapisano na zahtev korisnika; ništa od ovoga nije dogovoreno za rad.
+
+- **Utovar i istovar usput (mešane faze)**, ideja korisnika 03.11.2026: ruta ne mora biti
+  „sve utovari, pa sve istovari“; npr. Beograd → Novi Sad (istovar jednog paketa, utovar
+  novog) → Budimpešta (ostalo). **Za sada ostaju dve faze** jer ih je Gojko potvrdio (A1);
+  pre rada pitati Gojka da li se to u praksi radi ili su dve faze pravilo (carina, papiri).
+  Šta bi se menjalo: utovar pozadi i dalje važi, pa se usput istovara samo ono što je pozadi
+  (novi paket mora izaći pre robe koja je već unutra); kapacitet (LDM i težina) postaje po
+  deonici, ne za ceo teret; planer ruta (`routePlanner.ts`) bi tražio redosled stanica
+  među mnogo više mogućnosti (tačno do oko 6–7 pošiljki po kamionu, preko toga približno),
+  a menjali bi se i validator (dve faze se sada uvek proveravaju) i 3D raspored (teret se
+  menja po deonicama). Predlog: kao opcija, uz dve faze kao podrazumevane.
 
 Predlozi iz dopune 1 koji čekaju odluku: `GET /optimization-jobs/latest` (na putu B postoji
 kao `getLatestOptimizationJob` u režimu `local`; backend ga nema, pa se tamo poslednji posao

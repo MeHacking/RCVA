@@ -61,6 +61,9 @@ describe('solver score', () => {
   })
 })
 
+// Fixed step limits: the outcome does not depend on speed, only the time does (all test files run at once).
+const BRUTE_FORCE_TIMEOUT_MS = 30_000
+
 describe('solve', () => {
   it.each([1, 2, 3, 4, 5])('finds test 7: 2 trucks, 1 001 489 m (seed %i)', (seed) => {
     const input = test7Input()
@@ -79,7 +82,7 @@ describe('solve', () => {
       expect(result.score, `round ${round}`).toEqual(bruteForceScore(input))
       expectConsistent(input, result)
     }
-  })
+  }, BRUTE_FORCE_TIMEOUT_MS)
 
   it.each([1, 2, 3])('finds test 7 on an open route loaded from the rear: 2 trucks, 900 000 m (seed %i)', (seed) => {
     const input = test7Input(OPEN_ROUTE_REAR_LOADING)
@@ -108,7 +111,7 @@ describe('solve', () => {
       expect(result.score, `round ${round}`).toEqual(bruteForceScore(input))
       expectConsistent(input, result)
     }
-  })
+  }, BRUTE_FORCE_TIMEOUT_MS)
 
   it('uses as few trucks of a standard fleet as LDM and weight allow', () => {
     // 6 shipments of 4,0 LDM and 9 t: 13,6 LDM takes 3 per truck, but 24 t only 2
@@ -143,5 +146,81 @@ describe('solve', () => {
     expect(() => solve(test7Input())).toThrow()
     const empty = { ...test7Input(), shipments: [] }
     expect(solve(empty, { stepLimit: 10 }).routes).toEqual([])
+  })
+})
+
+// Options for the application on the device (NOT IN SPEC v2): where each truck is now,
+// shipments left out when the trucks are not enough, and "one more truck" for comparison.
+describe('solver options', () => {
+  it('adds the leg from where a truck is to its first pickup', () => {
+    const input = test7Input(OPEN_ROUTE_REAR_LOADING)
+    expect(scoreOf(input, [0, 1, 0, 1]).soft).toBe(-900_000)
+    // Truck 1 starts at the base (0, 0): 50 km to S1 or S3, whichever it picks up first.
+    input.trucks[0].start = 0
+    expect(scoreOf(input, [0, 1, 0, 1])).toEqual({ hard: 0, medium: -2, soft: -950_000 })
+  })
+
+  it('gives a shipment to the truck that is nearer', () => {
+    const input = test7Input(OPEN_ROUTE_REAR_LOADING)
+    input.shipments = [input.shipments[0]] // S1: (-50, 0) to (100, 0)
+    // Truck 1 is at (100, 10), about 150 km away; truck 2 at (-100, 0), 50 km away.
+    input.trucks = [
+      { id: 1, capacityLdmTenths: 100, capacityKg: Infinity, start: 4 },
+      { id: 2, capacityLdmTenths: 100, capacityKg: Infinity, start: 6 },
+    ]
+    const result = solve(input, { seed: 1, stepLimit: 500 })
+    expect(result.routes.map((r) => r.truckId)).toEqual([2])
+    expect(result.score).toEqual({ hard: 0, medium: -1, soft: -200_000 })
+  })
+
+  it('leaves out as little LDM as it can when the trucks are not enough, and overloads nothing', () => {
+    const input = test7Input(OPEN_ROUTE_REAR_LOADING) // 6,0 + 6,0 + 4,0 + 4,0 LDM
+    input.trucks = [{ id: 1, capacityLdmTenths: 100, capacityKg: Infinity }]
+    expect(solve(input, { seed: 1, stepLimit: 500 }).score.hard).toBeLessThan(0)
+
+    const result = solve({ ...input, allowUnassigned: true }, { seed: 1, stepLimit: 2000 })
+    // 6,0 + 4,0 fill the truck; 10,0 LDM stay out (each tenth weighs more than the two trucks).
+    expect(result.score.hard).toBe(0)
+    expect(result.score.medium).toBe(-(100 * 2 + 1))
+    expect(result.unassigned).toHaveLength(2)
+    expect(result.unassigned.reduce((sum, s) => sum + input.shipments[s].ldmTenths, 0)).toBe(100)
+    expect(result.routes[0].shipments).toHaveLength(2)
+    expect(scoreOf({ ...input, allowUnassigned: true }, result.truckOfShipment)).toEqual(result.score)
+  })
+
+  it('leaves nothing out when everything fits', () => {
+    const input = { ...test7Input(OPEN_ROUTE_REAR_LOADING), allowUnassigned: true }
+    const result = solve(input, { seed: 1, stepLimit: 2000 })
+    expect(result.unassigned).toEqual([])
+    expect(result.score).toEqual({ hard: 0, medium: -2, soft: -900_000 })
+  })
+
+  it('lets metres decide up to the free trucks (test 7: 3 trucks, 470 km instead of 2 trucks, 900 km)', () => {
+    const input = { ...test7Input(OPEN_ROUTE_REAR_LOADING), freeTrucks: 3 }
+    const result = solve(input, { seed: 1, stepLimit: 3000 })
+    expect(result.routes).toHaveLength(3)
+    expect(result.score).toEqual({ hard: 0, medium: 0, soft: -470_000 })
+    // A fourth truck still costs a point.
+    expect(scoreOf({ ...input, freeTrucks: 2 }, result.truckOfShipment).medium).toBe(-1)
+  })
+})
+
+describe('solver option exactTrucks', () => {
+  it('finds the shortest routes on exactly that many trucks, also when fewer would be shorter', () => {
+    // Trucks 1 to 3 are at the base; truck 4 (a standard 13,6 LDM) is nowhere yet, as the extra truck of the advice.
+    const input = test7Input(OPEN_ROUTE_REAR_LOADING)
+    input.trucks = [1, 2, 3].map((id) => ({ id, capacityLdmTenths: 100, capacityKg: Infinity, start: 0 }))
+    input.trucks.push({ id: 4, capacityLdmTenths: 136, capacityKg: Infinity, start: null })
+    // Truck 4 takes S1+S2 (170 km), truck 1 S3+S4 from the base (220 km): two trucks, 390 km.
+    const replacing = [3, 3, 0, 0]
+    expect(scoreOf({ ...input, freeTrucks: 3 }, replacing)).toEqual({ hard: 0, medium: 0, soft: -390_000 })
+    // On exactly three trucks the same costs a point, so the extra truck must come in addition.
+    expect(scoreOf({ ...input, exactTrucks: 3 }, replacing)).toEqual({ hard: 0, medium: -1, soft: -390_000 })
+
+    const exact = solve({ ...input, exactTrucks: 3 }, { seed: 1, stepLimit: 3000 })
+    expect(exact.routes).toHaveLength(3)
+    expect(exact.score).toEqual({ hard: 0, medium: 0, soft: -570_000 })
+    // One more than asked costs a point too.
+    expect(scoreOf({ ...input, exactTrucks: 3 }, [0, 1, 2, 3]).medium).toBe(-1)
   })
 })

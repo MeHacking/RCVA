@@ -26,7 +26,7 @@ export function deviceFileName(at: Date): string {
 
 export function writeDeviceFile(data: Required<LocalData>, exportedAt: Date): string {
   // Listed field by field, so a setting added later (or the key) never goes out by itself.
-  const { geocodingEnabled, contactEmail, orsProfile } = data.settings
+  const { geocodingEnabled, contactEmail, orsProfile, extraTruckSavingPercent } = data.settings
   return JSON.stringify({
     format: DEVICE_FILE_FORMAT,
     version: DEVICE_FILE_VERSION,
@@ -37,7 +37,7 @@ export function writeDeviceFile(data: Required<LocalData>, exportedAt: Date): st
       trucks: data.trucks,
       nextTruckId: data.nextTruckId,
       nextJobId: data.nextJobId,
-      settings: { geocodingEnabled, contactEmail, orsProfile },
+      settings: { geocodingEnabled, contactEmail, orsProfile, extraTruckSavingPercent },
       geocodeCache: data.geocodeCache,
       distanceCache: data.distanceCache,
       routeLineCache: data.routeLineCache,
@@ -180,6 +180,9 @@ const TRUCK = object({
   innerLengthMm: nullable(NUM),
   innerWidthMm: nullable(NUM),
   innerHeightMm: nullable(NUM),
+  // Added 03.11.2026; older files have no location of trucks.
+  startLocationId: optional(nullable(INT)),
+  startSetAfterJobId: optional(nullable(INT)),
 })
 const RESULT = object({
   status: JOB_STATUS,
@@ -190,6 +193,7 @@ const RESULT = object({
   routes: arrayOf(
     object({
       truckId: INT,
+      startLocationId: optional(INT),
       usedLdmTenths: INT,
       totalMeters: NUM,
       stops: arrayOf(
@@ -208,13 +212,18 @@ const RESULT = object({
   validation: object({ passed: BOOL, violations: arrayOf(STR) }),
   openRoute: optional(BOOL),
   distanceSource: optional(DISTANCE_SOURCE),
+  extraTruck: optional(object({ trucksUsed: INT, totalMeters: NUM, savingPercent: INT, newTruck: BOOL })),
 })
 const JOB_INPUT = object({
   shipments: arrayOf(SHIPMENT),
-  trucks: arrayOf(object({ id: INT, name: STR, capacityLdmTenths: INT, capacityKg: nullable(NUM) })),
+  trucks: arrayOf(
+    object({ id: INT, name: STR, capacityLdmTenths: INT, capacityKg: nullable(NUM), startLocationId: optional(nullable(INT)) }),
+  ),
   locationIds: arrayOf(INT),
   distance: arrayOf(arrayOf(NUM)),
   rules: object({ start: nullable(INT), end: nullable(INT), lifo: BOOL }),
+  allowUnassigned: optional(BOOL),
+  freeTrucks: optional(INT),
 })
 const JOB = object({
   id: INT,
@@ -249,7 +258,12 @@ const FILE = object({
     jobs: arrayOf(JOB),
     nextTruckId: INT,
     nextJobId: INT,
-    settings: object({ geocodingEnabled: BOOL, contactEmail: nullable(STR), orsProfile: ORS_PROFILE }),
+    settings: object({
+      geocodingEnabled: BOOL,
+      contactEmail: nullable(STR),
+      orsProfile: ORS_PROFILE,
+      extraTruckSavingPercent: optional(nullable(INT)),
+    }),
     geocodeCache: recordOf(GEOCODE),
     distanceCache: recordOf(nullable(NUM)),
     routeLineCache: recordOf(arrayOf(POINT)),
@@ -279,6 +293,11 @@ function checkReferences(data: FileData): void {
   for (const s of data.shipments) {
     for (const id of [s.pickupLocationId, s.deliveryLocationId]) {
       if (!places.has(id)) throw new DeviceFileError(`Fajl je oštećen ili izmenjen: pošiljka ${s.externalId} vodi do mesta ${id}, koje ne postoji.`)
+    }
+  }
+  for (const t of data.trucks) {
+    if (t.startLocationId != null && !places.has(t.startLocationId)) {
+      throw new DeviceFileError(`Fajl je oštećen ili izmenjen: kamion „${t.name}“ je na mestu ${t.startLocationId}, koje ne postoji.`)
     }
   }
   for (const job of data.jobs) {

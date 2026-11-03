@@ -16,7 +16,8 @@ export interface MapRoute {
   /** 1..ROUTE_COLORS, by the route's place in the result, so a filter never changes it */
   color: number
   /**
-   * the road line, or else the stops in visiting order, with the base first and last on a
+   * the road line, or else the stops in visiting order: from where the truck was (on the
+   * device), or with the base first and last on a
    * route that returns to it
    */
   path: LatLng[]
@@ -83,6 +84,15 @@ export function buildMapModel(
     if (base && baseAt) {
       path.push(baseAt)
       place(base, 'base', color).visits.push(`${truckName} · baza`)
+    }
+    // On the device a route starts where its truck was; drawn as the base is.
+    const start = route.startLocationId === undefined ? undefined : locations.get(route.startLocationId)
+    const startAt = at(start)
+    if (start && startAt) {
+      path.push(startAt)
+      place(start, 'base', color).visits.push(`${truckName} · polazak`)
+    } else if (start) {
+      missing.add(start.name)
     }
     route.stops.forEach((stop, i) => {
       const location = locations.get(stop.locationId)

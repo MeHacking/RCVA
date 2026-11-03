@@ -8,6 +8,16 @@ import { SeededRandom } from './random'
 //   hard   = minus LDM tenths and kilograms over a truck's capacity (0 means feasible)
 //   medium = minus the number of trucks with at least one shipment
 //   soft   = minus the metres of all routes
+// Options the Java model does not have (all off by default, so the score above is unchanged):
+// - a truck may have its own start (`SolverTruck.start`), e.g. where it is now;
+// - `allowUnassigned`: a shipment may stay without a truck; medium then counts first the LDM
+//   left out (each tenth worse than any number of trucks), then the trucks, so the solver
+//   leaves out as little as it can and overloads nothing;
+// - `freeTrucks`: up to this many used trucks cost nothing, so only metres decide between
+//   them (planning after the advice "one more truck");
+// - `exactTrucks`: every truck more or fewer than this costs a point, so the solver finds
+//   the shortest routes with exactly that many (the comparison "what if one more truck
+//   were used": otherwise a truck without an empty drive would only replace another).
 // Search: a construction heuristic (largest shipments first, each where it costs least),
 // then simulated annealing (see solve) with five moves: move a shipment to another truck,
 // swap two shipments between trucks, swap the loads of two trucks (to reach a truck of
@@ -28,6 +38,8 @@ export interface SolverTruck {
   capacityLdmTenths: number
   /** Infinity: weight is not limited (the Java model) */
   capacityKg: number
+  /** location index this truck starts from; missing: `rules.start` */
+  start?: number | null
 }
 
 export interface SolverInput {
@@ -36,6 +48,12 @@ export interface SolverInput {
   rules: RouteRules
   shipments: SolverShipment[]
   trucks: SolverTruck[]
+  /** a shipment may stay without a truck (see the score above); default false */
+  allowUnassigned?: boolean
+  /** this many used trucks cost nothing at the medium level; default 0 */
+  freeTrucks?: number
+  /** each used truck more or fewer than this costs a medium point (instead of freeTrucks) */
+  exactTrucks?: number
 }
 
 export interface SolverOptions {
@@ -61,10 +79,12 @@ export interface SolvedRoute {
 
 export interface SolverResult {
   score: Score
-  /** truck index (into input.trucks) of each shipment */
+  /** truck index (into input.trucks) of each shipment; input.trucks.length: without a truck */
   truckOfShipment: number[]
   /** used trucks in input order */
   routes: SolvedRoute[]
+  /** shipment indices left without a truck (only with allowUnassigned), ascending */
+  unassigned: number[]
   steps: number
 }
 
@@ -77,18 +97,34 @@ export function isFeasible(score: Score): boolean {
 }
 
 /** Score of a given assignment (truck index per shipment), without solving. */
-export function scoreOf(input: SolverInput, truckOfShipment: number[], planner = plannerFor(input)): Score {
-  const state = new State(input, planner)
+export function scoreOf(input: SolverInput, truckOfShipment: number[], planners = plannersFor(input)): Score {
+  const state = new State(input, planners)
   truckOfShipment.forEach((t, s) => state.add(s, t))
   return state.score()
 }
 
-export function plannerFor(input: SolverInput): RoutePlanner {
+/** The planner of routes from `start` (default: the rules' start). */
+export function plannerFor(input: SolverInput, start: number | null = input.rules.start): RoutePlanner {
   return new RoutePlanner({
     distance: input.distance,
     ...input.rules,
+    start,
     pickupLocation: input.shipments.map((s) => s.pickup),
     deliveryLocation: input.shipments.map((s) => s.delivery),
+  })
+}
+
+/** One planner per truck, shared by trucks with the same start (it caches route lengths). */
+export function plannersFor(input: SolverInput): RoutePlanner[] {
+  const byStart = new Map<number | null, RoutePlanner>()
+  return input.trucks.map((truck) => {
+    const start = truck.start === undefined ? input.rules.start : truck.start
+    let planner = byStart.get(start)
+    if (!planner) {
+      planner = plannerFor(input, start)
+      byStart.set(start, planner)
+    }
+    return planner
   })
 }
 
@@ -97,9 +133,9 @@ export function solve(input: SolverInput, options: SolverOptions = {}): SolverRe
     throw new Error('solve needs a stepLimit or a timeLimitMs')
   }
   if (input.trucks.length === 0 && input.shipments.length > 0) throw new Error('no trucks')
-  const planner = plannerFor(input)
+  const planners = plannersFor(input)
   const random = new SeededRandom(options.seed ?? 1)
-  const state = construct(input, planner)
+  const state = construct(input, planners)
 
   let current = state.score()
   let best = current
@@ -110,12 +146,12 @@ export function solve(input: SolverInput, options: SolverOptions = {}): SolverRe
   // Simulated annealing on the soft level only: a move that makes hard or medium worse is
   // never taken; a longer route is taken with probability exp(-extra / temperature). The
   // temperature starts at a few percent of an average route and falls with progress.
-  const startTemperature = (0.05 * -current.soft) / Math.max(1, -current.medium)
+  const startTemperature = (0.05 * -current.soft) / Math.max(1, state.usedTrucks())
   const endTemperature = startTemperature / 1000
   let progress = 0
   let steps = 0
 
-  while (progress < 1 && input.shipments.length > 0 && input.trucks.length > 1) {
+  while (progress < 1 && input.shipments.length > 0 && state.members.length > 1) {
     if (steps % 100 === 0) progress = Math.max(steps / stepLimit, (Date.now() - started) / timeLimit)
     else progress = Math.max(progress, steps / stepLimit)
     const undo = randomMove(state, random)
@@ -138,9 +174,10 @@ export function solve(input: SolverInput, options: SolverOptions = {}): SolverRe
   const routes: SolvedRoute[] = []
   input.trucks.forEach((truck, t) => {
     const shipments = bestAssignment.flatMap((owner, s) => (owner === t ? [s] : []))
-    if (shipments.length > 0) routes.push({ truckId: truck.id, shipments, route: planner.plan(shipments) })
+    if (shipments.length > 0) routes.push({ truckId: truck.id, shipments, route: planners[t].plan(shipments) })
   })
-  return { score: best, truckOfShipment: bestAssignment, routes, steps }
+  const unassigned = bestAssignment.flatMap((owner, s) => (owner === input.trucks.length ? [s] : []))
+  return { score: best, truckOfShipment: bestAssignment, routes, unassigned, steps }
 }
 
 function accepts(candidate: Score, current: Score, temperature: number, random: SeededRandom): boolean {
@@ -149,29 +186,39 @@ function accepts(candidate: Score, current: Score, temperature: number, random: 
   return random.next() < Math.exp((candidate.soft - current.soft) / temperature)
 }
 
-/** Current assignment with per-truck load and route length kept up to date. */
+/**
+ * Current assignment with per-truck load and route length kept up to date. With
+ * allowUnassigned there is one more "truck" after the real ones: the shipments left out.
+ */
 class State {
   readonly truckOf: number[]
   readonly members: number[][]
   readonly load: number[]
   readonly weight: number[]
   readonly input: SolverInput
+  /** index of the left-out shipments, or -1 */
+  readonly outside: number
+  /** real trucks with at least one shipment */
+  private used = 0
   private readonly meters: number[]
-  private readonly planner: RoutePlanner
+  private readonly planners: RoutePlanner[]
 
-  constructor(input: SolverInput, planner: RoutePlanner) {
+  constructor(input: SolverInput, planners: RoutePlanner[]) {
     this.input = input
-    this.planner = planner
+    this.planners = planners
+    this.outside = input.allowUnassigned ? input.trucks.length : -1
+    const buckets = input.trucks.length + (input.allowUnassigned ? 1 : 0)
     this.truckOf = new Array<number>(input.shipments.length).fill(-1)
-    this.members = input.trucks.map(() => [])
-    this.load = input.trucks.map(() => 0)
-    this.weight = input.trucks.map(() => 0)
-    this.meters = input.trucks.map(() => 0)
+    this.members = Array.from({ length: buckets }, () => [])
+    this.load = new Array<number>(buckets).fill(0)
+    this.weight = new Array<number>(buckets).fill(0)
+    this.meters = new Array<number>(buckets).fill(0)
   }
 
   add(shipment: number, truck: number): void {
     this.truckOf[shipment] = truck
     this.members[truck].push(shipment)
+    if (truck !== this.outside && this.members[truck].length === 1) this.used++
     this.load[truck] += this.input.shipments[shipment].ldmTenths
     this.weight[truck] += this.input.shipments[shipment].weightKg
     this.refresh(truck)
@@ -181,6 +228,7 @@ class State {
     const truck = this.truckOf[shipment]
     const list = this.members[truck]
     list.splice(list.indexOf(shipment), 1)
+    if (truck !== this.outside && list.length === 0) this.used--
     this.load[truck] -= this.input.shipments[shipment].ldmTenths
     this.weight[truck] -= this.input.shipments[shipment].weightKg
     this.truckOf[shipment] = -1
@@ -193,23 +241,16 @@ class State {
     this.add(shipment, truck)
   }
 
-  /** Score contribution of one truck. */
-  truckScore(truck: number): Score {
-    const { capacityLdmTenths, capacityKg } = this.input.trucks[truck]
-    const over = Math.max(0, this.load[truck] - capacityLdmTenths) + Math.max(0, this.weight[truck] - capacityKg)
-    return {
-      hard: -over,
-      medium: this.members[truck].length > 0 ? -1 : 0,
-      soft: -this.meters[truck],
-    }
+  /** Real trucks with at least one shipment. */
+  usedTrucks(): number {
+    return this.used
   }
 
   score(): Score {
-    const total = { hard: 0, medium: 0, soft: 0 }
-    for (let t = 0; t < this.members.length; t++) {
-      const part = this.truckScore(t)
+    const total = { hard: 0, medium: this.medium(), soft: 0 }
+    for (let t = 0; t < this.input.trucks.length; t++) {
+      const part = this.truckPart(t)
       total.hard += part.hard
-      total.medium += part.medium
       total.soft += part.soft
     }
     return total
@@ -217,22 +258,41 @@ class State {
 
   /** Change of the score if an unassigned `shipment` were added to `truck` (no change made). */
   withAdded(shipment: number, truck: number): Score {
-    const before = this.truckScore(truck)
+    const before = this.truckPart(truck)
+    const mediumBefore = this.medium()
     this.add(shipment, truck)
-    const after = this.truckScore(truck)
+    const after = this.truckPart(truck)
+    const mediumAfter = this.medium()
     this.remove(shipment)
-    return { hard: after.hard - before.hard, medium: after.medium - before.medium, soft: after.soft - before.soft }
+    return { hard: after.hard - before.hard, medium: mediumAfter - mediumBefore, soft: after.soft - before.soft }
   }
 
-  /** Whether `shipment` fits on `truck` next to its current load. */
+  /** Hard and soft score of one truck (nothing for the left-out shipments). */
+  private truckPart(truck: number): { hard: number; soft: number } {
+    if (truck === this.outside) return { hard: 0, soft: 0 }
+    const { capacityLdmTenths, capacityKg } = this.input.trucks[truck]
+    const over = Math.max(0, this.load[truck] - capacityLdmTenths) + Math.max(0, this.weight[truck] - capacityKg)
+    return { hard: -over, soft: -this.meters[truck] }
+  }
+
+  private medium(): number {
+    const { exactTrucks, freeTrucks = 0 } = this.input
+    const trucks = exactTrucks === undefined ? Math.max(0, this.used - freeTrucks) : Math.abs(this.used - exactTrucks)
+    // Each tenth of LDM left out weighs more than every truck together.
+    const leftOut = this.outside < 0 ? 0 : this.load[this.outside] * (this.input.trucks.length + 1)
+    return 0 - (leftOut + trucks)
+  }
+
+  /** Whether `shipment` fits on `truck` next to its current load (always outside the trucks). */
   fits(shipment: number, truck: number): boolean {
+    if (truck === this.outside) return true
     const s = this.input.shipments[shipment]
     const t = this.input.trucks[truck]
     return this.load[truck] + s.ldmTenths <= t.capacityLdmTenths && this.weight[truck] + s.weightKg <= t.capacityKg
   }
 
   private refresh(truck: number): void {
-    this.meters[truck] = this.planner.meters(this.members[truck])
+    this.meters[truck] = truck === this.outside ? 0 : this.planners[truck].meters(this.members[truck])
   }
 }
 
@@ -247,10 +307,12 @@ function sizeOf(input: SolverInput): (shipment: number) => number {
 }
 
 /** Largest shipments first, each on the truck where it costs least (opening a truck costs a medium point). */
-function construct(input: SolverInput, planner: RoutePlanner): State {
-  const state = new State(input, planner)
+function construct(input: SolverInput, planners: RoutePlanner[]): State {
+  const state = new State(input, planners)
   // Among equally good empty trucks the larger one wins, so a mixed fleet fills big trucks first.
   const trucks = input.trucks.map((_, t) => t).sort((a, b) => input.trucks[b].capacityLdmTenths - input.trucks[a].capacityLdmTenths)
+  // Left out only where every truck would be overloaded.
+  if (state.outside >= 0) trucks.push(state.outside)
   const size = sizeOf(input)
   const order = input.shipments.map((_, s) => s).sort((a, b) => size(b) - size(a))
   for (const s of order) {
@@ -351,7 +413,7 @@ function swapMove(state: State, random: SeededRandom): (() => void) | null {
  * where it adds the fewest metres without going over LDM or weight). Applies only if all fit.
  */
 function emptyTruckMove(state: State, random: SeededRandom): (() => void) | null {
-  const used = state.members.flatMap((list, t) => (list.length > 0 ? [t] : []))
+  const used = state.members.flatMap((list, t) => (list.length > 0 && t !== state.outside ? [t] : []))
   if (used.length < 2) return null
   const emptied = used[random.nextInt(used.length)]
   const shipments = [...state.members[emptied]]

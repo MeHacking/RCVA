@@ -12,11 +12,18 @@ test('keeps a new truck and the last result after a page reload', async ({ page 
   await page.getByLabel('Naziv').fill('Cerada sa uređaja')
   await page.getByLabel('Kapacitet (LDM)').fill('13.6')
   await page.getByRole('button', { name: 'Sačuvaj' }).click()
-  await expect(page.getByRole('row', { name: /Cerada sa uređaja/ })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Cerada sa uređaja/ })).toBeVisible()
 
   await page.reload()
-  await expect(page.getByRole('row', { name: /Cerada sa uređaja/ })).toContainText('13,6')
-  await expect(page.getByRole('table').getByRole('row')).toHaveCount(5) // header + 3 + 1
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Cerada sa uređaja/ })).toContainText('13,6')
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row')).toHaveCount(5) // header + 3 + 1
+  // A new truck is nowhere yet; Subotica is a place the device knows (no lookup).
+  await page.getByRole('button', { name: 'Unesi lokaciju za Cerada sa uređaja' }).click()
+  await page.getByRole('form', { name: 'Lokacija kamiona Cerada sa uređaja' }).getByLabel('Mesto').fill('Subotica')
+  await page.getByRole('button', { name: 'Sačuvaj lokaciju' }).click()
+  await expect(page.getByRole('table', { name: 'Lokacije kamiona' }).getByRole('row').filter({ has: page.getByRole('cell', { name: 'Cerada sa uređaja', exact: true }) })).toContainText(
+    'Subotica',
+  )
 
   await page.goto('/optimization')
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')

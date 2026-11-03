@@ -1,9 +1,11 @@
-import type { Truck } from '../api/types'
+import type { Shipment, Truck } from '../api/types'
+import { provenFindings } from './optimization/feasibility'
 import type { JobTruck } from './optimization/job'
 
-// The application makes the fleet itself (process owner's answer B1): "Kamion 1",
-// "Kamion 2"..., all standard curtain-siders; the user renames them and changes their
-// dimensions later.
+// Standard curtain-siders (process owner's answer B1): "Kamion 1", "Kamion 2"..., which the
+// user renames and changes later. Since 03.11.2026 a job uses only the trucks in the list
+// (each needs to know where it is); when they are not enough the user is told how many
+// standard trucks are missing and adds them, or plans without some shipments.
 
 /**
  * Standard curtain-sider (cerada). capacityKg is not confirmed: the process owner said
@@ -41,17 +43,37 @@ export function toJobTruck(truck: Truck): JobTruck {
   return { id: truck.id, name: truck.name, capacityLdmTenths: truck.capacityLdmTenths, capacityKg: truck.capacityKg ?? Infinity }
 }
 
-/** A standard curtain-sider the application adds to a job on the device (B1). */
+/** A standard curtain-sider in a job: a truck the user could add (missingTrucks, the extra-truck advice). */
 export function standardJobTruck(id: number): JobTruck {
   return { id, name: 'Standardna cerada', capacityLdmTenths: STANDARD_TRUCK.capacityLdmTenths, capacityKg: STANDARD_TRUCK.capacityKg }
 }
 
 /**
- * The trucks a job may use: the available ones and, on the device, one standard truck per
- * shipment (`unlimited`, B1), so their number is not limited. The dashboard checks this
- * fleet, so it warns exactly when a job would be refused as PROVEN.
+ * The trucks a job may use: the available ones. The dashboard checks this fleet, so it
+ * warns exactly when a job would be refused as PROVEN.
  */
-export function planningFleet(trucks: Truck[], shipmentCount: number, unlimited: boolean): JobTruck[] {
-  const own = trucks.filter((t) => t.available).map(toJobTruck)
-  return unlimited ? [...own, ...Array.from({ length: shipmentCount }, (_, i) => standardJobTruck(-(i + 1)))] : own
+export function planningFleet(trucks: Truck[]): JobTruck[] {
+  return trucks.filter((t) => t.available).map(toJobTruck)
+}
+
+/**
+ * How many standard trucks must at least join `trucks` before nothing is proven against
+ * the job (LDM and weight, each shipment and the totals); 0 when nothing is. null when no
+ * number helps: a shipment does not fit even a standard truck. A lower bound: the solver
+ * may still need one more, since shipments are not divisible.
+ */
+export function missingTrucks(shipments: Shipment[], trucks: JobTruck[]): number | null {
+  for (let k = 0; k <= shipments.length; k++) {
+    const fleet = [...trucks, ...Array.from({ length: k }, (_, i) => standardJobTruck(-(i + 1)))]
+    if (provenFindings(shipments, fleet).length === 0) return k
+  }
+  return null
+}
+
+/** "Kamion N" with the smallest N no truck is named yet. */
+export function nextStandardName(names: Iterable<string>): string {
+  const taken = new Set(names)
+  let n = 1
+  while (taken.has(`Kamion ${n}`)) n++
+  return `Kamion ${n}`
 }

@@ -14,6 +14,8 @@ import { TERMINAL_JOB_STATUSES, type OptimizationJob, type OrsProfile, type Rout
 import type { SolverRunner } from '../../src/domain/optimization/solverRunner'
 import { runInThread } from '../../src/domain/optimization/solverRunner'
 import { SCENARIOS, type Scenario, type ScenarioName } from '../../src/fixtures'
+import { STANDARD_TRUCK } from '../../src/domain/fleet'
+import { haversineMeters, type LatLon } from '../../src/domain/optimization/distance'
 
 const REQUEST = { timeLimitSeconds: 60, truckIds: null, shipmentIds: null }
 
@@ -94,8 +96,13 @@ describe('local optimization', () => {
     expect(result.trucksLowerBound).toBe(2)
     expect(job.scoreMedium).toBe(-2)
     expect(job.scoreSoft).toBe(-result.totalMeters)
+    const at = new Map((await api.listLocations()).map((l) => [l.id, l]))
     for (const route of result.routes) {
-      expect(route.stops[0].legMeters).toBe(0)
+      // The scenario's trucks are at its base; the first leg is from there.
+      expect(route.startLocationId).toBe(SCENARIOS.small.base.baseLocationId)
+      const base = at.get(route.startLocationId!)!
+      const first = at.get(route.stops[0].locationId)!
+      expect(route.stops[0].legMeters).toBe(first.id === base.id ? 0 : haversineMeters(base as LatLon, first as LatLon))
       const deliveries = route.stops.filter((s) => s.type === 'DELIVERY').map((s) => s.shipmentId)
       const pickups = route.stops.filter((s) => s.type === 'PICKUP').map((s) => s.shipmentId)
       expect(new Set(deliveries)).toEqual(new Set(pickups))
@@ -103,23 +110,59 @@ describe('local optimization', () => {
     }
   })
 
-  it('adds the standard trucks a result uses to the trucks list', async () => {
-    // 3 x 7,0 LDM need three trucks; the scenario has two.
+  it('uses only the listed trucks: without enough of them NOT_FOUND, or a plan without some shipments', async () => {
+    // 3 x 7,0 LDM need three trucks; the scenario has two, and none is added.
     const api = setup('notFound')
     const { id } = await api.createOptimizationJob(REQUEST)
+    const job = await settle(api, id)
+    expect([job.status, job.infeasibilityKind]).toEqual(['INFEASIBLE', 'NOT_FOUND'])
+    expect((await api.listTrucks()).map((t) => t.name)).toEqual(['Šleper 1', 'Šleper 2'])
+
+    // Asked for, the job plans what fits and lists the rest.
+    const partial = await api.createOptimizationJob({ ...REQUEST, allowUnassigned: true })
+    expect((await settle(api, partial.id)).status).toBe('COMPLETED')
+    const result = await api.getOptimizationResult(partial.id)
+    expect(result.trucksUsed).toBe(2)
+    expect(result.unassignedShipmentIds).toHaveLength(1)
+    expect(result.validation).toEqual({ passed: true, violations: [] })
+    // Nothing is advised for a plan that leaves shipments out.
+    expect(result.extraTruck).toBeUndefined()
+  })
+
+  it('refuses (422) a job its trucks cannot carry, with the number of standard trucks missing', async () => {
+    const small = SCENARIOS.small
+    const oneTruck: Scenario = { ...small, trucks: small.trucks.filter((t) => t.id === 1) }
+    const runSolver = vi.fn(steps)
+    const api = setup(oneTruck, runSolver)
+    const error = await rejection(api.createOptimizationJob(REQUEST))
+    expect(error.problem).toMatchObject({
+      status: 422,
+      infeasibilityKind: 'PROVEN',
+      causes: ['Ukupno 20,9 LDM je više od kapaciteta dostupnih kamiona (13,6 LDM).'],
+      missingTrucks: 1,
+    })
+    expect(runSolver).not.toHaveBeenCalled()
+    // Planned without some shipments, it starts.
+    const { id } = await api.createOptimizationJob({ ...REQUEST, allowUnassigned: true })
     expect((await settle(api, id)).status).toBe('COMPLETED')
-    const result = await api.getOptimizationResult(id)
-    expect(result.trucksUsed).toBe(3)
+    expect((await api.getOptimizationResult(id)).unassignedShipmentIds.length).toBeGreaterThan(0)
 
-    const trucks = await api.listTrucks()
-    expect(trucks.map((t) => t.name)).toEqual(['Šleper 1', 'Šleper 2', 'Kamion 1'])
-    expect(result.routes.map((r) => r.truckId).sort()).toEqual(trucks.map((t) => t.id).sort())
-    expect(trucks[2]).toMatchObject({ capacityLdmTenths: 136, available: true, innerLengthMm: 13_600 })
+    // A shipment no standard truck carries either: no number of trucks helps.
+    const tooBig: Scenario = { ...oneTruck, shipments: [{ ...small.shipments[0], ldmTenths: 140 }] }
+    expect((await rejection(setup(tooBig).createOptimizationJob(REQUEST))).problem.missingTrucks).toBeUndefined()
+  })
 
-    // The next job continues the numbering.
-    const second = await api.createOptimizationJob({ ...REQUEST, truckIds: [] })
-    expect((await settle(api, second.id)).status).toBe('COMPLETED')
-    expect((await api.listTrucks()).map((t) => t.name).slice(3)).toEqual(['Kamion 2', 'Kamion 3', 'Kamion 4'])
+  it('refuses (409) a job while a truck does not know where it is', async () => {
+    const api = setup('small')
+    const created = await api.createTruck({ ...SCENARIOS.small.trucks[0], name: 'Nova cerada' })
+    const error = await rejection(api.createOptimizationJob(REQUEST))
+    expect(error.problem).toMatchObject({
+      status: 409,
+      detail: 'Kamioni bez potvrđene lokacije (1): Nova cerada. Unesite ili potvrdite gde se nalaze pre pokretanja optimizacije.',
+    })
+    // An unavailable truck needs no location.
+    await api.updateTruck(created.id, { ...SCENARIOS.small.trucks[0], name: 'Nova cerada', available: false })
+    expect((await api.createOptimizationJob(REQUEST)).status).toBe('QUEUED')
   })
 
   it('does not give the solver unavailable trucks', async () => {
@@ -130,10 +173,9 @@ describe('local optimization', () => {
     }
     const api = setup('small', spy)
     await settle(api, (await api.createOptimizationJob(REQUEST)).id)
-    // Šleper 1 and 2, then one standard truck per shipment; Solo 1 (id 3) is unavailable.
-    expect(given[0].slice(0, 2)).toEqual([1, 2])
-    expect(given[0]).toHaveLength(2 + 5)
-    expect(given[0]).not.toContain(3)
+    // Šleper 1 and 2; Solo 1 (id 3) is unavailable. The advice adds one standard truck.
+    expect(given[0]).toEqual([1, 2])
+    expect(given[1]).toEqual([1, 2, -1])
   })
 
   it('answers 422 PROVEN before solving', async () => {
@@ -158,8 +200,8 @@ describe('local optimization', () => {
     }
     const api = setup(heavy, spy)
     await settle(api, (await api.createOptimizationJob(REQUEST)).id)
-    // Šleper 1 carries at most 5 t, Šleper 2 has no payload, the standard trucks 24 t.
-    expect(given[0]).toEqual([5000, Infinity, 24_000, 24_000, 24_000, 24_000, 24_000])
+    // Šleper 1 carries at most 5 t, Šleper 2 has no payload.
+    expect(given[0]).toEqual([5000, Infinity])
 
     const tooHeavy: Scenario = {
       ...heavy,
@@ -167,12 +209,17 @@ describe('local optimization', () => {
       shipments: small.shipments.map((s) => (s.id === 101 ? { ...s, weightKg: 30_000 } : s)),
     }
     const error = await rejection(setup(tooHeavy).createOptimizationJob(REQUEST))
-    expect(error.problem.causes).toEqual(['Pošiljka S-101 (30000 kg) je teža od najveće nosivosti kamiona (24000 kg).'])
+    expect(error.problem.causes).toEqual([
+      'Pošiljka S-101 (30000 kg) je teža od najveće nosivosti kamiona (20000 kg).',
+      'Ukupno 43100 kg je više od nosivosti dostupnih kamiona (40000 kg).',
+    ])
+    // A standard truck carries 24 t: no number of them helps.
+    expect(error.problem.missingTrucks).toBeUndefined()
 
-    // Alone and without own trucks it gets one standard truck; the total over it is not a second reason.
-    const alone: Scenario = { ...tooHeavy, trucks: [], shipments: tooHeavy.shipments.filter((s) => s.id === 101) }
+    // Without trucks: none is available, and one standard truck would be enough.
+    const alone: Scenario = { ...small, trucks: [] }
     const single = await rejection(setup(alone).createOptimizationJob(REQUEST))
-    expect(single.problem.causes).toEqual(['Pošiljka S-101 (30000 kg) je teža od najveće nosivosti kamiona (24000 kg).'])
+    expect(single.problem).toMatchObject({ causes: ['Nijedan kamion nije dostupan.'], missingTrucks: 2 })
   })
 
   it('answers 409 for shipments without coordinates', async () => {
@@ -230,10 +277,17 @@ describe('local optimization', () => {
     // A truck cannot be removed while a job waits or runs.
     expect((await rejection(api.deleteTruck(1))).status).toBe(409)
 
+    // The advice solves the same shipments again, as long, with one truck more.
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(calls).toEqual([5000, 5000])
+    expect((await api.getOptimizationJob(first.id)).status).toBe('RUNNING')
     release()
     expect((await settle(api, first.id)).status).toBe('COMPLETED')
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(calls).toEqual([5000, 7000])
+    expect(calls).toEqual([5000, 5000, 7000])
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     release()
     expect((await settle(api, second.id)).status).toBe('COMPLETED')
     await api.deleteTruck(1)
@@ -287,26 +341,26 @@ describe('local storage on the device', () => {
     expect((await after.createTruck(TRUCK)).id).toBe(created.id + 1)
   })
 
-  it('keeps a finished job with its result, 3D plan and added trucks', async () => {
+  it('keeps a finished job with its result and 3D plan', async () => {
     const store = createMemoryStore<LocalData>()
     // The solver answers later, as the Web Worker does, so the job is stored while running first.
     const later: SolverRunner = async (input, options) => {
       await written()
       return steps(input, options)
     }
-    const api = setup('notFound', later, store)
+    const api = setup('small', later, store)
     expect(await api.getLatestOptimizationJob()).toBeNull()
     const { id } = await api.createOptimizationJob(REQUEST)
     const job = await settle(api, id)
     const result = await api.getOptimizationResult(id)
     await written()
 
-    const after = setup('notFound', steps, store)
+    const after = setup('small', steps, store)
     expect(await after.getLatestOptimizationJob()).toEqual(job)
     expect(await after.getOptimizationResult(id)).toEqual(result)
     const truckId = result.routes[0].truckId
     expect(await after.getLoadPlan(id, truckId)).toEqual(await api.getLoadPlan(id, truckId))
-    expect((await after.listTrucks()).map((t) => t.name)).toEqual(['Šleper 1', 'Šleper 2', 'Kamion 1'])
+    expect(await after.listTrucks()).toEqual(await api.listTrucks())
     expect((await after.createOptimizationJob(REQUEST)).id).toBe(id + 1)
   })
 
@@ -636,6 +690,7 @@ describe('road distances from OpenRouteService on the device', () => {
       contactEmail: null,
       orsApiKey: null,
       orsProfile: 'driving-hgv',
+      extraTruckSavingPercent: 10,
     })
     const result = await solve(api)
     expect(fake.asked).toEqual([])
@@ -655,8 +710,8 @@ describe('road distances from OpenRouteService on the device', () => {
     const at = new Map((await api.listLocations()).map((l) => [l.id, l as Point]))
     for (const route of result.routes) {
       route.stops.forEach((stop, i) => {
-        const before = route.stops[i - 1]
-        const expected = !before || before.locationId === stop.locationId ? 0 : road(at.get(before.locationId)!, at.get(stop.locationId)!)
+        const before = route.stops[i - 1]?.locationId ?? route.startLocationId!
+        const expected = before === stop.locationId ? 0 : road(at.get(before)!, at.get(stop.locationId)!)
         expect(stop.legMeters).toBe(expected)
       })
     }
@@ -743,9 +798,11 @@ describe('road distances from OpenRouteService on the device', () => {
 
   describe('road lines for the map', () => {
     /** The stops of a route as [lat, lon], one per run of stops at the same place. */
-    async function stopsOf(api: ApiClient, route: { stops: RouteStop[] }) {
+    /** The points of a route's line: where the truck was, then the stops, each place once in a row. */
+    async function stopsOf(api: ApiClient, route: { startLocationId?: number; stops: RouteStop[] }) {
       const at = new Map((await api.listLocations()).map((l) => [l.id, [l.lat, l.lon] as [number, number]]))
-      return route.stops.filter((s, i) => i === 0 || s.locationId !== route.stops[i - 1].locationId).map((s) => at.get(s.locationId))
+      const ids = [route.startLocationId!, ...route.stops.map((s) => s.locationId)]
+      return ids.filter((id, i) => i === 0 || id !== ids[i - 1]).map((id) => at.get(id))
     }
 
     const lastJobId = async (api: ApiClient) => (await api.getLatestOptimizationJob())!.id
@@ -903,10 +960,17 @@ describe('an empty device and a new week', () => {
     expect((await rejection(api.createOptimizationJob(REQUEST))).problem.detail).toBe('Nema pošiljki za optimizaciju.')
 
     expect((await importSheet(api, 'Nedelja-1.xlsx')).created).toBe(1)
+    const refused = await rejection(api.createOptimizationJob(REQUEST))
+    expect(refused.problem).toMatchObject({ status: 422, causes: ['Nijedan kamion nije dostupan.'], missingTrucks: 1 })
+
+    // The user adds the truck and says where it is (Nominatim finds every place here).
+    const truck = await api.createTruck({ name: 'Kamion 1', ...STANDARD_TRUCK, available: true })
+    expect(await api.setTruckStart(truck.id, { place: { name: 'Primerovo', postalCode: null, country: 'RS' } })).toMatchObject({
+      outcome: 'found',
+      truck: { startLocationId: expect.any(Number) },
+    })
     const { id } = await api.createOptimizationJob(REQUEST)
     expect((await settle(api, id)).status).toBe('COMPLETED')
-    // The job made its own truck (B1).
-    expect((await api.listTrucks()).map((t) => t.name)).toEqual(['Kamion 1'])
   })
 
   it('removes all shipments and the places no kept result uses, and stores that', async () => {

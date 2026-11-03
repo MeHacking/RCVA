@@ -1,13 +1,13 @@
 import type { Scenario } from '../../fixtures'
-import { STANDARD_TRUCK, standardJobTruck, toJobTruck } from '../../domain/fleet'
+import { missingTrucks, standardJobTruck, toJobTruck } from '../../domain/fleet'
 import { haversineMatrix, type LatLon } from '../../domain/optimization/distance'
-import { provenCauses } from '../../domain/optimization/feasibility'
+import { provenFindings } from '../../domain/optimization/feasibility'
 import type { JobInput, JobTruck } from '../../domain/optimization/job'
 import { toSolverInput } from '../../domain/optimization/job'
 import { rearLoadedPlan } from '../../domain/optimization/loadPlan'
 import { toOptimizationResult } from '../../domain/optimization/result'
 import { OPEN_ROUTE_REAR_LOADING } from '../../domain/optimization/routePlanner'
-import { isFeasible, type Score } from '../../domain/optimization/solver'
+import { isFeasible, type Score, type SolverInput } from '../../domain/optimization/solver'
 import type { SolverRunner } from '../../domain/optimization/solverRunner'
 import { ApiError, type ApiClient } from '../client'
 import {
@@ -37,6 +37,8 @@ import {
   type RouteLine,
   type Shipment,
   type Truck,
+  type TruckStart,
+  type TruckStartResult,
 } from '../types'
 
 // The application on the device (path B): the same API as the backend, but everything
@@ -51,9 +53,13 @@ import {
 // the independent validator and the rear-loaded 3D plan, with the process owner's model
 // (open routes, loading from the rear, weight).
 //
-// Fleet (B1): the job may use every available truck plus as many standard trucks as it
-// needs, so the number of trucks is not limited; the standard trucks a result uses are
-// added to the trucks list as "Kamion N" when the job completes.
+// Fleet: a job uses the available trucks in the list, and each needs to know where it is
+// (`startLocationId`, confirmed by the user; the last delivery of a later job is only a
+// proposal); its route starts there. When the trucks are not enough the job is refused
+// (422) with the number of standard trucks missing, or, if the user asks for it
+// (`allowUnassigned`), planned without the shipments that do not fit. After a job the same
+// shipments are solved again with one more truck, and when that saves enough kilometres
+// (the setting `extraTruckSavingPercent`) the result advises it (`extraTruck`).
 //
 // Distances: by road from OpenRouteService (openRouteService.ts) when the settings have
 // an ORS key, asked only for pairs of places not asked before and kept on the device;
@@ -93,7 +99,11 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
   contactEmail: null,
   orsApiKey: null,
   orsProfile: 'driving-hgv',
+  extraTruckSavingPercent: 10,
 }
+
+/** Id of the truck added for the extra-truck comparison; never stored. */
+const EXTRA_TRUCK_ID = -1
 
 const PROFILE_LABELS: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna vozila', 'driving-car': 'za automobile' }
 
@@ -230,7 +240,14 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     const data = stored ?? {
       shipments: structuredClone(scenario.shipments),
       locations: structuredClone(scenario.locations),
-      trucks: structuredClone(scenario.trucks),
+      // A scenario's trucks are at its base (probni podaci), so a job can start at once.
+      trucks: structuredClone(scenario.trucks).map((t) => ({
+        ...t,
+        startLocationId: scenario.locations.some((l) => l.id === scenario.base.baseLocationId && l.lat !== null)
+          ? scenario.base.baseLocationId
+          : null,
+        startSetAfterJobId: null,
+      })),
       jobs: [],
       nextTruckId: Math.max(0, ...scenario.trucks.map((t) => t.id)) + 1,
       nextJobId: 1,
@@ -345,9 +362,42 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     }
   }
 
-  /** Places that stay without shipments: the base, and the places of kept jobs, so an earlier result still names its stops. */
+  /**
+   * Places that stay without shipments: the base, where the trucks are, and the places of
+   * kept jobs, so an earlier result still names its stops.
+   */
   function keptPlaces(): Set<number> {
-    return new Set([scenario.base.baseLocationId, ...[...jobs.values()].flatMap((j) => j.input.locationIds)])
+    return new Set([
+      scenario.base.baseLocationId,
+      ...trucks.flatMap((t) => (t.startLocationId == null ? [] : [t.startLocationId])),
+      ...[...jobs.values()].flatMap((j) => j.input.locationIds),
+    ])
+  }
+
+  /** Where a truck is, when that place has coordinates. */
+  function startOfTruck(truck: Truck): Location | null {
+    const location = locations.find((l) => l.id === truck.startLocationId)
+    return location && location.lat !== null && location.lon !== null ? location : null
+  }
+
+  /** The newest job the device has, so a proposal from it is not offered again. */
+  function newestJobId(): number | null {
+    return jobs.size > 0 ? Math.max(...jobs.keys()) : null
+  }
+
+  /** The truck's last delivery in the newest completed job after its location was set. */
+  function proposalFor(truck: Truck): TruckStart['proposal'] {
+    const since = truck.startSetAfterJobId ?? 0
+    const newer = [...jobs.values()].filter((j) => j.id > since && j.status === 'COMPLETED' && j.result).sort((a, b) => b.id - a.id)
+    for (const job of newer) {
+      const route = job.result?.routes.find((r) => r.truckId === truck.id)
+      const last = route?.stops.at(-1)
+      if (!last) continue
+      const location = locations.find((l) => l.id === last.locationId)
+      if (!location || location.id === truck.startLocationId) return null
+      return { location, jobId: job.id, finishedAt: job.finishedAt }
+    }
+    return null
   }
 
   async function createJob(request: OptimizationJobRequest): Promise<LocalJob> {
@@ -361,32 +411,39 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     if (chosenShipments.length === 0) {
       throw new ApiError({ title: 'Neispravan zahtev', status: 400, detail: 'Nema pošiljki za optimizaciju.' })
     }
-    const used = usedLocations(chosenShipments)
-    requireCoordinates(chosenShipments, used)
+    const freeTrucks = request.freeTrucks ?? 0
+    if (!Number.isInteger(freeTrucks) || freeTrucks < 0) throw badRequest({ freeTrucks: 'Broj kamiona mora biti ceo broj, 0 ili veći.' })
+    requireCoordinates(chosenShipments, usedLocations(chosenShipments))
 
-    // Unavailable trucks are not sent to the solver; standard trucks fill up the fleet.
+    // Unavailable trucks are not sent to the solver; every other one starts where it is.
     const own = chosenTrucks.filter((t) => t.available)
-    const added = Array.from({ length: chosenShipments.length }, (): Truck => ({
-      id: nextTruckId++,
-      name: '',
-      capacityLdmTenths: STANDARD_TRUCK.capacityLdmTenths,
-      capacityKg: STANDARD_TRUCK.capacityKg,
-      available: true,
-      innerLengthMm: STANDARD_TRUCK.innerLengthMm,
-      innerWidthMm: STANDARD_TRUCK.innerWidthMm,
-      innerHeightMm: STANDARD_TRUCK.innerHeightMm,
-    }))
-    const jobTrucks: JobTruck[] = [...own.map(toJobTruck), ...added.map((t) => standardJobTruck(t.id))]
-    const causes = provenCauses(chosenShipments, jobTrucks, { totals: false })
-    if (causes.length > 0) {
+    const startless = own.filter((t) => !startOfTruck(t))
+    if (startless.length > 0) {
+      throw new ApiError({
+        title: 'Lokacije kamiona',
+        status: 409,
+        detail:
+          `Kamioni bez potvrđene lokacije (${startless.length}): ${startless.map((t) => t.name).join(', ')}. ` +
+          'Unesite ili potvrdite gde se nalaze pre pokretanja optimizacije.',
+      })
+    }
+    const jobTrucks: JobTruck[] = own.map((t) => ({ ...toJobTruck(t), startLocationId: t.startLocationId }))
+    // Planning without some shipments needs at least one truck; otherwise nothing may be proven.
+    const findings = request.allowUnassigned && own.length > 0 ? [] : provenFindings(chosenShipments, jobTrucks)
+    if (findings.length > 0) {
+      const missing = findings.some((f) => f.about === 'fleet') ? missingTrucks(chosenShipments, jobTrucks) : null
       throw new ApiError({
         title: 'Dokazano neizvodljivo',
         status: 422,
         detail: 'Provera pre pokretanja je dokazala da rešenje ne postoji. Solver nije pokrenut.',
         infeasibilityKind: 'PROVEN',
-        causes,
+        causes: findings.map((f) => f.text),
+        ...(missing ? { missingTrucks: missing } : {}),
       })
     }
+    const startIds = new Set(own.map((t) => t.startLocationId))
+    const shipmentPlaces = usedLocations(chosenShipments)
+    const used = locations.filter((l) => startIds.has(l.id) || shipmentPlaces.includes(l)).sort((a, b) => a.id - b.id)
     // After the checks above, so a job that cannot start costs no ORS request.
     const { distance, source } = await jobDistances(used)
 
@@ -406,9 +463,11 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         locationIds: used.map((l) => l.id),
         distance,
         rules: OPEN_ROUTE_REAR_LOADING,
+        allowUnassigned: request.allowUnassigned ?? false,
+        freeTrucks,
       },
-      fleet: new Map([...own, ...added].map((t) => [t.id, structuredClone(t)])),
-      addedTruckIds: new Set(added.map((t) => t.id)),
+      fleet: new Map(own.map((t) => [t.id, structuredClone(t)])),
+      addedTruckIds: new Set(),
       result: null,
       distanceSource: source,
     }
@@ -474,9 +533,10 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     const result = completedResult(job)
     const route = result.routes.find((r) => r.truckId === truckId)
     if (!route) throw notFound(`Kamion ${truckId} nema rutu u poslu ${jobId}.`)
-    // The same points as on the map: the stops, and the base around them on a route that returns.
+    // The same points as on the map: where the truck was, the stops, and the base around them on a route that returns.
     const base = result.openRoute ? [] : [scenario.base.baseLocationId]
-    const ids = [...base, ...route.stops.map((s) => s.locationId), ...(route.stops.length > 0 ? base : [])]
+    const start = route.startLocationId === undefined ? base : [route.startLocationId]
+    const ids = [...start, ...route.stops.map((s) => s.locationId), ...(route.stops.length > 0 ? base : [])]
     const byId = new Map(locations.map((l) => [l.id, l]))
     const stops = ids.flatMap((id) => {
       const location = byId.get(id)
@@ -529,16 +589,17 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     job.startedAt = new Date().toISOString()
     persistInBackground()
     try {
-      const solution = await runSolver(toSolverInput(job.input), { timeLimitMs: job.timeLimitSeconds * 1000 })
+      const input = toSolverInput(job.input)
+      const solution = await runSolver(input, { timeLimitMs: job.timeLimitSeconds * 1000 })
       job.score = solution.score
       if (isFeasible(solution.score)) {
         const result = toOptimizationResult(
           job.input,
           solution.routes.map((r) => ({ truckId: r.truckId, route: r.route })),
         )
-        job.result = { ...result, openRoute: true, distanceSource: job.distanceSource }
+        const extraTruck = await adviseExtraTruck(job, input, result)
+        job.result = { ...result, openRoute: true, distanceSource: job.distanceSource, ...(extraTruck ? { extraTruck } : {}) }
         job.trucksLowerBound = result.trucksLowerBound
-        keepUsedStandardTrucks(job, result)
         job.status = 'COMPLETED'
       } else {
         job.status = 'INFEASIBLE'
@@ -552,21 +613,34 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     persistInBackground()
   }
 
-  /** The application makes the trucks (B1): used standard trucks join the list as "Kamion N". */
-  function keepUsedStandardTrucks(job: LocalJob, result: OptimizationResult): void {
-    for (const route of result.routes) {
-      const truck = job.fleet.get(route.truckId)
-      if (!truck || !job.addedTruckIds.has(truck.id)) continue
-      truck.name = nextStandardName()
-      trucks.push(structuredClone(truck))
+  /**
+   * The same shipments solved again, as long, on exactly one truck more than the result uses,
+   * with one standard truck added (counted as if it started at its first pickup, since it is
+   * not anywhere yet). Advised only when that saves at least the share in the settings.
+   */
+  async function adviseExtraTruck(job: LocalJob, input: SolverInput, result: OptimizationResult) {
+    const percent = settings.extraTruckSavingPercent
+    if (percent === null || result.unassignedShipmentIds.length > 0 || result.totalMeters === 0) return undefined
+    const extra = standardJobTruck(EXTRA_TRUCK_ID)
+    const other = await runSolver(
+      {
+        ...input,
+        trucks: [...input.trucks, { id: extra.id, capacityLdmTenths: extra.capacityLdmTenths, capacityKg: extra.capacityKg, start: null }],
+        allowUnassigned: false,
+        freeTrucks: undefined,
+        exactTrucks: result.trucksUsed + 1,
+      },
+      { timeLimitMs: job.timeLimitSeconds * 1000 },
+    )
+    const meters = -other.score.soft
+    const saving = ((result.totalMeters - meters) / result.totalMeters) * 100
+    if (!isFeasible(other.score) || other.routes.length <= result.trucksUsed || saving < percent) return undefined
+    return {
+      trucksUsed: other.routes.length,
+      totalMeters: meters,
+      savingPercent: Math.floor(saving),
+      newTruck: other.routes.some((r) => r.truckId === EXTRA_TRUCK_ID),
     }
-  }
-
-  function nextStandardName(): string {
-    const names = new Set(trucks.map((t) => t.name))
-    let n = 1
-    while (names.has(`Kamion ${n}`)) n++
-    return `Kamion ${n}`
   }
 
   function usedLocations(chosen: Shipment[]) {
@@ -617,7 +691,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     createTruck: (input) =>
       change(() => {
         assertValidTruck(input)
-        const created: Truck = { ...input, id: nextTruckId++ }
+        // Where it is comes with setTruckStart (looked up, or confirmed by the user).
+        const created: Truck = { ...input, id: nextTruckId++, startLocationId: null, startSetAfterJobId: null }
         trucks.push(created)
         return created
       }),
@@ -627,8 +702,42 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         const index = trucks.findIndex((t) => t.id === id)
         if (index < 0) throw notFound(`Kamion ${id} ne postoji.`)
         assertValidTruck(input)
-        trucks[index] = { ...input, id }
+        const { startLocationId = null, startSetAfterJobId = null } = trucks[index]
+        trucks[index] = { ...input, id, startLocationId, startSetAfterJobId }
         return trucks[index]
+      }),
+
+    getTruckStarts: () =>
+      respond(() => trucks.map((t): TruckStart => ({ truckId: t.id, location: startOfTruck(t), proposal: proposalFor(t) }))),
+
+    setTruckStart: (id, input) =>
+      change(async (): Promise<TruckStartResult> => {
+        const truck = trucks.find((t) => t.id === id)
+        if (!truck) throw notFound(`Kamion ${id} ne postoji.`)
+        if ('proposalJobId' in input) {
+          assertNoActiveJob('lokacija kamiona se može menjati')
+          const proposal = proposalFor(truck)
+          if (!proposal || proposal.jobId !== input.proposalJobId) {
+            throw new ApiError({ title: 'Predlog više ne važi', status: 409, detail: `Za kamion „${truck.name}“ nema tog predloga lokacije.` })
+          }
+          Object.assign(truck, { startLocationId: proposal.location.id, startSetAfterJobId: newestJobId() })
+          return { truck, outcome: 'known' as const, name: proposal.location.name, message: null }
+        }
+        if ('keep' in input) {
+          assertNoActiveJob('lokacija kamiona se može menjati')
+          const kept = startOfTruck(truck)
+          if (!kept) throw new ApiError({ title: 'Nema lokacije', status: 409, detail: `Kamion „${truck.name}“ još nema lokaciju koju bi zadržao.` })
+          truck.startSetAfterJobId = newestJobId()
+          return { truck, outcome: 'known' as const, name: kept.name, message: null }
+        }
+        assertNoActiveJob('lokacija kamiona se može menjati')
+        const located = await editor.locatePlace(input.place)
+        // A job may have started, or the truck been removed, while the place was looked up.
+        assertNoActiveJob('lokacija kamiona se može menjati')
+        const current = trucks.find((t) => t.id === id)
+        if (!current) throw notFound(`Kamion ${id} ne postoji.`)
+        if (located.location) Object.assign(current, { startLocationId: located.location.id, startSetAfterJobId: newestJobId() })
+        return { truck: current, outcome: located.outcome, name: located.name, message: located.message }
       }),
 
     deleteTruck: (id) =>
@@ -715,8 +824,18 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         const orsApiKey = input.orsApiKey?.trim() || null
         if (orsApiKey !== null && /\s/.test(orsApiKey)) errors.orsApiKey = 'Ključ ne sme da sadrži razmake.'
         if (!Object.hasOwn(PROFILE_LABELS, input.orsProfile)) errors.orsProfile = 'Nepoznata vrsta vozila.'
+        const percent = input.extraTruckSavingPercent
+        if (percent !== null && !(Number.isInteger(percent) && percent >= 1 && percent <= 99)) {
+          errors.extraTruckSavingPercent = 'Unesite ceo broj od 1 do 99 ili ostavite prazno.'
+        }
         if (Object.keys(errors).length > 0) throw badRequest(errors)
-        settings = { geocodingEnabled: input.geocodingEnabled, contactEmail, orsApiKey, orsProfile: input.orsProfile }
+        settings = {
+          geocodingEnabled: input.geocodingEnabled,
+          contactEmail,
+          orsApiKey,
+          orsProfile: input.orsProfile,
+          extraTruckSavingPercent: percent,
+        }
         return settings
       }),
 

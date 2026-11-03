@@ -61,6 +61,10 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     // The backend has no such endpoint; the shipments screen does not offer it in server mode.
     deleteAllShipments: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema uklanjanje svih pošiljki.' })),
+    // Nor where trucks are: the backend plans from the base.
+    getTruckStarts: async () => null,
+    setTruckStart: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Lokacije kamiona postoje samo u aplikaciji na uređaju.' })),
     // Nor corrections of imported shipments.
     updateShipment: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema izmenu pošiljki.' })),

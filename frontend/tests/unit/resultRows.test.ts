@@ -70,3 +70,13 @@ describe('buildUnassignedRows', () => {
     ])
   })
 })
+
+describe('where a route starts (on the device)', () => {
+  it('names the truck location of an open route, and nothing without one', () => {
+    const { result, ref } = completed('small')
+    const open = { ...result, openRoute: true, routes: result.routes.map((r, i) => (i === 0 ? { ...r, startLocationId: 2 } : r)) }
+    const rows = buildTruckRows(open, ref)
+    expect(rows[0].startName).toBe('Subotica')
+    expect(rows[1].startName).toBeNull()
+  })
+})

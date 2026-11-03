@@ -171,3 +171,38 @@ describe('validator rules', () => {
     expect(validate(jobFrom(test7Open()), result).violations).toContain('Kamion #99 nije među kamionima ovog posla.')
   })
 })
+
+describe('validator with a start per truck', () => {
+  function startedJob(): JobInput {
+    const job = jobFrom(test7Open())
+    job.trucks[0] = { ...job.trucks[0], startLocationId: 1000 } // the base, (0, 0)
+    return job
+  }
+
+  it('counts the leg from where the truck is, and names that place', () => {
+    const job = startedJob()
+    const result = toOptimizationResult(job, [{ truckId: job.trucks[0].id, route: { pickups: [0], deliveries: [0], meters: 0 } }])
+    expect(result.routes[0].startLocationId).toBe(1000)
+    expect(result.routes[0].stops.map((s) => s.legMeters)).toEqual([50_000, 150_000])
+    expect(result.totalMeters).toBe(200_000)
+    expect(result.validation).toEqual({ passed: true, violations: [] })
+  })
+
+  it('rejects a route that does not start where the truck is', () => {
+    const job = startedJob()
+    const result = toOptimizationResult(job, [{ truckId: job.trucks[0].id, route: { pickups: [0], deliveries: [0], meters: 0 } }])
+    const elsewhere = structuredClone(result)
+    elsewhere.routes[0].startLocationId = 1001
+    expect(validate(job, elsewhere).violations).toEqual(['Kamion 1: ruta kreće sa lokacije #1001, a kamion je na #1000.'])
+    const noLeg = structuredClone(result)
+    noLeg.routes[0].stops[0].legMeters = 0
+    expect(validate(job, noLeg).violations).toContain('Kamion 1, stanica 1: deonica je 50000 m, ne 0 m.')
+  })
+
+  it('accepts shipments listed as unassigned', () => {
+    const job = startedJob()
+    const result = toOptimizationResult(job, [{ truckId: job.trucks[0].id, route: { pickups: [0], deliveries: [0], meters: 0 } }])
+    expect(result.unassignedShipmentIds).toEqual([102, 103, 104])
+    expect(result.validation.passed).toBe(true)
+  })
+})

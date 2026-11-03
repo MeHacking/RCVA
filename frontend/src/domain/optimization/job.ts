@@ -12,6 +12,8 @@ export interface JobTruck {
   capacityLdmTenths: number
   /** Infinity: weight is not limited (the Java model) */
   capacityKg: number
+  /** location id the truck starts from (where it is now); missing or null: `rules.start` */
+  startLocationId?: number | null
 }
 
 export interface JobInput {
@@ -24,6 +26,15 @@ export interface JobInput {
   distance: number[][]
   /** `start` and `end` are indices into locationIds */
   rules: RouteRules
+  /** shipments may stay without a truck when the trucks are not enough (see solver.ts) */
+  allowUnassigned?: boolean
+  /** this many used trucks cost nothing, so only metres decide between them (see solver.ts) */
+  freeTrucks?: number
+}
+
+/** Location index a truck's route starts from: its own start, else the rules' start. */
+export function startOf(job: JobInput, truck: JobTruck): number | null {
+  return truck.startLocationId == null ? job.rules.start : locationIndex(job)(truck.startLocationId)
 }
 
 /** A shipment without weight counts as 0 kg (the import reads weight, but it may be missing). */
@@ -42,7 +53,14 @@ export function toSolverInput(job: JobInput): SolverInput {
       pickup: index(s.pickupLocationId),
       delivery: index(s.deliveryLocationId),
     })),
-    trucks: job.trucks.map((t) => ({ id: t.id, capacityLdmTenths: t.capacityLdmTenths, capacityKg: t.capacityKg })),
+    trucks: job.trucks.map((t) => ({
+      id: t.id,
+      capacityLdmTenths: t.capacityLdmTenths,
+      capacityKg: t.capacityKg,
+      start: startOf(job, t),
+    })),
+    allowUnassigned: job.allowUnassigned,
+    freeTrucks: job.freeTrucks,
   }
 }
 

@@ -25,6 +25,6 @@ test('removes all shipments only after a confirmation, and keeps that after a re
   await page.reload()
   await expect(page.getByText('Nema unetih pošiljki')).toBeVisible()
   await page.goto('/trucks')
-  await expect(page.getByRole('row', { name: /Šleper 1/ })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Šleper 1/ })).toBeVisible()
   expect(errors).toEqual([])
 })

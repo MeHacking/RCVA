@@ -56,12 +56,12 @@ async function rejection(promise: Promise<unknown>): Promise<ApiError> {
   return error as ApiError
 }
 
-/** A device with everything a file carries: a new truck, a job on road distances, a road line, a key. */
+/** A device with everything a file carries: a new truck where it is, a job on road distances, a road line, a key. */
 async function usedDevice(key = 'kljuc-uredjaja-a') {
   const store = createMemoryStore<LocalData>()
   const api = client(store)
   await api.updateDeviceSettings({ ...DEFAULT_SETTINGS, orsApiKey: key, contactEmail: 'dispecer@example.com' })
-  await api.createTruck({
+  const truck = await api.createTruck({
     name: 'Izvozna cerada',
     capacityLdmTenths: 136,
     capacityKg: 24_000,
@@ -70,6 +70,8 @@ async function usedDevice(key = 'kljuc-uredjaja-a') {
     innerWidthMm: 2480,
     innerHeightMm: 2700,
   })
+  // A place the device knows: no lookup.
+  await api.setTruckStart(truck.id, { place: { name: 'Subotica', postalCode: null, country: 'RS' } })
   const { id } = await api.createOptimizationJob(REQUEST)
   expect((await settle(api, id)).status).toBe('COMPLETED')
   const result = await api.getOptimizationResult(id)
@@ -90,9 +92,16 @@ describe('data file of the device', () => {
     const content = await exported(api)
 
     expect(content).not.toContain('kljuc-uredjaja-a')
-    const file = JSON.parse(content) as { format: string; version: number; data: { settings: object } }
+    const file = JSON.parse(content) as { format: string; version: number; data: { settings: object; trucks: object[] } }
     expect([file.format, file.version]).toEqual([DEVICE_FILE_FORMAT, DEVICE_FILE_VERSION])
-    expect(file.data.settings).toEqual({ geocodingEnabled: true, contactEmail: 'dispecer@example.com', orsProfile: 'driving-hgv' })
+    expect(file.data.settings).toEqual({
+      geocodingEnabled: true,
+      contactEmail: 'dispecer@example.com',
+      orsProfile: 'driving-hgv',
+      extraTruckSavingPercent: 10,
+    })
+    // Where the new truck is travels with it.
+    expect(file.data.trucks.at(-1)).toMatchObject({ name: 'Izvozna cerada', startLocationId: 2 })
 
     // The fleet (a Map), the added trucks (a Set) and payloads without a limit (Infinity) come back.
     const stored = storedData(store)
@@ -144,6 +153,10 @@ describe('data file of the device', () => {
       [changed((f) => (f.data.jobs[0].result = null)), `${broken}završeni posao 1 nema rezultat.`],
       [changed((f) => (f.data.nextTruckId = 1)), `${broken}brojač id-jeva je manji od postojećeg id-ja.`],
       [changed((f) => (f.data.nextJobId = 1)), `${broken}brojač id-jeva je manji od postojećeg id-ja.`],
+      [changed((f) => (f.data.trucks.at(-1).startLocationId = 999)), `${broken}kamion „Izvozna cerada“ je na mestu 999, koje ne postoji.`],
+      [changed((f) => (f.data.trucks[0].startLocationId = 'Beograd')), `${broken}fajl.data.trucks[0].startLocationId nije ceo broj.`],
+      [changed((f) => (f.data.settings.extraTruckSavingPercent = '10')), `${broken}fajl.data.settings.extraTruckSavingPercent nije ceo broj.`],
+      [changed((f) => (f.data.jobs[0].input.freeTrucks = -0.5)), `${broken}fajl.data.jobs[0].input.freeTrucks nije ceo broj.`],
     ]
     for (const [text, message] of cases) {
       const error = await rejection(api.checkDeviceData(text))
@@ -184,6 +197,7 @@ describe('replacing the data on the device with a file', () => {
       contactEmail: 'dispecer@example.com',
       orsApiKey: 'kljuc-uredjaja-b',
       orsProfile: 'driving-hgv',
+      extraTruckSavingPercent: 10,
     })
     // The road line and the distances came with the file: nothing is asked again.
     expect(await b.getRouteLine(a.jobId, truckId)).toEqual(await a.api.getRouteLine(a.jobId, truckId))

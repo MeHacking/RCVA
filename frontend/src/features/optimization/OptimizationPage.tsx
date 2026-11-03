@@ -9,8 +9,12 @@ import type { OptimizationJob } from '../../api/types'
 import { JOB_STATUS_LABELS, NOT_FOUND_MESSAGE, PROVEN_TITLE } from './jobStatus'
 import { isLastJobBusy, useLastJob, type LastJobState } from './lastJobContext'
 import { ResultView } from './ResultView'
+import { apiMode } from '../../api/apiMode'
+import { LocationsCheck, ShortageActions } from './FleetActions'
 
 const DEFAULT_TIME_LIMIT_SECONDS = '60'
+// Only the application on the device adds trucks or plans without some shipments.
+const FLEET_ACTIONS = apiMode() === 'local'
 
 export function OptimizationPage() {
   const { state } = useLastJob()
@@ -38,7 +42,7 @@ function StartPanel() {
       return
     }
     setError(null)
-    void start(Number(trimmed))
+    void start({ timeLimitSeconds: Number(trimmed) })
   }
 
   return (
@@ -82,6 +86,8 @@ function JobOutcome({ state }: { state: LastJobState }) {
       )
     case 'starting':
       return <LoadingState label="Pokretanje optimizacije…" />
+    case 'needsLocations':
+      return <LocationsCheck options={state.options} />
     case 'proven':
       return (
         <Notice tone="danger" title={`${PROVEN_TITLE} (HTTP 422)`} role="alert">
@@ -93,12 +99,20 @@ function JobOutcome({ state }: { state: LastJobState }) {
               ))}
             </ul>
           )}
+          {FLEET_ACTIONS && state.missingTrucks !== null && (
+            <>
+              <p>
+                <strong>Nema dovoljno kamiona:</strong> potrebno je još najmanje {state.missingTrucks}.
+              </p>
+              <ShortageActions add={state.missingTrucks} options={state.options} />
+            </>
+          )}
         </Notice>
       )
     case 'startFailed':
       return <ErrorState title="Pokretanje nije uspelo" message={state.message} />
     case 'tracking': {
-      const { job, result, pollError, jobId } = state
+      const { job, result, pollError, jobId, options } = state
       if (pollError) return <ErrorState title={`Praćenje posla #${jobId} nije uspelo`} message={pollError} />
       if (!job) return <LoadingState label={`Učitavanje statusa posla #${jobId}…`} />
 
@@ -107,7 +121,11 @@ function JobOutcome({ state }: { state: LastJobState }) {
         case 'RUNNING':
           return <JobProgress job={job} />
         case 'COMPLETED':
-          return result ? <ResultView job={job} result={result} /> : <LoadingState label="Učitavanje rezultata…" />
+          return result ? (
+            <ResultView job={job} result={result} options={FLEET_ACTIONS ? options : null} />
+          ) : (
+            <LoadingState label="Učitavanje rezultata…" />
+          )
         case 'INFEASIBLE':
           return job.infeasibilityKind === 'NOT_FOUND' ? (
             <Notice tone="warning" title={`Posao #${job.id}: rešenje nije nađeno`} role="status">
@@ -117,6 +135,15 @@ function JobOutcome({ state }: { state: LastJobState }) {
                   Donja granica broja kamiona po kapacitetu: {job.trucksLowerBound}. Možete pokušati sa dužim
                   vremenskim ograničenjem.
                 </p>
+              )}
+              {FLEET_ACTIONS && (
+                <>
+                  <p>
+                    Moguće je i da dostupni kamioni nisu dovoljni: pošiljke se ne dele, pa ukupni kapacitet nije uvek
+                    dovoljan.
+                  </p>
+                  <ShortageActions add={1} options={options} />
+                </>
               )}
             </Notice>
           ) : (
