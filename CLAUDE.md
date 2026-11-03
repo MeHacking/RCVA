@@ -43,6 +43,14 @@ mesta bez koordinata se **nudi i za ostale pošiljke** sa tim mestom (uključeno
   Provereno na pokvarenom kodu (15 izmena u logici i modelu, 4 na ekranu): svaka obara
   testove (409 pre traženja je promakla, pa test sada proverava i da se ništa ne traži).
   Izgled proveren snimkom ekrana.
+- **Ispravka 02.11.2026** (korisnik: promena naziva ne traži ponovo): odgovori se pamte po
+  nazivu bez kvačica i velikih slova, pa „Lösestad“ posle „LOSESTAD“ (zapamćeno „nije
+  pronađeno“) nije pitano, a mesto je zadržavalo stari naziv; isto za ranije probani naziv.
+  Sada `PlaceLocator` prima `{ again }`: naziv koji korisnik upiše i sačuva pita se ponovo i
+  kada je zapamćeno „nije pronađeno“ (zapamćeno „pronađeno“ se koristi), a mesto bez
+  koordinata dobija naziv kako je upisan. Čuvanje bez promene mesta koristi zapamćen odgovor.
+  Nov naziv koji nikad nije pitan pitao se i ranije. Testovi: 2 u `shipmentEdit.test.ts`, 1 e2e;
+  provereno na pokvarenom kodu (3 izmene).
 - Ograničenje: mesto koje je Nominatim našao na pogrešnom mestu (isto ime, drugi grad) ne
   može se pomeriti ručnim koordinatama; pomaže samo drugačiji naziv.
 

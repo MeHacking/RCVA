@@ -179,13 +179,13 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     contactEmail: () => settings.contactEmail,
   })
 
-  const locate: PlaceLocator = async (place) => {
+  const locate: PlaceLocator = async (place, locateOptions) => {
     if (!settings.geocodingEnabled) {
       return { kind: 'failed', message: 'Traženje koordinata je isključeno u podešavanjima.' }
     }
     const key = placeKey(place)
     let answer = geocodeCache[key]
-    if (!answer) {
+    if (!answer || (!answer.found && locateOptions?.again)) {
       try {
         answer = await geocoder.geocode(place)
       } catch (error) {

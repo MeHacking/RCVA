@@ -14,6 +14,8 @@ const COORDINATES: Record<string, { lat: string; lon: string }> = {
   Drugovo: { lat: '44.5', lon: '20.6' },
   Teststad: { lat: '57.1', lon: '12.1' },
   Novostad: { lat: '58.2', lon: '13.3' },
+  // Found only as written with its letters; the file writes it LOSESTAD.
+  Lösestad: { lat: '59.4', lon: '16.5' },
 }
 const ROWS = [
   ['RELACIJA', 'TEŽINA', 'DIMENZIJE'],
@@ -87,6 +89,30 @@ async function rejection(promise: Promise<unknown>): Promise<ApiError> {
 const storedData = (store: { snapshot(): unknown }) => (store.snapshot() as { data: LocalData }).data
 
 describe('correcting a shipment on the device', () => {
+  it('asks again for a name typed by hand, also one only written differently from an answer kept as "not found"', async () => {
+    const { api, fake, first } = await imported()
+    const result = await api.updateShipment(first.id, {
+      delivery: { name: 'Lösestad', postalCode: null, country: null, moveOtherShipments: true },
+    })
+    expect(fake.asked).toEqual(['Lösestad'])
+    expect(result.places[1]).toEqual({ role: 'delivery', name: 'Lösestad', outcome: 'found', message: null })
+    // The place had no coordinates, so it may take the name as typed; both shipments are there.
+    const losestad = { name: 'Lösestad', lat: 59.4, lon: 16.5, geocodeStatus: 'MANUAL' }
+    expect(await placeOf(api, 'Nedelja-2', 'delivery')).toMatchObject(losestad)
+    expect(await placeOf(api, 'Nedelja-3', 'delivery')).toMatchObject(losestad)
+  })
+
+  it('asks again for a name typed by hand that was not found before, but not on a save without it', async () => {
+    const { api, fake, first, second } = await imported()
+    await api.updateShipment(first.id, { delivery: { name: 'Nigdeovo', postalCode: null, country: null } })
+    await api.updateShipment(first.id, { ldmTenths: 30 })
+    expect(fake.asked).toEqual(['Nigdeovo'])
+    // Typed again for another shipment: asked again, since the user asks for it.
+    await api.updateShipment(second.id, { delivery: { name: 'Nigdeovo', postalCode: null, country: null } })
+    expect(fake.asked).toEqual(['Nigdeovo', 'Nigdeovo'])
+  })
+
+
   it('looks up only the new place, once, and moves the other shipments at the unclear place', async () => {
     const store = createMemoryStore<LocalData>()
     const { api, fake, first } = await imported(store)

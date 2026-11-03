@@ -15,7 +15,11 @@ import { geocode, normalizePlaceName } from './gazetteer'
 import { applyPatch, gazetteerWarning, readRows, toImportRows, type PlaceWarning, type RowState } from './importRows'
 
 /** Coordinates of one place, looked up when an import is committed or a shipment corrected. */
-export type PlaceLocator = (place: PlaceGuess) => Promise<LocateResult>
+/**
+ * `again`: the user typed the name by hand and saved it, so a kept "not found" is asked
+ * again (a kept "found" is still used).
+ */
+export type PlaceLocator = (place: PlaceGuess, options?: { again?: boolean }) => Promise<LocateResult>
 export type LocateResult =
   | { kind: 'found'; lat: number; lon: number }
   | { kind: 'notFound' }

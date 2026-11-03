@@ -8,6 +8,8 @@ const PLACES: Record<string, [number, number]> = {
   Primerovo: [45.1, 20.1],
   Drugovo: [44.5, 20.6],
   Novostad: [58.2, 13.3],
+  // Found only as written with its letters; the file writes it LOSESTAD.
+  Lösestad: [59.4, 16.5],
 }
 
 async function fakeNominatim(page: Page) {
@@ -150,5 +152,21 @@ test('changes the other fields, and shows the reason when a field is refused', a
 
   await page.reload()
   await expect(row(page, 'S-101a')).toContainText('3,5')
+  expect(errors).toEqual([])
+})
+
+test('asks again for a name typed by hand, also one that differs from the file only in its letters', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const asked = await fakeNominatim(page)
+  await importRows(page, [['PRIMEROVO - LOSESTAD 11111', '1,200 kg', '2,4m']])
+  expect(asked).toEqual(['Primerovo', 'Losestad'])
+
+  const form = await edit(page, 'uvoz-2')
+  await form.getByRole('group', { name: 'Isporuka' }).getByLabel('Mesto').fill('Lösestad')
+  await form.getByRole('button', { name: 'Sačuvaj izmenu' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'je sačuvana' })).toContainText('„Lösestad“: koordinate su pronađene.')
+  await expect(row(page, 'uvoz-2')).toContainText('Lösestad')
+  await expect(row(page, 'uvoz-2')).toContainText('Ručno uneta lokacija')
+  expect(asked).toEqual(['Primerovo', 'Losestad', 'Lösestad'])
   expect(errors).toEqual([])
 })

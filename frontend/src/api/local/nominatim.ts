@@ -3,8 +3,9 @@ import { normalizePlaceName } from '../mock/import/gazetteer'
 // Coordinates from the public Nominatim (OpenStreetMap), under its usage policy
 // (https://operations.osmfoundation.org/policies/nominatim/):
 // - at most one request per second for the whole application (one geocoder per app);
-// - every answer, also "not found", is kept on the device by the caller and never asked
-//   again (see `placeKey`); only a failed request may be repeated, on the next import;
+// - every answer, also "not found", is kept on the device by the caller and not asked again
+//   (see `placeKey`); a failed request is repeated on the next import, and a "not found" only
+//   when the user types the name by hand and saves a corrected shipment (one place, by hand);
 // - requests only when the user commits an import or saves a corrected shipment (only its
 //   places), never while typing;
 // - it can be switched off in the settings, without a new version;

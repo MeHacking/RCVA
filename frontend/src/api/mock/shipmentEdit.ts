@@ -102,7 +102,8 @@ export function createShipmentEditor(deps: {
         const id = `${place.name.toLowerCase()}|${place.country ?? ''}`
         let result = asked.get(id)
         if (!result) {
-          result = await locate(place)
+          // A name typed by hand is asked again, also when it was not found before.
+          result = await locate(place, { again: !!input })
           asked.set(id, result)
         }
         plans.push(
@@ -122,7 +123,7 @@ export function createShipmentEditor(deps: {
     if (known) {
       // Without coordinates the place is in no result, so it may still change.
       if (!hasCoordinates(known)) {
-        if (plan.given) known.country = plan.place.country
+        if (plan.given) Object.assign(known, { name: plan.place.name, country: plan.place.country })
         if (plan.coordinates) Object.assign(known, plan.coordinates, { geocodeStatus: status })
       }
       return known

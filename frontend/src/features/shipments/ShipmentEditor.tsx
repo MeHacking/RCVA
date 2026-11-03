@@ -129,8 +129,8 @@ export function ShipmentEditor({
         </fieldset>
       </div>
       <p className="text--muted row-editor__note">
-        Pri čuvanju se koordinate traže samo za mesta ove pošiljke koja ih nemaju; odgovor koji je već zapamćen se ne
-        traži ponovo.
+        Pri čuvanju se koordinate traže samo za mesta ove pošiljke koja ih nemaju. Upisan naziv se traži ponovo i ako
+        ranije nije pronađen; za mesto koje ovde nije menjano koristi se zapamćen odgovor.
         {apiMode() === 'local' && (
           <>
             {' '}
