@@ -4,8 +4,8 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 03.11.2026 (Uputstvo, izgled kartica, Pregled sa grafikonima); videti „Gde
-smo stali“. Sve je push-ovano na `origin/main` 03.11.2026.
+Poslednje ažuriranje: 04.11.2026 (izgled: talasi u pozadini, staklene kartice, tamne kartice,
+pločice brzih akcija); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 04.11.2026.
 
 ## Gde smo stali (03.11.2026)
 
@@ -17,6 +17,28 @@ Pitanja za Gojka još nisu poslata (spisak od 30.10. dopunjen 02. i 03.11.).
 **Sledeće posle Uputstva**: korisnik želi modernije i intuitivnije ekrane pre telefona; predlog
 (pregled ekrana, probni izgled, izvođenje ekran po ekran) i pitanja (paleta uz logo, tamna tema,
 samo izgled ili i tok, ko je korisnik) postavljena su 03.11.; čeka odgovore.
+
+**Izgled, drugi deo (urađeno 04.11.2026)**, na zahtev korisnika, korak po korak (provera
+snimcima ekrana; testovi samo kad se dira raspored ili TeGo):
+- Stranica bež (`--bg: var(--beige)`), kartice belo staklo (`--card-surface` providna bela,
+  korisnik ju je sam podesio na 0.5; `--card-blur`, `backdrop-filter`; bez podrške pune bele),
+  gornja traka isto staklo. Pozadina: slojevi papira isečeni u talas (`BackgroundWaves.tsx`,
+  fiksni SVG sa `z-index: -2`, boje `--wave-1..4`, senka `--wave-shadow`; ivice namerno nisu
+  paralelne), po slici koju je korisnik poslao, ali blaže.
+- **Zamka**: na ovom računaru su u Windows-u isključeni „Efekti providnosti“
+  (`EnableTransparency = 0`), a Chrome to javlja kao `prefers-reduced-transparency: reduce`
+  (i Playwright). Staklo zato ne poštuje tu postavku (korisnik ga je izričito tražio).
+- Tamne kartice: `panel--cherry` (Upozorenja) i `panel--dark` (Pošiljke prema kamionima,
+  dijagonalno od višnje); na njima sve svetlo (`--on-dark-*`: tekst, linkovi, dugmad, fokus,
+  ikonice upozorenja i trake; kontrast izmeren, najmanje 5,4 : 1). Najviše dve tamne kartice.
+- Brze akcije: četiri pločice sa ikonicom, naslovom i opisom (`QuickAction`; ime dugmeta je
+  naslov, opis je `aria-describedby`), „Pokreni optimizaciju“ u višnji (bez svetlog
+  unutrašnjeg ruba, jer na višnji izgleda kao dupla ivica).
+- Trake „Kilometri po kamionu“ izgledaju kao trake popunjenosti (8 px, zaobljene, na stazi).
+- **Greška od 03.11. ispravljena**: blok za kartice je bojio i obaveštenja u belo, pa
+  zeleno, narandžasto i crveno obaveštenje nisu imali svoju pozadinu.
+- TeGo (`packwidget.js`, izmena označena „RCVA“): platno ima alfa kanal i briše se providno;
+  krem dobija samo okvir 3D prikaza, pa se talasi vide i na 3D ekranu. Testovi 8 i 9 prolaze.
 
 **Izgled i Pregled (urađeno 03.11.2026)**, na zahtev korisnika, korak po korak:
 kartice sa 3D senkom i većim razmakom (`--shadow-card`, `--shadow-card-raised`, `--card-edge`,

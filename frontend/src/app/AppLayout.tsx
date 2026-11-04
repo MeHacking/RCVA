@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import { apiMode, apiModeLabel } from '../api/apiMode'
+import { BackgroundWaves } from '../components/BackgroundWaves'
 import { Icon, type IconName } from '../components/Icon'
 import { TopBar } from './TopBar'
 
@@ -18,6 +19,7 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: IconName }> = 
 export function AppLayout() {
   return (
     <div className="app">
+      <BackgroundWaves />
       <nav className="app__nav" aria-label="Glavna navigacija">
         <div className="brand">
           <img className="brand__logo" src="/logo.png" alt="" width={32} height={32} />

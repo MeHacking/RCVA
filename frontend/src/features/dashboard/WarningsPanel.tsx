@@ -55,7 +55,7 @@ export function WarningsPanel({ model }: { model: DashboardModel }) {
     ))
 
   return (
-    <section className="panel dashboard-panel dashboard-warnings-panel" aria-labelledby="dashboard-warnings">
+    <section className="panel panel--cherry dashboard-panel dashboard-warnings-panel" aria-labelledby="dashboard-warnings">
       <h2 id="dashboard-warnings">Upozorenja</h2>
       <div ref={viewport} className="dashboard-warnings__viewport">
         {warnings.length === 0 ? (

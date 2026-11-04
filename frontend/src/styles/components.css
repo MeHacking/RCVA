@@ -651,7 +651,9 @@ button.button--danger:hover:not(:disabled) {
 
 /*
  * Cards: every panel, stat card, table and notice is raised off the page (rounder corners, a
- * light top edge, a soft layered shadow). Small cards lift a little more under the pointer.
+ * light top edge, a soft layered shadow) and made of frosted glass: the page's waves show
+ * through, blurred. Notices with a tone keep their own tinted background and border colour.
+ * Small cards lift a little more under the pointer.
  */
 .panel,
 .stat,
@@ -660,6 +662,33 @@ button.button--danger:hover:not(:disabled) {
 .import-summary > div {
   border-radius: var(--radius-lg);
   box-shadow: var(--card-edge), var(--shadow-card);
+}
+
+.panel,
+.stat,
+.table-wrap,
+.notice:not(.notice--success, .notice--warning, .notice--danger),
+.import-summary > div {
+  background: var(--card-surface);
+  -webkit-backdrop-filter: var(--card-blur);
+  backdrop-filter: var(--card-blur);
+}
+
+.panel,
+.stat,
+.table-wrap,
+.import-summary > div {
+  border-color: var(--card-border);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .panel,
+  .stat,
+  .table-wrap,
+  .notice:not(.notice--success, .notice--warning, .notice--danger),
+  .import-summary > div {
+    background: var(--card-surface-solid);
+  }
 }
 
 .stat,
@@ -685,4 +714,59 @@ button.button--danger:hover:not(:disabled) {
   .import-summary > div:hover {
     transform: none;
   }
+}
+
+/*
+ * Dark cards: cherry (panel--cherry, the dashboard's warnings) and dark grey (panel--dark, the
+ * load against the fleet). Everything on them turns light: text, links, muted notes, plain
+ * buttons (see-through with a light edge), the focus ring; the primary button turns cream with
+ * cherry text.
+ */
+.panel.panel--cherry,
+.panel.panel--dark {
+  color: var(--on-dark-text);
+  border-color: var(--card-dark-border);
+  box-shadow: var(--card-dark-edge), var(--shadow-card);
+}
+
+.panel.panel--cherry {
+  background: var(--card-cherry-surface);
+}
+
+.panel.panel--dark {
+  background: var(--card-dark-surface);
+}
+
+:is(.panel--cherry, .panel--dark) :is(h2, h3, a) {
+  color: var(--on-dark-text);
+}
+
+:is(.panel--cherry, .panel--dark) .text--muted {
+  color: var(--on-dark-muted);
+}
+
+:is(.panel--cherry, .panel--dark) button {
+  color: var(--on-dark-text);
+  background: var(--on-dark-control);
+  border-color: var(--on-dark-control-border);
+  box-shadow: none;
+}
+
+:is(.panel--cherry, .panel--dark) button:hover:not(:disabled) {
+  background: var(--on-dark-control-hover);
+}
+
+:is(.panel--cherry, .panel--dark) button.button--primary {
+  color: var(--accent);
+  background: var(--cream);
+  border-color: var(--cream);
+}
+
+:is(.panel--cherry, .panel--dark) button.button--primary:hover:not(:disabled) {
+  background: var(--white);
+  border-color: var(--white);
+}
+
+:is(.panel--cherry, .panel--dark) :focus-visible {
+  box-shadow: var(--on-dark-focus-ring);
 }

@@ -1,8 +1,8 @@
-import { useCallback } from 'react'
+import { useCallback, useId } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
 import { Badge } from '../../components/Badge'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
 import { ErrorState, LoadingState } from '../../components/states'
 import type { Shipment, Truck } from '../../api/types'
@@ -115,7 +115,7 @@ function FleetPanel({ model }: { model: DashboardModel }) {
   const ldm = (tenths: number) => `${formatLdm(tenths)} LDM`
   const kg = (value: number) => `${formatKg(value)} kg`
   return (
-    <section className="panel dashboard-panel" aria-labelledby="dashboard-fleet">
+    <section className="panel panel--dark dashboard-panel" aria-labelledby="dashboard-fleet">
       <h2 id="dashboard-fleet">Pošiljke prema kamionima</h2>
       {model.availableTrucks === 0 ? (
         <p className="text--muted">Nijedan kamion nije dostupan.</p>
@@ -277,15 +277,13 @@ function QuickActions() {
     <section className="panel" aria-labelledby="dashboard-actions">
       <h2 id="dashboard-actions">Brze akcije</h2>
       <div className="quick-actions">
-        <button type="button" onClick={() => navigate('/shipments/import')}>
-          <Icon name="shipments" /> Uvezi Excel
-        </button>
-        <button type="button" onClick={() => navigate('/trucks')}>
-          <Icon name="truck" /> Uredi kamione
-        </button>
-        <button
-          type="button"
-          className="button--primary"
+        <QuickAction icon="shipments" title="Uvezi Excel" hint="dodaj pošiljke iz tabele" onClick={() => navigate('/shipments/import')} />
+        <QuickAction icon="truck" title="Uredi kamione" hint="kapaciteti i lokacije kamiona" onClick={() => navigate('/trucks')} />
+        <QuickAction
+          icon="play"
+          title="Pokreni optimizaciju"
+          hint="raspodela pošiljki i rute"
+          primary
           onClick={() =>
             void start().then((kind) => {
               // Truck locations and missing trucks are answered on the results screen.
@@ -293,13 +291,42 @@ function QuickActions() {
             })
           }
           disabled={isLastJobBusy(state)}
-        >
-          <Icon name="play" size={14} /> Pokreni optimizaciju
-        </button>
-        <button type="button" onClick={() => navigate('/optimization')}>
-          <Icon name="results" /> Rezultati
-        </button>
+        />
+        <QuickAction icon="results" title="Rezultati" hint="rute, kilometri i 3D prikaz" onClick={() => navigate('/optimization')} />
       </div>
     </section>
+  )
+}
+
+/** One tile: the title names the button, the hint under it describes it. */
+function QuickAction(props: {
+  icon: IconName
+  title: string
+  hint: string
+  primary?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  const id = useId()
+  const hintId = `${id}-hint`
+  return (
+    <button
+      type="button"
+      className={`quick-action${props.primary ? ' quick-action--primary' : ''}`}
+      onClick={props.onClick}
+      disabled={props.disabled}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={hintId}
+    >
+      <span className="quick-action__icon">
+        <Icon name={props.icon} size={18} />
+      </span>
+      <span id={`${id}-title`} className="quick-action__title">
+        {props.title}
+      </span>
+      <span id={hintId} className="quick-action__hint">
+        {props.hint}
+      </span>
+    </button>
   )
 }

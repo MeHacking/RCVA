@@ -7,6 +7,8 @@
  *  - PackWidgetRenderer: keeps the animation frame id, exposes the WebGL renderer
  *    (for renderer.info), has dispose() (stop loop, release context, remove canvas) and
  *    takes its clear color from PackWidget.rendererBackgroundColor when set.
+ *  - PackWidgetRenderer (2026-11-04): the canvas has an alpha channel and is cleared see-through,
+ *    so the page behind it shows; only each widget's viewport is filled with the clear color.
  */
 /**
  * Returns the position of an object with respect to the
@@ -2645,7 +2647,7 @@ function PackWidgetRenderer() {
 
     var widgets = [];
     this.widgets = widgets;
-    var renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true});
+    var renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true, alpha: true}); // RCVA: alpha
     renderer.setClearColor(visualizerBackgroundColor, 1);
     renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer = renderer; // RCVA: renderer.info for leak checks
@@ -2682,11 +2684,13 @@ function PackWidgetRenderer() {
 		// render canvas
     function render() {
         updateSize();
-        renderer.setClearColor(visualizerBackgroundColor);
+        // RCVA: the whole canvas see-through, so the page behind it shows ...
+        renderer.setClearColor(visualizerBackgroundColor, 0);
         renderer.enableScissorTest(false);
         renderer.clear();
 
-        renderer.setClearColor(visualizerBackgroundColor);
+        // ... and each viewport filled with the background color when its scene is rendered.
+        renderer.setClearColor(visualizerBackgroundColor, 1);
         renderer.enableScissorTest(true);
 
         widgets.forEach(function(widget) {

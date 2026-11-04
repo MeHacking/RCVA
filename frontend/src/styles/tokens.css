@@ -3,6 +3,9 @@
   /* Palette: Cream + Dark Grey + Black Cherry */
   --cream: #f5efe6;
   --cream-light: #fffcf7;
+  /* A warmer cream, towards beige: the page behind the cards */
+  --beige: #f3e7d3;
+  --white: #ffffff;
   --dark-grey: #2b2a2c;
   --black-cherry: #5e1a2e;
 
@@ -35,8 +38,44 @@
   --info-subtle: var(--accent-subtle);
 
   /* Semantic roles */
-  --bg: var(--cream);
+  --bg: var(--beige);
   --surface: var(--cream-light);
+  /* Cards (panels, stat cards, tables, notices): white frosted glass, the page behind blurred; solid white where blur is not supported. Windows with "transparency
+     effects" off reports prefers-reduced-transparency, and the glass stays anyway (asked for). */
+  --card-surface: rgba(255, 255, 255, 0.5);
+  --card-surface-solid: var(--white);
+  --card-border: rgba(255, 255, 255, 0.9);
+  --card-blur: blur(14px) saturate(140%);
+  /* The top bar is the same glass, in the light cream */
+  --topbar-surface: rgba(255, 252, 247, 0.75);
+  /* Page decoration: layered paper waves (BackgroundWaves), lightest sheet on top, close tones
+     so the page stays calm; each sheet casts a soft warm shadow on the one below */
+  --wave-1: #faf3e8;
+  --wave-2: #f6ebd9;
+  --wave-3: #f1e1c8;
+  --wave-4: #ebd6b6;
+  --wave-shadow: rgba(122, 86, 44, 0.16);
+  /* Quick action tiles on the dashboard: white, a little more solid than the card under them */
+  --tile-surface: rgba(255, 255, 255, 0.75);
+  --tile-surface-hover: var(--white);
+  /* Dark cards (dashboard warnings in cherry, load against the fleet in dark grey): the same
+     glass, nearly solid, with light text, controls, icons and bars that keep their contrast */
+  --card-cherry-surface: rgba(94, 26, 46, 0.93);
+  --card-dark-surface: rgba(43, 42, 44, 0.93);
+  /* A bar on the dark: a light rose instead of cherry (cherry on dark grey is barely seen) */
+  --on-dark-accent: #e6a6b7;
+  --on-dark-track: rgba(255, 255, 255, 0.14);
+  --card-dark-border: rgba(255, 255, 255, 0.1);
+  --card-dark-edge: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --on-dark-text: var(--cream);
+  --on-dark-muted: rgba(245, 239, 230, 0.78);
+  --on-dark-warning: #f6c66f;
+  --on-dark-danger: #ff9f88;
+  --on-dark-success: #a6dba0;
+  --on-dark-control: rgba(255, 255, 255, 0.1);
+  --on-dark-control-hover: rgba(255, 255, 255, 0.2);
+  --on-dark-control-border: rgba(255, 255, 255, 0.3);
+  --on-dark-focus-ring: 0 0 0 3px rgba(245, 239, 230, 0.6);
   --surface-muted: var(--gray-50);
   --border: var(--gray-200);
   --border-strong: var(--gray-300);
@@ -80,7 +119,7 @@
   --shadow-sm: 0 1px 2px rgba(21, 26, 35, 0.06);
   /* Cards stand slightly off the page: a light top edge and a soft, layered shadow (dark grey) */
   --radius-lg: 12px;
-  --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
   --shadow-card: 0 1px 2px rgba(43, 42, 44, 0.08), 0 6px 12px -2px rgba(43, 42, 44, 0.12),
     0 18px 32px -10px rgba(43, 42, 44, 0.22);
   --shadow-card-raised: 0 2px 4px rgba(43, 42, 44, 0.1), 0 12px 24px -6px rgba(43, 42, 44, 0.18),
