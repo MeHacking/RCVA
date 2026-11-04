@@ -10,6 +10,7 @@ import { TruckForm } from './TruckForm'
 import { TruckLocations } from './TruckLocations'
 import { TruckTypeForm } from './TruckTypeForm'
 import { TruckTypes } from './TruckTypes'
+import { typeDraftFromTruck } from './truckTemplates'
 
 /** One form at a time on the page: a truck's or a truck type's. */
 type Editing =
@@ -122,6 +123,12 @@ export function TrucksPage() {
             deletingId={deletingId}
             onEdit={(truck) => setEditing({ mode: 'edit', truck })}
             onAskDelete={askDelete}
+            // Only where types are kept (not on the backend).
+            onSaveAsType={
+              types.status === 'success' && types.data
+                ? (truck) => setEditing({ mode: 'createType', draft: typeDraftFromTruck(truck) })
+                : undefined
+            }
             onConfirmDelete={(truck) => void confirmDelete(truck)}
             onCancelDelete={() => setConfirmingId(null)}
           />
@@ -171,6 +178,7 @@ function TruckTable({
   deletingId,
   onEdit,
   onAskDelete,
+  onSaveAsType,
   onConfirmDelete,
   onCancelDelete,
 }: {
@@ -180,6 +188,8 @@ function TruckTable({
   deletingId: number | null
   onEdit: (truck: Truck) => void
   onAskDelete: (truck: Truck) => void
+  /** opens the form of a new type filled from the truck; not given where there are no types */
+  onSaveAsType?: (truck: Truck) => void
   onConfirmDelete: (truck: Truck) => void
   onCancelDelete: () => void
 }) {
@@ -247,6 +257,16 @@ function TruckTable({
                     >
                       Ukloni
                     </button>
+                    {onSaveAsType && (
+                      <button
+                        type="button"
+                        className="button--ghost"
+                        onClick={() => onSaveAsType(truck)}
+                        aria-label={`Napravi tip od ${truck.name}`}
+                      >
+                        Napravi tip
+                      </button>
+                    )}
                   </span>
                 )}
               </td>

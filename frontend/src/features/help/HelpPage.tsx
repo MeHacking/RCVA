@@ -268,8 +268,9 @@ function Steps() {
         <p>
           Tipovi se vode u odeljku <strong>„Tipovi kamiona“</strong>, ispod kamiona. „Standardna cerada“ je ugrađena i
           ne menja se, jer po njoj aplikacija predlaže dodatne kamione kada postojeći nisu dovoljni. Svoj tip dodajete
-          dugmetom „Dodaj tip“ i posle ga menjate ili uklanjate. Izmena ili uklanjanje tipa ne menja kamione koji su
-          već dodati.
+          dugmetom „Dodaj tip“, ili od kamiona koji već imate dugmetom „Napravi tip“ u njegovom redu (naziv tipa je
+          naziv kamiona bez broja na kraju), i posle ga menjate ili uklanjate. Izmena ili uklanjanje tipa ne menja
+          kamione koji su već dodati.
         </p>
       )}
       {ON_DEVICE && (

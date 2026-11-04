@@ -180,6 +180,25 @@ test('adds, changes and removes a truck type; the standard curtain-sider stays a
   expect(errors).toEqual([])
 })
 
+test('saves a truck in the list as a new type, and fills the next truck from it', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.getByRole('button', { name: 'Napravi tip od Šleper 2' }).click()
+  await expect(page.getByRole('heading', { name: 'Novi tip kamiona' })).toBeVisible()
+  await expect(page.getByLabel('Naziv tipa')).toBeFocused()
+  await expect(page.getByLabel('Naziv tipa')).toHaveValue('Šleper')
+  await expect(page.getByLabel('Kapacitet (LDM)')).toHaveValue('13,6')
+  await expect(page.getByLabel('Dužina')).toHaveValue('13600')
+  await expect(page.getByLabel('Visina')).toHaveValue('2700')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  const types = page.getByRole('table', { name: 'Tipovi kamiona' })
+  await expect(types.getByRole('row', { name: /Šleper/ })).toContainText('13600 × 2480 × 2700 mm')
+
+  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
+  await page.getByLabel('Popuni prema').selectOption({ label: 'Šleper (13,6 LDM, bez ograničenja težine, 13600 × 2480 × 2700 mm)' })
+  await expect(page.getByLabel('Naziv', { exact: true })).toHaveValue('Šleper 3')
+  expect(errors).toEqual([])
+})
+
 test('requires all three dimensions or none', async ({ page }) => {
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Naziv').fill('X')
