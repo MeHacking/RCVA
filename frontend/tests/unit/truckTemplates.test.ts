@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { Truck, TruckType } from '../../src/api/types'
+import type { TruckType } from '../../src/api/types'
 import { truckToFormValues } from '../../src/features/trucks/truckFormValidation'
 import {
   STANDARD_TEMPLATE_KEY,
   applyTemplate,
   nextFreeName,
   truckTemplates,
-  typeDraftFromTruck,
 } from '../../src/features/trucks/truckTemplates'
 
 const type = (over: Partial<TruckType>): TruckType => ({
@@ -51,23 +50,6 @@ describe('truckTemplates', () => {
 
   it('offers the name of the type, a number included', () => {
     expect(truckTemplates([type({ name: ' Cerada 12 ' })]).map((t) => t.baseName)).toEqual(['Kamion', 'Cerada 12'])
-  })
-})
-
-describe('typeDraftFromTruck', () => {
-  const truck: Truck = { ...type({}), id: 4, name: ' Šleper 12 ', available: false, startLocationId: 3, startSetAfterJobId: 2 }
-
-  it('takes the measures of the truck and its name without the number at the end', () => {
-    expect(typeDraftFromTruck(truck)).toEqual({
-      name: 'Šleper',
-      capacityLdmTenths: 136,
-      capacityKg: 24000,
-      innerLengthMm: 13600,
-      innerWidthMm: 2480,
-      innerHeightMm: 2700,
-    })
-    expect(typeDraftFromTruck({ ...SOLO, name: 'Solo', available: true }).name).toBe('Solo')
-    expect(typeDraftFromTruck({ ...SOLO, name: '12', available: true }).name).toBe('12')
   })
 })
 

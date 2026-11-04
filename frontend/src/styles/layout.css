@@ -933,20 +933,10 @@ button.route-map__fullscreen:hover:not(:disabled) {
   font-size: var(--text-sm);
 }
 
-.truck-locations {
-  margin-top: var(--space-4);
-}
-
-/* The text and the buttons above the table keep clear of it. */
-.truck-locations .table-wrap {
-  margin-top: var(--space-6);
-}
-
-.truck-types {
-  margin-top: var(--space-4);
-}
-
-.truck-types__header {
+/* The trucks screen: the list, the types (when open) and the locations as cards of one style,
+   a heading (with a button on the right where there is one), a line of text, then the table,
+   kept clear of the text. */
+.truck-card__header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -955,11 +945,11 @@ button.route-map__fullscreen:hover:not(:disabled) {
   margin-bottom: var(--space-4);
 }
 
-.panel .truck-types__header h2 {
+.panel .truck-card__header h2 {
   margin-bottom: 0;
 }
 
-.truck-types .table-wrap {
+.truck-card .table-wrap {
   margin-top: var(--space-6);
 }
 
@@ -2266,4 +2256,9 @@ button.truck-3d__shipment[aria-pressed='true'] {
   .dashboard .activity__point {
     animation: none;
   }
+}
+
+/* The line under the types table ("Još niste dodali nijedan tip…") keeps clear of it. */
+.truck-card .table-wrap + p {
+  margin-top: var(--space-3);
 }

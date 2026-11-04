@@ -5,7 +5,7 @@ import { collectPageErrors } from './consoleGuard.ts'
 // so every page load starts from the fixture again.
 
 async function addType(page: Page, type: { name: string; ldm: string; kg?: string; dimensions?: [string, string, string] }) {
-  await page.getByRole('button', { name: 'Dodaj tip' }).click()
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
   await page.getByLabel('Naziv tipa').fill(type.name)
   await page.getByLabel('Kapacitet (LDM)').fill(type.ldm)
   if (type.kg) await page.getByLabel('Nosivost (kg)').fill(type.kg)
@@ -129,6 +129,11 @@ test('fills a new truck from a truck type, never from a truck in the list', asyn
 test('adds, changes and removes a truck type; the standard curtain-sider stays as it is', async ({ page }) => {
   const errors = collectPageErrors(page)
   const types = page.getByRole('table', { name: 'Tipovi kamiona' })
+  // Not a card of its own until asked for: "Dodaj tip kamiona", next to "Dodaj kamion", opens
+  // the form together with the types there are.
+  await expect(page.getByRole('region', { name: 'Tipovi kamiona' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
+  await expect(page.getByLabel('Naziv tipa')).toBeFocused()
   await expect(types.getByRole('row')).toHaveCount(2) // header + the standard curtain-sider
   const standard = types.getByRole('row', { name: /Standardna cerada/ })
   await expect(standard).toContainText('24000')
@@ -136,8 +141,6 @@ test('adds, changes and removes a truck type; the standard curtain-sider stays a
   await expect(standard.getByRole('button')).toHaveCount(0)
 
   // Checked as a truck is; the built-in name and a name already used are refused.
-  await page.getByRole('button', { name: 'Dodaj tip' }).click()
-  await expect(page.getByLabel('Naziv tipa')).toBeFocused()
   await page.getByLabel('Kapacitet (LDM)').fill('0')
   await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
   await expect(page.getByText('Unesite naziv tipa.')).toBeVisible()
@@ -151,7 +154,7 @@ test('adds, changes and removes a truck type; the standard curtain-sider stays a
 
   await addType(page, { name: 'Solo', ldm: '7' })
   await expect(types.getByRole('row', { name: /Solo/ })).toContainText('bez ograničenja')
-  await page.getByRole('button', { name: 'Dodaj tip' }).click()
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
   await page.getByLabel('Naziv tipa').fill(' SOLO ')
   await page.getByLabel('Kapacitet (LDM)').fill('7')
   await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
@@ -175,30 +178,79 @@ test('adds, changes and removes a truck type; the standard curtain-sider stays a
   await page.getByRole('button', { name: 'Ukloni tip Solo 7 m' }).click()
   await page.getByRole('button', { name: 'Da, ukloni' }).click()
   await expect(types.getByRole('row')).toHaveCount(2)
+  await page.getByRole('region', { name: 'Tipovi kamiona' }).getByRole('button', { name: 'Zatvori' }).click()
+  await expect(page.getByRole('region', { name: 'Tipovi kamiona' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await expect(page.getByLabel('Popuni prema').getByRole('option')).toHaveCount(2)
   expect(errors).toEqual([])
 })
 
-test('saves a truck in the list as a new type, and fills the next truck from it', async ({ page }) => {
+test('a new type left with "Otkaži" goes on where it was; a type like another is refused', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.getByRole('button', { name: 'Napravi tip od Šleper 2' }).click()
-  await expect(page.getByRole('heading', { name: 'Novi tip kamiona' })).toBeVisible()
-  await expect(page.getByLabel('Naziv tipa')).toBeFocused()
-  await expect(page.getByLabel('Naziv tipa')).toHaveValue('Šleper')
-  await expect(page.getByLabel('Kapacitet (LDM)')).toHaveValue('13,6')
-  await expect(page.getByLabel('Dužina')).toHaveValue('13600')
-  await expect(page.getByLabel('Visina')).toHaveValue('2700')
-  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
-  const types = page.getByRole('table', { name: 'Tipovi kamiona' })
-  await expect(types.getByRole('row', { name: /Šleper/ })).toContainText('13600 × 2480 × 2700 mm')
+  // No more "Napravi tip" in the rows of the trucks.
+  await expect(page.getByRole('button', { name: /^Napravi tip/ })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
+  await page.getByLabel('Naziv tipa').fill('Hladnjača')
+  await page.getByLabel('Kapacitet (LDM)').fill('13,6')
+  await page.getByRole('button', { name: 'Otkaži' }).click()
 
-  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
-  await page.getByLabel('Popuni prema').selectOption({ label: 'Šleper (13,6 LDM, bez ograničenja težine, 13600 × 2480 × 2700 mm)' })
-  await expect(page.getByLabel('Naziv', { exact: true })).toHaveValue('Šleper 3')
+  // The card stays, and its button goes on with what was typed.
+  const card = page.getByRole('region', { name: 'Tipovi kamiona' })
+  await card.getByRole('button', { name: 'Nastavi dodavanje tipa' }).click()
+  await expect(page.getByLabel('Naziv tipa')).toHaveValue('Hladnjača')
+  await expect(page.getByLabel('Kapacitet (LDM)')).toHaveValue('13,6')
+  // The standard curtain-sider's measures under another name: a duplicate.
+  await page.getByLabel('Nosivost (kg)').fill('24000')
+  await page.getByLabel('Dužina').fill('13600')
+  await page.getByLabel('Širina').fill('2480')
+  await page.getByLabel('Visina').fill('2700')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  await expect(page.locator('.field__error', { hasText: 'Tip „Standardna cerada“ već ima iste mere' })).toBeVisible()
+  await page.getByLabel('Nosivost (kg)').fill('18000')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  await expect(page.getByRole('table', { name: 'Tipovi kamiona' }).getByRole('row', { name: /Hladnjača/ })).toContainText('18000')
+  // Saved: the next one starts empty.
+  await card.getByRole('button', { name: 'Dodaj tip' }).click()
+  await expect(page.getByLabel('Naziv tipa')).toHaveValue('')
   expect(errors).toEqual([])
 })
 
+test('removes every truck after asking, and puts them back on "Poništi"', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const trucks = page.getByRole('table', { name: 'Kamioni' })
+  await expect(trucks.getByRole('row')).toHaveCount(4) // header + 3
+  const before = await trucks.innerText()
+
+  // "Odustani" keeps them.
+  await page.getByRole('button', { name: 'Ukloni sve kamione' }).click()
+  await expect(page.getByText('Ukloniti sve kamione (3)?')).toBeVisible()
+  await page.getByRole('button', { name: 'Odustani' }).click()
+  await expect(trucks.getByRole('row')).toHaveCount(4)
+
+  await page.getByRole('button', { name: 'Ukloni sve kamione' }).click()
+  await page.getByRole('button', { name: 'Da, ukloni sve' }).click()
+  await expect(page.getByText('Uklonjeno kamiona: 3')).toBeVisible()
+  await expect(trucks).toHaveCount(0)
+  await expect(page.getByText('Nema unetih kamiona')).toBeVisible()
+
+  // Back as they were, with their ids.
+  await page.getByRole('button', { name: 'Poništi' }).click()
+  await expect(trucks.getByRole('row')).toHaveCount(4)
+  expect(await trucks.innerText()).toBe(before)
+  await expect(page.getByText('Uklonjeno kamiona: 3')).toHaveCount(0)
+
+  // A truck added after removing them all ends the chance to undo.
+  await page.getByRole('button', { name: 'Ukloni sve kamione' }).click()
+  await page.getByRole('button', { name: 'Da, ukloni sve' }).click()
+  await expect(page.getByText('Uklonjeno kamiona: 3')).toBeVisible()
+  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
+  await page.getByLabel('Naziv', { exact: true }).fill('Nova cerada')
+  await page.getByLabel('Kapacitet (LDM)').fill('13,6')
+  await page.getByRole('button', { name: 'Sačuvaj', exact: true }).click()
+  await expect(trucks.getByRole('row', { name: /Nova cerada/ })).toContainText('1')
+  await expect(page.getByRole('button', { name: 'Poništi' })).toHaveCount(0)
+  expect(errors).toEqual([])
+})
 test('requires all three dimensions or none', async ({ page }) => {
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Naziv').fill('X')

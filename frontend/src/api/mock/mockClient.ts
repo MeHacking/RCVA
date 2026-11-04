@@ -55,7 +55,6 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
   // Places are never removed: the scenario's fixed result names them.
   const editor = createShipmentEditor({ shipments, locations, locate: locateInGazetteer })
   const jobs = new Map<number, JobRecord>()
-  let nextTruckId = Math.max(0, ...trucks.map((t) => t.id)) + 1
   // Truck types live only while the page does, as the rest of the mock's changes.
   const truckTypes: TruckType[] = []
   let nextTruckTypeId = 1
@@ -151,7 +150,14 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
     createTruck: (input) =>
       respond(() => {
         assertValidTruck(input)
-        const created: Truck = { ...input, id: nextTruckId++ }
+        // The smallest id no truck has and the scenario's fixed result does not use (as on the device).
+        const taken = new Set([
+          ...trucks.map((t) => t.id),
+          ...(scenario.outcome.kind === 'COMPLETED' ? scenario.outcome.result.routes.map((r) => r.truckId) : []),
+        ])
+        let id = 1
+        while (taken.has(id)) id++
+        const created: Truck = { ...input, id }
         trucks.push(created)
         return created
       }),
@@ -179,6 +185,30 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
           })
         }
         trucks.splice(index, 1)
+      }),
+
+    deleteAllTrucks: () =>
+      respond(() => {
+        const running = [...jobs.values()].find((job) => !TERMINAL_JOB_STATUSES.includes(jobView(job).status))
+        if (running) {
+          throw new ApiError({
+            title: 'Optimizacija je u toku',
+            status: 409,
+            detail: `Optimizacija #${running.id} je u toku; kamioni se mogu ukloniti kada se završi.`,
+          })
+        }
+        return trucks.splice(0)
+      }),
+
+    restoreTrucks: (removed) =>
+      respond(() => {
+        const taken = removed.find((r) => trucks.some((t) => t.id === r.id))
+        if (taken) {
+          throw new ApiError({ title: 'Kamioni nisu vraćeni', status: 409, detail: `Id ${taken.id} već ima kamion.` })
+        }
+        trucks.push(...structuredClone(removed))
+        trucks.sort((a, b) => a.id - b.id)
+        return removed
       }),
 
     listTruckTypes: () => respond(() => truckTypes),

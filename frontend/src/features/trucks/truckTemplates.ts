@@ -46,16 +46,6 @@ export function describeMeasures(truck: Measures, withPayload: boolean): string 
 /** The built-in standard curtain-sider as a type, for the list of types. */
 export const STANDARD_TYPE: Omit<TruckType, 'id'> = { name: STANDARD_TYPE_NAME, ...STANDARD_TRUCK }
 
-/**
- * A new type from a truck in the list ("Napravi tip"): its measures, and its name without
- * the number at the end ("Šleper 2" -> "Šleper"), since the trucks made from the type get one.
- */
-export function typeDraftFromTruck(truck: Truck): Omit<TruckType, 'id'> {
-  const { capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm } = truck
-  const name = truck.name.trim().replace(/\s*\d+$/, '') || truck.name.trim()
-  return { name, capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm }
-}
-
 /** The standard curtain-sider first, then the user's types in their order. */
 export function truckTemplates(types: TruckType[], { withPayload = true }: { withPayload?: boolean } = {}): TruckTemplate[] {
   const label = (type: Omit<TruckType, 'id'>) => `${type.name} (${describeMeasures(type, withPayload)})`

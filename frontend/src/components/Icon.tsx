@@ -71,6 +71,13 @@ const PATHS = {
     </>
   ),
   chevron: <path d="m9 6 6 6-6 6" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  layers: (
+    <>
+      <path d="m12 3 9 5-9 5-9-5z" />
+      <path d="m3 13 9 5 9-5" />
+    </>
+  ),
   download: (
     <>
       <path d="M12 4v11" />

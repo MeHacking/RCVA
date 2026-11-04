@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react'
 import { useApi } from '../../api/apiContext'
+import { apiMode } from '../../api/apiMode'
 import { describeError } from '../../api/client'
 import type { Truck, TruckType } from '../../api/types'
+import { Icon } from '../../components/Icon'
+import { Notice } from '../../components/Notice'
 import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
@@ -10,13 +13,16 @@ import { TruckForm } from './TruckForm'
 import { TruckLocations } from './TruckLocations'
 import { TruckTypeForm } from './TruckTypeForm'
 import { TruckTypes } from './TruckTypes'
-import { typeDraftFromTruck } from './truckTemplates'
+import type { TruckFormValues } from './truckFormValidation'
+
+/** Removing every truck at once is the device's (and the mock's); the backend has it not. */
+const CAN_REMOVE_ALL = apiMode() !== 'server'
 
 /** One form at a time on the page: a truck's or a truck type's. */
 type Editing =
   | { mode: 'create' }
   | { mode: 'edit'; truck: Truck }
-  | { mode: 'createType'; draft: Omit<TruckType, 'id'> | null }
+  | { mode: 'createType' }
   | { mode: 'editType'; type: TruckType }
   | null
 
@@ -32,18 +38,64 @@ export function TrucksPage() {
   const [types, reloadTypes] = useAsyncData(loadTypes)
   const typeList = types.status === 'success' ? (types.data ?? []) : []
   const [editing, setEditing] = useState<Editing>(null)
+  /** the truck types card: shown on "Dodaj tip kamiona", until closed */
+  const [typesOpen, setTypesOpen] = useState(false)
+  /** what was typed into a new type before "Otkaži": the next "Dodaj tip" goes on from there */
+  const [typeDraft, setTypeDraft] = useState<TruckFormValues | null>(null)
+  const editType = (next: Editing) => {
+    setEditing(next)
+    setTypesOpen(true)
+  }
   /** truck waiting for the user to confirm removal */
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  /** "Ukloni sve kamione": asked, being done, or done with the trucks kept for "Poništi" */
+  const [removeAll, setRemoveAll] = useState<'idle' | 'asking' | 'removing' | 'restoring'>('idle')
+  const [removed, setRemoved] = useState<Truck[] | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
+
+  async function removeAllTrucks() {
+    setRemoveAll('removing')
+    setRemoveError(null)
+    try {
+      setRemoved(await api.deleteAllTrucks())
+      setRemoveAll('idle')
+      setEditing(null)
+      reload()
+      reloadStarts()
+    } catch (error) {
+      setRemoveError(`Kamioni nisu uklonjeni: ${describeError(error)}`)
+      setRemoveAll('asking')
+    }
+  }
+
+  async function undoRemoveAll() {
+    if (!removed) return
+    setRemoveAll('restoring')
+    setRemoveError(null)
+    try {
+      await api.restoreTrucks(removed)
+      setRemoved(null)
+      reload()
+      reloadStarts()
+    } catch (error) {
+      setRemoveError(`Kamioni nisu vraćeni: ${describeError(error)}`)
+    }
+    setRemoveAll('idle')
+  }
+
   const handleSaved = () => {
+    // A new truck may take a removed one's id: there is nothing to undo any more.
+    if (editing?.mode === 'create') setRemoved(null)
     setEditing(null)
     reload()
     reloadStarts()
   }
 
   const handleTypeSaved = () => {
+    if (editing?.mode === 'createType') setTypeDraft(null)
     setEditing(null)
     reloadTypes()
   }
@@ -79,13 +131,24 @@ export function TrucksPage() {
       <PageHeader
         title="Kamioni"
         actions={
-          <button
-            type="button"
-            onClick={() => setEditing({ mode: 'create' })}
-            disabled={trucks.status !== 'success' || types.status === 'loading'}
-          >
-            Dodaj kamion
-          </button>
+          <>
+            <button
+              type="button"
+              className="button--primary"
+              onClick={() => setEditing({ mode: 'create' })}
+              disabled={trucks.status !== 'success' || types.status === 'loading'}
+            >
+              <Icon name="plus" size={16} />
+              Dodaj kamion
+            </button>
+            {/* Only where types are kept (not on the backend). */}
+            {types.status === 'success' && types.data && (
+              <button type="button" onClick={() => editType({ mode: 'createType' })}>
+                <Icon name="layers" size={16} />
+                Dodaj tip kamiona
+              </button>
+            )}
+          </>
         }
       />
 
@@ -100,6 +163,76 @@ export function TrucksPage() {
         />
       )}
 
+      {typesOpen && types.status === 'success' && types.data && (
+        <TruckTypes
+          types={types.data}
+          editingId={editing?.mode === 'editType' ? editing.type.id : null}
+          onClose={() => {
+            setTypesOpen(false)
+            if (editing?.mode === 'createType' || editing?.mode === 'editType') setEditing(null)
+          }}
+          onEdit={(type) => editType({ mode: 'editType', type })}
+          onAdd={() => editType({ mode: 'createType' })}
+          continuing={typeDraft !== null}
+          onDeleted={handleTypeDeleted}
+          form={
+            (editing?.mode === 'createType' || editing?.mode === 'editType') && (
+              <TruckTypeForm
+                key={editing.mode === 'editType' ? editing.type.id : 'new'}
+                type={editing.mode === 'editType' ? editing.type : null}
+                initialValues={editing.mode === 'createType' ? typeDraft : null}
+                onSaved={handleTypeSaved}
+                onCancel={(values) => {
+                  if (editing.mode === 'createType') setTypeDraft(values)
+                  setEditing(null)
+                }}
+              />
+            )
+          }
+        />
+      )}
+      {removeAll !== 'idle' && removeAll !== 'restoring' && trucks.status === 'success' && (
+        <Notice tone="warning" title={`Ukloniti sve kamione (${trucks.data.length})?`} role="status">
+          <p>
+            Brišu se svi kamioni i njihove lokacije. Rezultati optimizacije ostaju. Odmah posle možete da poništite.
+          </p>
+          {removeError && (
+            <p role="alert" className="text--error">
+              {removeError}
+            </p>
+          )}
+          <div className="form-actions">
+            <button
+              type="button"
+              className="button--danger"
+              onClick={() => void removeAllTrucks()}
+              disabled={removeAll === 'removing'}
+            >
+              {removeAll === 'removing' ? 'Uklanjanje…' : 'Da, ukloni sve'}
+            </button>
+            <button type="button" onClick={() => setRemoveAll('idle')} disabled={removeAll === 'removing'}>
+              Odustani
+            </button>
+          </div>
+        </Notice>
+      )}
+      {removed && (
+        <Notice tone="success" title={`Uklonjeno kamiona: ${removed.length}`} role="status">
+          <p>
+            Kamioni i njihove lokacije su uklonjeni. Dok ne dodate nov kamion ili ne napustite ekran, možete ih vratiti.
+          </p>
+          {removeError && (
+            <p role="alert" className="text--error">
+              {removeError}
+            </p>
+          )}
+          <div className="form-actions">
+            <button type="button" onClick={() => void undoRemoveAll()} disabled={removeAll === 'restoring'}>
+              {removeAll === 'restoring' ? 'Vraćanje…' : 'Poništi'}
+            </button>
+          </div>
+        </Notice>
+      )}
       {deleteError && (
         <p role="alert" className="text--error">
           {deleteError}
@@ -112,30 +245,45 @@ export function TrucksPage() {
       {trucks.status === 'success' &&
         (trucks.data.length === 0 ? (
           <EmptyState title="Nema unetih kamiona">
-            Dodajte prvi kamion dugmetom „Dodaj kamion“. Za optimizaciju je dovoljan naziv i kapacitet u
-            LDM; dimenzije tovarnog prostora su potrebne samo za 3D prikaz.
+            Dodajte prvi kamion dugmetom „Dodaj kamion“. Za optimizaciju je dovoljan naziv i kapacitet u LDM; dimenzije
+            tovarnog prostora su potrebne samo za 3D prikaz.
           </EmptyState>
         ) : (
-          <TruckTable
-            trucks={trucks.data}
-            editingId={editing?.mode === 'edit' ? editing.truck.id : null}
-            confirmingId={confirmingId}
-            deletingId={deletingId}
-            onEdit={(truck) => setEditing({ mode: 'edit', truck })}
-            onAskDelete={askDelete}
-            // Only where types are kept (not on the backend).
-            onSaveAsType={
-              types.status === 'success' && types.data
-                ? (truck) => setEditing({ mode: 'createType', draft: typeDraftFromTruck(truck) })
-                : undefined
-            }
-            onConfirmDelete={(truck) => void confirmDelete(truck)}
-            onCancelDelete={() => setConfirmingId(null)}
-          />
+          <section className="panel truck-card" aria-labelledby="truck-list">
+            <div className="truck-card__header">
+              <h2 id="truck-list">Spisak kamiona</h2>
+              {CAN_REMOVE_ALL && (
+                <button
+                  type="button"
+                  className="button--ghost"
+                  onClick={() => {
+                    setRemoveError(null)
+                    setRemoveAll('asking')
+                  }}
+                  disabled={removeAll !== 'idle'}
+                >
+                  Ukloni sve kamione
+                </button>
+              )}
+            </div>
+            <p className="text--muted">
+              Kamioni koje optimizacija može da koristi. Kamion koji nije dostupan ne ulazi u optimizaciju.
+            </p>
+            <TruckTable
+              trucks={trucks.data}
+              editingId={editing?.mode === 'edit' ? editing.truck.id : null}
+              confirmingId={confirmingId}
+              deletingId={deletingId}
+              onEdit={(truck) => setEditing({ mode: 'edit', truck })}
+              onAskDelete={askDelete}
+              onConfirmDelete={(truck) => void confirmDelete(truck)}
+              onCancelDelete={() => setConfirmingId(null)}
+            />
+          </section>
         ))}
 
       {trucks.status === 'success' && trucks.data.length > 0 && starts.status === 'success' && starts.data && (
-        <section className="panel truck-locations" aria-labelledby="truck-locations">
+        <section className="panel truck-card truck-locations" aria-labelledby="truck-locations">
           <h2 id="truck-locations">Lokacije kamiona</h2>
           <p className="text--muted">
             Ruta svakog kamiona počinje tamo gde se kamion nalazi, pa se i vožnja do prvog utovara računa u kilometre.
@@ -144,29 +292,13 @@ export function TrucksPage() {
           <TruckLocations trucks={trucks.data} starts={starts.data} onChanged={reloadStarts} />
         </section>
       )}
-      {starts.status === 'error' && <ErrorState title="Lokacije kamiona nisu učitane" message={starts.message} onRetry={reloadStarts} />}
-
-      {types.status === 'success' && types.data && (
-        <TruckTypes
-          types={types.data}
-          editingId={editing?.mode === 'editType' ? editing.type.id : null}
-          onAdd={() => setEditing({ mode: 'createType', draft: null })}
-          onEdit={(type) => setEditing({ mode: 'editType', type })}
-          onDeleted={handleTypeDeleted}
-          form={
-            (editing?.mode === 'createType' || editing?.mode === 'editType') && (
-              <TruckTypeForm
-                key={editing.mode === 'editType' ? editing.type.id : 'new'}
-                type={editing.mode === 'editType' ? editing.type : null}
-                draft={editing.mode === 'createType' ? editing.draft : null}
-                onSaved={handleTypeSaved}
-                onCancel={() => setEditing(null)}
-              />
-            )
-          }
-        />
+      {starts.status === 'error' && (
+        <ErrorState title="Lokacije kamiona nisu učitane" message={starts.message} onRetry={reloadStarts} />
       )}
-      {types.status === 'error' && <ErrorState title="Tipovi kamiona nisu učitani" message={types.message} onRetry={reloadTypes} />}
+
+      {types.status === 'error' && (
+        <ErrorState title="Tipovi kamiona nisu učitani" message={types.message} onRetry={reloadTypes} />
+      )}
     </section>
   )
 }
@@ -178,7 +310,6 @@ function TruckTable({
   deletingId,
   onEdit,
   onAskDelete,
-  onSaveAsType,
   onConfirmDelete,
   onCancelDelete,
 }: {
@@ -188,8 +319,6 @@ function TruckTable({
   deletingId: number | null
   onEdit: (truck: Truck) => void
   onAskDelete: (truck: Truck) => void
-  /** opens the form of a new type filled from the truck; not given where there are no types */
-  onSaveAsType?: (truck: Truck) => void
   onConfirmDelete: (truck: Truck) => void
   onCancelDelete: () => void
 }) {
@@ -220,7 +349,11 @@ function TruckTable({
               <td>{truck.name}</td>
               <td className="num">{formatLdm(truck.capacityLdmTenths)}</td>
               <td className="num">
-                {truck.capacityKg === null ? <span className="text--muted">bez ograničenja</span> : formatKg(truck.capacityKg)}
+                {truck.capacityKg === null ? (
+                  <span className="text--muted">bez ograničenja</span>
+                ) : (
+                  formatKg(truck.capacityKg)
+                )}
               </td>
               <td>
                 {formatDimensionsMm(truck.innerLengthMm, truck.innerWidthMm, truck.innerHeightMm) ?? (
@@ -257,16 +390,6 @@ function TruckTable({
                     >
                       Ukloni
                     </button>
-                    {onSaveAsType && (
-                      <button
-                        type="button"
-                        className="button--ghost"
-                        onClick={() => onSaveAsType(truck)}
-                        aria-label={`Napravi tip od ${truck.name}`}
-                      >
-                        Napravi tip
-                      </button>
-                    )}
                   </span>
                 )}
               </td>

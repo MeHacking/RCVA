@@ -331,17 +331,68 @@ describe('local storage on the device', () => {
 
     const after = setup('small', steps, store)
     expect((await after.listTrucks()).map((t) => t.name)).toEqual(['Šleper A', 'Solo 1', 'Cerada 7'])
+    // No job used truck 2, so its id is free again: the smallest free id, not a counter.
+    expect((await after.createTruck(TRUCK)).id).toBe(2)
     expect((await after.createTruck(TRUCK)).id).toBe(created.id + 1)
+  })
+
+  it('removes every truck and puts them back as they were, ids and locations', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const before = await api.listTrucks()
+    const starts = await api.getTruckStarts()
+
+    const removed = await api.deleteAllTrucks()
+    expect(removed).toEqual(before)
+    expect(await api.listTrucks()).toEqual([])
+    // Kept on the device at once, as every change is.
+    expect(await setup('small', steps, store).listTrucks()).toEqual([])
+
+    expect(await api.restoreTrucks(removed)).toEqual(before)
+    expect(await api.listTrucks()).toEqual(before)
+    expect(await api.getTruckStarts()).toEqual(starts)
+
+    // Not over a truck that took one of the ids meanwhile.
+    await api.deleteAllTrucks()
+    await api.createTruck(TRUCK)
+    const taken = await rejection(api.restoreTrucks(removed))
+    expect([taken.status, taken.problem.detail]).toEqual([409, 'Id 1 već ima kamion „Cerada 7“.'])
+  })
+
+  it('removes no truck while a job waits or runs', async () => {
+    // The solver waits until released, so the job is still running when the trucks are asked for.
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const api = setup('small', (input, options) => held.then(() => steps(input, options)))
+    const { id } = await api.createOptimizationJob(REQUEST)
+    const error = await rejection(api.deleteAllTrucks())
+    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija #${id} je u toku; kamioni se mogu ukloniti kada se završi.` })
+    expect(await api.listTrucks()).toHaveLength(3)
+    release()
+    await settle(api, id)
+    expect(await api.deleteAllTrucks()).toHaveLength(3)
+  })
+
+  it('gives a removed truck id again only when no kept job uses it', async () => {
+    const api = setup('small', steps)
+    // The job drives Šleper 1 and 2; Solo 1 (id 3) is not available, so the job has it not.
+    const { id } = await api.createOptimizationJob(REQUEST)
+    expect((await settle(api, id)).status).toBe('COMPLETED')
+    await api.deleteTruck(2)
+    await api.deleteTruck(3)
+    // 2 is in the kept job (its result and proposal would show the new truck): skipped.
+    expect((await api.createTruck(TRUCK)).id).toBe(3)
+    expect((await api.createTruck(TRUCK)).id).toBe(4)
   })
 
   it('keeps truck types and their next id across a restart; a type changes no truck', async () => {
     const store = createMemoryStore<LocalData>()
     const api = setup('small', steps, store)
-    const cold = await api.createTruckType({ ...measures, name: ' Hladnjača ' })
+    const cold = await api.createTruckType({ ...measures, capacityKg: 18_000, name: ' Hladnjača ' })
     const solo = await api.createTruckType({ ...measures, name: 'Solo', capacityLdmTenths: 70, capacityKg: null })
-    expect(cold).toEqual({ id: 1, ...measures, name: 'Hladnjača' })
+    expect(cold).toEqual({ id: 1, ...measures, capacityKg: 18_000, name: 'Hladnjača' })
     const trucksBefore = await api.listTrucks()
-    const last = await api.createTruckType({ ...measures, name: 'Mega' })
+    const last = await api.createTruckType({ ...measures, capacityKg: 30_000, name: 'Mega' })
     await api.updateTruckType(solo.id, { ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: null })
     await api.deleteTruckType(cold.id)
     await api.deleteTruckType(last.id)
@@ -350,13 +401,13 @@ describe('local storage on the device', () => {
     const after = setup('small', steps, store)
     expect(await after.listTruckTypes()).toEqual([{ id: 2, ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: null }])
     // The id of a removed type is not given again.
-    expect((await after.createTruckType({ ...measures, name: 'Hladnjača' })).id).toBe(4)
+    expect((await after.createTruckType({ ...measures, capacityKg: 19_000, name: 'Hladnjača' })).id).toBe(4)
   })
 
   it('checks a truck type: measures, a name no other type has, and not the built-in one', async () => {
     const api = setup('small')
-    await api.createTruckType({ ...measures, name: 'Hladnjača' })
-    const other = await api.createTruckType({ ...measures, name: 'Solo' })
+    await api.createTruckType({ ...measures, capacityKg: 18_000, name: 'Hladnjača' })
+    const other = await api.createTruckType({ ...measures, capacityKg: 10_000, name: 'Solo' })
 
     const bad = await rejection(api.createTruckType({ ...measures, name: ' ', capacityLdmTenths: 0, innerWidthMm: -1 }))
     expect(bad.status).toBe(400)
@@ -374,9 +425,18 @@ describe('local storage on the device', () => {
     expect((await rejection(api.createTruckType({ ...measures, name: 'standardna cerada' }))).problem.errors).toEqual({
       name: '„Standardna cerada“ je ugrađen tip; izaberite drugi naziv.',
     })
+    // Another name, the same measures: a duplicate as well, of an added type or of the built-in one.
+    expect((await rejection(api.createTruckType({ ...measures, capacityKg: 18_000, name: 'Kopija' }))).problem.errors).toEqual({
+      name: 'Tip „Hladnjača“ već ima iste mere (kapacitet, nosivost i tovarni prostor).',
+    })
+    expect((await rejection(api.updateTruckType(other.id, { ...measures, name: 'Solo' }))).problem.errors).toEqual({
+      name: 'Tip „Standardna cerada“ već ima iste mere (kapacitet, nosivost i tovarni prostor).',
+    })
+    // One measure apart is another type.
+    await api.createTruckType({ ...measures, capacityKg: 18_000, innerHeightMm: 2600, name: 'Niža hladnjača' })
     // A type keeps its own name when it is saved again.
     await api.updateTruckType(other.id, { ...measures, name: 'Solo', capacityKg: 12_000 })
-    expect((await api.listTruckTypes())?.map((t) => t.name)).toEqual(['Hladnjača', 'Solo'])
+    expect((await api.listTruckTypes())?.map((t) => t.name)).toEqual(['Hladnjača', 'Solo', 'Niža hladnjača'])
 
     expect((await rejection(api.updateTruckType(99, { ...measures, name: 'X' }))).status).toBe(404)
     expect((await rejection(api.deleteTruckType(99))).status).toBe(404)
@@ -390,7 +450,7 @@ describe('local storage on the device', () => {
     delete older.nextTruckTypeId
     const api = setup('small', steps, createMemoryStore<LocalData>({ version: 1, data: older }))
     expect(await api.listTruckTypes()).toEqual([])
-    expect((await api.createTruckType({ ...measures, name: 'Hladnjača' })).id).toBe(1)
+    expect((await api.createTruckType({ ...measures, capacityKg: 18_000, name: 'Hladnjača' })).id).toBe(1)
   })
 
   it('keeps a finished job with its result and 3D plan', async () => {

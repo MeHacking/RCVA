@@ -1,4 +1,5 @@
 import { ApiError } from './client'
+import { STANDARD_TRUCK } from '../domain/fleet'
 import type { TruckInput, TruckType, TruckTypeInput } from './types'
 
 /** The name of the built-in truck type (STANDARD_TRUCK); no type the user adds may take it. */
@@ -42,9 +43,26 @@ export function assertValidTruckType(input: TruckTypeInput, types: TruckType[], 
   if (input.name.trim() === '') errors.name = 'Naziv je obavezan.'
   else if (sameName(input.name, STANDARD_TYPE_NAME)) errors.name = `„${STANDARD_TYPE_NAME}“ je ugrađen tip; izaberite drugi naziv.`
   else if (types.some((t) => t.id !== id && sameName(t.name, input.name))) errors.name = 'Tip sa tim nazivom već postoji.'
+  // Another name for a type there is already is a duplicate too (the built-in one included).
+  if (Object.keys(errors).length === 0) {
+    const twin = sameMeasures(input, STANDARD_TRUCK)
+      ? STANDARD_TYPE_NAME
+      : types.find((t) => t.id !== id && sameMeasures(input, t))?.name
+    if (twin) errors.name = `Tip „${twin}“ već ima iste mere (kapacitet, nosivost i tovarni prostor).`
+  }
   if (Object.keys(errors).length > 0) {
     throw new ApiError({ title: 'Neispravni podaci o tipu kamiona', status: 400, errors })
   }
+}
+
+function sameMeasures(a: Measures, b: Measures): boolean {
+  return (
+    a.capacityLdmTenths === b.capacityLdmTenths &&
+    a.capacityKg === b.capacityKg &&
+    a.innerLengthMm === b.innerLengthMm &&
+    a.innerWidthMm === b.innerWidthMm &&
+    a.innerHeightMm === b.innerHeightMm
+  )
 }
 
 /** The stored form of a type: the name without surrounding spaces, only the known fields. */

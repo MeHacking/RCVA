@@ -42,7 +42,7 @@ test('keeps a new truck and the last result after a page reload', async ({ page 
 test('keeps a truck type after a page reload, and fills a new truck from it', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/trucks')
-  await page.getByRole('button', { name: 'Dodaj tip' }).click()
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
   await page.getByLabel('Naziv tipa').fill('Hladnjača')
   await page.getByLabel('Kapacitet (LDM)').fill('12')
   await page.getByLabel('Nosivost (kg)').fill('18000')
@@ -51,6 +51,9 @@ test('keeps a truck type after a page reload, and fills a new truck from it', as
   await expect(types.getByRole('row', { name: /Hladnjača/ })).toContainText('18000')
 
   await page.reload()
+  // The types card opens on asking, after a reload too.
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
+  await page.getByRole('button', { name: 'Otkaži' }).click()
   await expect(types.getByRole('row', { name: /Hladnjača/ })).toContainText('12,0')
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Popuni prema').selectOption({ label: 'Hladnjača (12,0 LDM, 18000 kg)' })

@@ -59,6 +59,16 @@ export interface ApiClient {
   /** DELETE /trucks/{id} (204); 409 while an optimization job is queued or running */
   deleteTruck(id: number): Promise<void>
   /**
+   * NOT IN SPEC v2: removes every truck, and gives them as they were, for "Poništi"
+   * (restoreTrucks). 409 while a job waits or runs; 404 over HTTP.
+   */
+  deleteAllTrucks(): Promise<Truck[]>
+  /**
+   * NOT IN SPEC v2: puts removed trucks back as they were (ids and locations; a location whose
+   * place is gone is dropped). 409 when one of the ids is taken again; 404 over HTTP.
+   */
+  restoreTrucks(trucks: Truck[]): Promise<Truck[]>
+  /**
    * NOT IN SPEC v2: where every available truck starts the next job, with the location
    * proposed from its last delivery; null where trucks have no location (mock, backend).
    */

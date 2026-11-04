@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useApi } from '../../api/apiContext'
 import { describeError } from '../../api/client'
 import type { TruckType } from '../../api/types'
+import { Icon } from '../../components/Icon'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { PAYLOAD_SUPPORTED } from './truckFormValidation'
 import { STANDARD_TYPE } from './truckTemplates'
@@ -15,7 +16,9 @@ export function TruckTypes({
   types,
   editingId,
   form,
+  onClose,
   onAdd,
+  continuing,
   onEdit,
   onDeleted,
 }: {
@@ -23,7 +26,11 @@ export function TruckTypes({
   /** the type in the open form, if any */
   editingId: number | null
   form: ReactNode
+  onClose: () => void
+  /** opens the form of a new type again, after "Otkaži" or a saved type */
   onAdd: () => void
+  /** a new type was begun and left: the button goes on with it */
+  continuing: boolean
   onEdit: (type: TruckType) => void
   onDeleted: (type: TruckType) => void
 }) {
@@ -47,19 +54,26 @@ export function TruckTypes({
   }
 
   return (
-    <section className="panel truck-types" aria-labelledby="truck-types">
-      <div className="truck-types__header">
+    <section className="panel truck-card truck-types" aria-labelledby="truck-types">
+      <div className="truck-card__header">
         <h2 id="truck-types">Tipovi kamiona</h2>
-        <button type="button" onClick={onAdd}>
-          Dodaj tip
+        <button type="button" className="button--ghost" onClick={onClose}>
+          Zatvori
         </button>
       </div>
       <p className="text--muted">
-        Pri dodavanju kamiona možete izabrati tip, pa se kapacitet, nosivost i dimenzije popune sami. Standardna cerada je
-        ugrađena i ne menja se; po njoj aplikacija predlaže i dodatne kamione kada postojeći nisu dovoljni.
+        Pri dodavanju kamiona možete izabrati tip, pa se kapacitet, nosivost i dimenzije popune sami. Standardna cerada
+        je ugrađena i ne menja se; po njoj aplikacija predlaže i dodatne kamione kada postojeći nisu dovoljni.
       </p>
 
-      {form}
+      {form || (
+        <div className="form-actions">
+          <button type="button" onClick={onAdd}>
+            <Icon name="plus" size={16} />
+            {continuing ? 'Nastavi dodavanje tipa' : 'Dodaj tip'}
+          </button>
+        </div>
+      )}
 
       {deleteError && (
         <p role="alert" className="text--error">
@@ -131,13 +145,21 @@ export function TruckTypes({
         </table>
       </div>
       {types.length === 0 && (
-        <p className="text--muted">Još niste dodali nijedan tip. Dodajte ga dugmetom „Dodaj tip“.</p>
+        <p className="text--muted">Još niste dodali nijedan tip. Dodajte ga dugmetom „Dodaj tip kamiona“.</p>
       )}
     </section>
   )
 }
 
-function TypeRow({ type, current = false, children }: { type: Omit<TruckType, 'id'>; current?: boolean; children: ReactNode }) {
+function TypeRow({
+  type,
+  current = false,
+  children,
+}: {
+  type: Omit<TruckType, 'id'>
+  current?: boolean
+  children: ReactNode
+}) {
   return (
     <tr aria-current={current ? 'true' : undefined}>
       <td>{type.name}</td>

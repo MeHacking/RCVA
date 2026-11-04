@@ -37,7 +37,9 @@ test('runs a job and shows summary, validator, routes and unassigned shipments',
   const stats = page.locator('.stats')
   await expect(stats).toContainText('Kamioni2')
   await expect(stats).toContainText('jednako donjoj granici po kapacitetu')
-  await expect(stats).toContainText(/0hard\/-2medium\/-\d+soft/)
+  // The score is no card any more: its place is "Izvezi PDF", the last card of the row.
+  await expect(stats).not.toContainText(/hard|medium|soft/)
+  await expect(stats.locator(':scope > *').last()).toHaveText(/^Izvezi PDF/)
   await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
 
   const firstTruck = routes.getByRole('row', { name: /Šleper 1/ })

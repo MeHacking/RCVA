@@ -702,6 +702,22 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     }
   }
 
+  /**
+   * A new truck's id: the smallest one no truck has and no kept job uses. A removed truck's id
+   * comes back once its jobs are gone, so an old result never shows another truck under it and
+   * a new truck never gets a removed one's proposed location.
+   */
+  function freeTruckId(): number {
+    const taken = new Set(trucks.map((t) => t.id))
+    for (const job of jobs.values()) {
+      for (const id of job.fleet.keys()) taken.add(id)
+      for (const route of job.result?.routes ?? []) taken.add(route.truckId)
+    }
+    let id = 1
+    while (taken.has(id)) id++
+    return id
+  }
+
   return {
     listLocations: () => respond(() => locations),
     listShipments: () => respond(() => shipments),
@@ -712,7 +728,10 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       change(() => {
         assertValidTruck(input)
         // Where it is comes with setTruckStart (looked up, or confirmed by the user).
-        const created: Truck = { ...input, id: nextTruckId++, startLocationId: null, startSetAfterJobId: null }
+        const id = freeTruckId()
+        // Still kept (and in the data file) as "above every id", which the file check wants.
+        nextTruckId = Math.max(nextTruckId, id + 1)
+        const created: Truck = { ...input, id, startLocationId: null, startSetAfterJobId: null }
         trucks.push(created)
         return created
       }),
@@ -773,6 +792,34 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           })
         }
         trucks.splice(index, 1)
+      }),
+
+    deleteAllTrucks: () =>
+      change(() => {
+        assertNoActiveJob('kamioni se mogu ukloniti')
+        return trucks.splice(0)
+      }),
+
+    restoreTrucks: (removed) =>
+      change(() => {
+        const taken = removed.find((r) => trucks.some((t) => t.id === r.id))
+        if (taken) {
+          throw new ApiError({
+            title: 'Kamioni nisu vraćeni',
+            status: 409,
+            detail: `Id ${taken.id} već ima kamion „${trucks.find((t) => t.id === taken.id)!.name}“.`,
+          })
+        }
+        const places = new Set(locations.map((l) => l.id))
+        const restored = removed.map((r) => {
+          const truck = structuredClone(r)
+          if (truck.startLocationId != null && !places.has(truck.startLocationId)) truck.startLocationId = null
+          return truck
+        })
+        trucks.push(...restored)
+        trucks.sort((a, b) => a.id - b.id)
+        nextTruckId = Math.max(nextTruckId, ...trucks.map((t) => t.id + 1))
+        return restored
       }),
 
     listTruckTypes: () => respond(() => truckTypes),

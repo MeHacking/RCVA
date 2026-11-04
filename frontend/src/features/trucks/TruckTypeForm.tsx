@@ -16,16 +16,17 @@ import { FieldError, TruckMeasureFields } from './TruckMeasureFields'
 interface TruckTypeFormProps {
   /** null = add a new type */
   type: TruckType | null
-  /** what a new type starts from (a truck saved as a type); empty when not given */
-  draft?: Omit<TruckType, 'id'> | null
+  /** what a new type goes on from (typed before "Otkaži"); empty when not given */
+  initialValues?: TruckFormValues | null
   onSaved: (type: TruckType) => void
-  onCancel: () => void
+  /** gets what was typed, so adding a type can go on later */
+  onCancel: (values: TruckFormValues) => void
 }
 
-export function TruckTypeForm({ type, draft = null, onSaved, onCancel }: TruckTypeFormProps) {
+export function TruckTypeForm({ type, initialValues = null, onSaved, onCancel }: TruckTypeFormProps) {
   const api = useApi()
   const id = useId()
-  const [values, setValues] = useState<TruckFormValues>(() => truckTypeToFormValues(type ?? draft))
+  const [values, setValues] = useState<TruckFormValues>(() => initialValues ?? truckTypeToFormValues(type))
   const [errors, setErrors] = useState<TruckFormErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -48,7 +49,9 @@ export function TruckTypeForm({ type, draft = null, onSaved, onCancel }: TruckTy
     setFormError(null)
     setSaving(true)
     try {
-      const saved = type ? await api.updateTruckType(type.id, validation.input) : await api.createTruckType(validation.input)
+      const saved = type
+        ? await api.updateTruckType(type.id, validation.input)
+        : await api.createTruckType(validation.input)
       onSaved(saved)
     } catch (error) {
       if (error instanceof ApiError && error.status === 400 && error.problem.errors) {
@@ -65,7 +68,9 @@ export function TruckTypeForm({ type, draft = null, onSaved, onCancel }: TruckTy
     <form className="truck-form truck-type-form" onSubmit={handleSubmit} noValidate aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>{type ? `Izmena tipa „${type.name}“` : 'Novi tip kamiona'}</h3>
       {type && (
-        <p className="text--muted">Izmena tipa ne menja kamione koji su već dodati; važi za kamione koje dodate posle.</p>
+        <p className="text--muted">
+          Izmena tipa ne menja kamione koji su već dodati; važi za kamione koje dodate posle.
+        </p>
       )}
 
       <div className="field">
@@ -92,7 +97,7 @@ export function TruckTypeForm({ type, draft = null, onSaved, onCancel }: TruckTy
         <button type="submit" className="button--primary" disabled={saving}>
           {saving ? 'Čuvanje…' : 'Sačuvaj tip'}
         </button>
-        <button type="button" onClick={onCancel} disabled={saving}>
+        <button type="button" onClick={() => onCancel(values)} disabled={saving}>
           Otkaži
         </button>
       </div>

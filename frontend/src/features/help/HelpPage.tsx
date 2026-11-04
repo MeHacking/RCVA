@@ -266,11 +266,12 @@ function Steps() {
       </p>
       {TRUCK_TYPES && (
         <p>
-          Tipovi se vode u odeljku <strong>„Tipovi kamiona“</strong>, ispod kamiona. „Standardna cerada“ je ugrađena i
-          ne menja se, jer po njoj aplikacija predlaže dodatne kamione kada postojeći nisu dovoljni. Svoj tip dodajete
-          dugmetom „Dodaj tip“, ili od kamiona koji već imate dugmetom „Napravi tip“ u njegovom redu (naziv tipa je
-          naziv kamiona bez broja na kraju), i posle ga menjate ili uklanjate. Izmena ili uklanjanje tipa ne menja
-          kamione koji su već dodati.
+          Tipovi se vode u kartici <strong>„Tipovi kamiona“</strong>, koju otvara dugme „Dodaj tip kamiona“ (pored
+          „Dodaj kamion“): u njoj je obrazac za novi tip i spisak postojećih, koje menjate ili uklanjate. „Standardna
+          cerada“ je ugrađena i ne menja se, jer po njoj aplikacija predlaže dodatne kamione kada postojeći nisu
+          dovoljni. Tip ne sme imati isti naziv ni iste mere (kapacitet, nosivost i tovarni prostor) kao neki postojeći.
+          Ako odustanete („Otkaži“), uneto se pamti i „Nastavi dodavanje tipa“ nastavlja odatle. Izmena ili uklanjanje
+          tipa ne menja kamione koji su već dodati.
         </p>
       )}
       {ON_DEVICE && (
