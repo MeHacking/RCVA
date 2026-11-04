@@ -1,10 +1,13 @@
 import { ApiError } from './client'
-import type { TruckInput } from './types'
+import type { TruckInput, TruckType, TruckTypeInput } from './types'
 
-/** Server-side checks of a truck (400 with field errors); the same messages as the backend's TruckService. */
-export function assertValidTruck(input: TruckInput): void {
+/** The name of the built-in truck type (STANDARD_TRUCK); no type the user adds may take it. */
+export const STANDARD_TYPE_NAME = 'Standardna cerada'
+
+type Measures = Pick<TruckInput, 'capacityLdmTenths' | 'capacityKg' | 'innerLengthMm' | 'innerWidthMm' | 'innerHeightMm'>
+
+function measureErrors(input: Measures): Record<string, string> {
   const errors: Record<string, string> = {}
-  if (input.name.trim() === '') errors.name = 'Naziv je obavezan.'
   if (!Number.isInteger(input.capacityLdmTenths) || input.capacityLdmTenths <= 0) {
     errors.capacityLdmTenths = 'Kapacitet mora biti veći od 0.'
   }
@@ -15,7 +18,37 @@ export function assertValidTruck(input: TruckInput): void {
     const value = input[field]
     if (value !== null && (!Number.isInteger(value) || value <= 0)) errors[field] = 'Mora biti pozitivan ceo broj.'
   }
+  return errors
+}
+
+/** Server-side checks of a truck (400 with field errors); the same messages as the backend's TruckService. */
+export function assertValidTruck(input: TruckInput): void {
+  const errors = measureErrors(input)
+  if (input.name.trim() === '') errors.name = 'Naziv je obavezan.'
   if (Object.keys(errors).length > 0) {
     throw new ApiError({ title: 'Neispravni podaci o kamionu', status: 400, errors })
   }
+}
+
+const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('sr') === b.trim().toLocaleLowerCase('sr')
+
+/**
+ * Checks of a truck type (400 with field errors): the measures as for a truck, and a name no
+ * other type has (without case and surrounding spaces), nor the built-in standard one.
+ * `id` is the type being changed (null for a new one).
+ */
+export function assertValidTruckType(input: TruckTypeInput, types: TruckType[], id: number | null): void {
+  const errors = measureErrors(input)
+  if (input.name.trim() === '') errors.name = 'Naziv je obavezan.'
+  else if (sameName(input.name, STANDARD_TYPE_NAME)) errors.name = `„${STANDARD_TYPE_NAME}“ je ugrađen tip; izaberite drugi naziv.`
+  else if (types.some((t) => t.id !== id && sameName(t.name, input.name))) errors.name = 'Tip sa tim nazivom već postoji.'
+  if (Object.keys(errors).length > 0) {
+    throw new ApiError({ title: 'Neispravni podaci o tipu kamiona', status: 400, errors })
+  }
+}
+
+/** The stored form of a type: the name without surrounding spaces, only the known fields. */
+export function toTruckType(id: number, input: TruckTypeInput): TruckType {
+  const { capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm } = input
+  return { id, name: input.name.trim(), capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm }
 }

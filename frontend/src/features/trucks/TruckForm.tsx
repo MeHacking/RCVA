@@ -1,31 +1,31 @@
 import { useId, useState, type FormEvent } from 'react'
 import { useApi } from '../../api/apiContext'
-import { apiMode } from '../../api/apiMode'
 import { ApiError, describeError } from '../../api/client'
-import type { Truck } from '../../api/types'
+import type { Truck, TruckType } from '../../api/types'
 import {
   apiErrorsToForm,
+  fieldPropsFor,
+  PAYLOAD_SUPPORTED,
   truckToFormValues,
   validateTruckForm,
   type TruckFormErrors,
-  type TruckFormField,
   type TruckFormValues,
 } from './truckFormValidation'
+import { FieldError, TruckMeasureFields } from './TruckMeasureFields'
 import { applyTemplate, truckTemplates } from './truckTemplates'
 
 interface TruckFormProps {
   /** null = add a new truck */
   truck: Truck | null
-  /** the trucks in the list: a new truck can be filled from one of them */
+  /** the trucks in the list: a new truck gets a name none of them has */
   trucks?: Truck[]
+  /** the truck types the user added: a new truck can be filled from one of them */
+  types?: TruckType[]
   onSaved: (truck: Truck) => void
   onCancel: () => void
 }
 
-// The backend does not store a payload (B2 is only on the device), so the field would be lost there.
-const PAYLOAD_SUPPORTED = apiMode() !== 'server'
-
-export function TruckForm({ truck, trucks = [], onSaved, onCancel }: TruckFormProps) {
+export function TruckForm({ truck, trucks = [], types = [], onSaved, onCancel }: TruckFormProps) {
   const api = useApi()
   const id = useId()
   const [values, setValues] = useState<TruckFormValues>(() => truckToFormValues(truck))
@@ -35,7 +35,7 @@ export function TruckForm({ truck, trucks = [], onSaved, onCancel }: TruckFormPr
   const [templateKey, setTemplateKey] = useState('')
   /** the name the last template offered, replaced by the next one until the user types their own */
   const [offeredName, setOfferedName] = useState<string | null>(null)
-  const templates = truck ? [] : truckTemplates(trucks, { withPayload: PAYLOAD_SUPPORTED })
+  const templates = truck ? [] : truckTemplates(types, { withPayload: PAYLOAD_SUPPORTED })
 
   function chooseTemplate(key: string) {
     setTemplateKey(key)
@@ -79,17 +79,7 @@ export function TruckForm({ truck, trucks = [], onSaved, onCancel }: TruckFormPr
     }
   }
 
-  const fieldProps = (field: TruckFormField) => ({
-    id: `${id}-${field}`,
-    'aria-invalid': errors[field] ? true : undefined,
-    'aria-describedby': errors[field] ? `${id}-${field}-error` : undefined,
-  })
-  const fieldError = (field: TruckFormField) =>
-    errors[field] && (
-      <span id={`${id}-${field}-error`} className="field__error">
-        {errors[field]}
-      </span>
-    )
+  const fieldProps = fieldPropsFor(id, errors)
 
   return (
     <form className="panel truck-form" onSubmit={handleSubmit} noValidate aria-labelledby={`${id}-title`}>
@@ -112,7 +102,7 @@ export function TruckForm({ truck, trucks = [], onSaved, onCancel }: TruckFormPr
             ))}
           </select>
           <span id={`${id}-template-hint`} className="field__hint">
-            Kapacitet, nosivost i dimenzije se prepisuju iz izabranog kamiona; posle ih možete menjati.
+            Kapacitet, nosivost i dimenzije se prepisuju iz izabranog tipa kamiona; posle ih možete menjati.
           </span>
         </div>
       )}
@@ -120,59 +110,10 @@ export function TruckForm({ truck, trucks = [], onSaved, onCancel }: TruckFormPr
       <div className="field">
         <label htmlFor={`${id}-name`}>Naziv</label>
         <input {...fieldProps('name')} value={values.name} onChange={(e) => set('name', e.target.value)} />
-        {fieldError('name')}
+        <FieldError id={id} field="name" errors={errors} />
       </div>
 
-      <div className="field">
-        <label htmlFor={`${id}-capacityLdm`}>Kapacitet (LDM)</label>
-        <input
-          {...fieldProps('capacityLdm')}
-          inputMode="decimal"
-          placeholder="npr. 13,6"
-          value={values.capacityLdm}
-          onChange={(e) => set('capacityLdm', e.target.value)}
-        />
-        {fieldError('capacityLdm')}
-      </div>
-
-      {PAYLOAD_SUPPORTED && (
-        <div className="field">
-          <label htmlFor={`${id}-capacityKg`}>Nosivost (kg)</label>
-          <input
-            {...fieldProps('capacityKg')}
-            inputMode="numeric"
-            placeholder="prazno = bez ograničenja"
-            value={values.capacityKg}
-            onChange={(e) => set('capacityKg', e.target.value)}
-          />
-          {fieldError('capacityKg')}
-        </div>
-      )}
-
-      <fieldset className="field" aria-describedby={errors.dimensions ? `${id}-dimensions-error` : undefined}>
-        <legend>Tovarni prostor u mm (opciono, za 3D prikaz)</legend>
-        <div className="field-row">
-          {(
-            [
-              ['innerLengthMm', 'Dužina'],
-              ['innerWidthMm', 'Širina'],
-              ['innerHeightMm', 'Visina'],
-            ] as const
-          ).map(([field, label]) => (
-            <div className="field" key={field}>
-              <label htmlFor={`${id}-${field}`}>{label}</label>
-              <input
-                {...fieldProps(field)}
-                inputMode="numeric"
-                value={values[field]}
-                onChange={(e) => set(field, e.target.value)}
-              />
-              {fieldError(field)}
-            </div>
-          ))}
-        </div>
-        {fieldError('dimensions')}
-      </fieldset>
+      <TruckMeasureFields id={id} values={values} errors={errors} withPayload={PAYLOAD_SUPPORTED} onChange={set} />
 
       <div className="field field--checkbox">
         <input

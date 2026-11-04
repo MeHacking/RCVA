@@ -42,6 +42,8 @@ export function writeDeviceFile(data: Required<LocalData>, exportedAt: Date): st
       distanceCache: data.distanceCache,
       routeLineCache: data.routeLineCache,
       jobLog: data.jobLog,
+      truckTypes: data.truckTypes,
+      nextTruckTypeId: data.nextTruckTypeId,
       jobs: data.jobs.map((job) => ({
         ...job,
         fleet: [...job.fleet.values()],
@@ -95,6 +97,7 @@ export function readDeviceFile(text: string): { data: LocalData; summary: Device
       shipments: data.shipments.length,
       locations: data.locations.length,
       trucks: data.trucks.length,
+      truckTypes: data.truckTypes?.length ?? 0,
       results: jobs.filter((j) => j.status === 'COMPLETED').length,
       geocodes: Object.keys(data.geocodeCache).length,
       distances: Object.keys(data.distanceCache).length,
@@ -185,6 +188,15 @@ const TRUCK = object({
   startLocationId: optional(nullable(INT)),
   startSetAfterJobId: optional(nullable(INT)),
 })
+const TRUCK_TYPE = object({
+  id: INT,
+  name: STR,
+  capacityLdmTenths: INT,
+  capacityKg: nullable(NUM),
+  innerLengthMm: nullable(NUM),
+  innerWidthMm: nullable(NUM),
+  innerHeightMm: nullable(NUM),
+})
 const RESULT = object({
   status: JOB_STATUS,
   feasible: BOOL,
@@ -270,6 +282,9 @@ const FILE = object({
     routeLineCache: recordOf(arrayOf(POINT)),
     // Added 03.11.2026; older files have no log.
     jobLog: optional(arrayOf(STR)),
+    // Added 04.11.2026; older files have no truck types.
+    truckTypes: optional(arrayOf(TRUCK_TYPE)),
+    nextTruckTypeId: optional(INT),
   }),
 })
 
@@ -292,6 +307,7 @@ function checkReferences(data: FileData): void {
   unique(data.locations, 'mesto')
   unique(data.trucks, 'kamion')
   unique(data.jobs, 'posao')
+  unique(data.truckTypes ?? [], 'tip kamiona')
   const places = new Set(data.locations.map((l) => l.id))
   for (const s of data.shipments) {
     for (const id of [s.pickupLocationId, s.deliveryLocationId]) {
@@ -314,6 +330,10 @@ function checkReferences(data: FileData): void {
   }
   const truckIds = [...data.trucks, ...data.jobs.flatMap((j) => j.fleet)].map((t) => t.id)
   if (data.nextTruckId <= Math.max(0, ...truckIds) || data.nextJobId <= Math.max(0, ...data.jobs.map((j) => j.id))) {
+    throw new DeviceFileError('Fajl je oštećen ili izmenjen: brojač id-jeva je manji od postojećeg id-ja.')
+  }
+  const typeIds = (data.truckTypes ?? []).map((t) => t.id)
+  if (data.nextTruckTypeId !== undefined && data.nextTruckTypeId <= Math.max(0, ...typeIds)) {
     throw new DeviceFileError('Fajl je oštećen ili izmenjen: brojač id-jeva je manji od postojećeg id-ja.')
   }
 }

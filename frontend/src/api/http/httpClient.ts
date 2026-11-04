@@ -66,6 +66,14 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     getTruckStarts: async () => null,
     setTruckStart: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Lokacije kamiona postoje samo u aplikaciji na uređaju.' })),
+    // Nor truck types: a new truck is filled from the standard curtain-sider only.
+    listTruckTypes: async () => null,
+    createTruckType: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Tipovi kamiona postoje samo u aplikaciji na uređaju.' })),
+    updateTruckType: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Tipovi kamiona postoje samo u aplikaciji na uređaju.' })),
+    deleteTruckType: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Tipovi kamiona postoje samo u aplikaciji na uređaju.' })),
     // Nor corrections of imported shipments.
     updateShipment: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema izmenu pošiljki.' })),

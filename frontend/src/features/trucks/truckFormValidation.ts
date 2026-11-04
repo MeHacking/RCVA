@@ -1,5 +1,9 @@
-import type { Truck, TruckInput } from '../../api/types'
+import type { Truck, TruckInput, TruckType, TruckTypeInput } from '../../api/types'
+import { apiMode } from '../../api/apiMode'
 import { formatLdm, parseKg, parseLdmTenths, parseMm } from '../../format/units'
+
+// The backend does not store a payload (B2 is only on the device), so the field would be lost there.
+export const PAYLOAD_SUPPORTED = apiMode() !== 'server'
 
 /** Raw form state: text exactly as typed, converted to API units only on submit. */
 export interface TruckFormValues {
@@ -67,6 +71,24 @@ export function validateTruckForm(values: TruckFormValues): TruckFormValidation 
   }
 }
 
+/** A type in the same form, without availability (a type is never planned with). */
+export function truckTypeToFormValues(type: Omit<TruckType, 'id'> | null): TruckFormValues {
+  return truckToFormValues(type && { ...type, id: 0, available: true })
+}
+
+export type TruckTypeFormValidation = { ok: true; input: TruckTypeInput } | { ok: false; errors: TruckFormErrors }
+
+/** The checks of a truck, with the name asked for as the type's. */
+export function validateTruckTypeForm(values: TruckFormValues): TruckTypeFormValidation {
+  const validation = validateTruckForm({ ...values, available: true })
+  if (!validation.ok) {
+    const { errors } = validation
+    return { ok: false, errors: errors.name ? { ...errors, name: 'Unesite naziv tipa.' } : errors }
+  }
+  const { name, capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm } = validation.input
+  return { ok: true, input: { name, capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm } }
+}
+
 /** Maps 400 field errors from the API (TruckInput field names) onto form fields. */
 export function apiErrorsToForm(errors: Record<string, string>): TruckFormErrors {
   const mapped: TruckFormErrors = {}
@@ -77,4 +99,13 @@ export function apiErrorsToForm(errors: Record<string, string>): TruckFormErrors
     }
   }
   return mapped
+}
+
+/** Props of one input of a truck form: its id and the link to its error. */
+export function fieldPropsFor(id: string, errors: TruckFormErrors) {
+  return (field: TruckFormField) => ({
+    id: `${id}-${field}`,
+    'aria-invalid': errors[field] ? true : undefined,
+    'aria-describedby': errors[field] ? `${id}-${field}-error` : undefined,
+  })
 }

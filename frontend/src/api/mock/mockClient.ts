@@ -6,11 +6,12 @@ import {
   type OptimizationJob,
   type OptimizationJobRequest,
   type Truck,
+  type TruckType,
 } from '../types'
 import { createImportStore, locateInGazetteer, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
 import { createShipmentEditor } from './shipmentEdit'
 import { buildLoadPlan } from './loadPlan'
-import { assertValidTruck } from '../truckValidation'
+import { assertValidTruck, assertValidTruckType, toTruckType } from '../truckValidation'
 
 export interface MockApiOptions {
   scenario: Scenario
@@ -55,6 +56,9 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
   const editor = createShipmentEditor({ shipments, locations, locate: locateInGazetteer })
   const jobs = new Map<number, JobRecord>()
   let nextTruckId = Math.max(0, ...trucks.map((t) => t.id)) + 1
+  // Truck types live only while the page does, as the rest of the mock's changes.
+  const truckTypes: TruckType[] = []
+  let nextTruckTypeId = 1
   let nextJobId = 1
 
   async function respond<T>(produce: () => T | Promise<T>): Promise<T> {
@@ -175,6 +179,29 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
           })
         }
         trucks.splice(index, 1)
+      }),
+
+    listTruckTypes: () => respond(() => truckTypes),
+    createTruckType: (input) =>
+      respond(() => {
+        assertValidTruckType(input, truckTypes, null)
+        const created = toTruckType(nextTruckTypeId++, input)
+        truckTypes.push(created)
+        return created
+      }),
+    updateTruckType: (id, input) =>
+      respond(() => {
+        const index = truckTypes.findIndex((t) => t.id === id)
+        if (index < 0) throw notFound(`Tip kamiona ${id} ne postoji.`)
+        assertValidTruckType(input, truckTypes, id)
+        truckTypes[index] = toTruckType(id, input)
+        return truckTypes[index]
+      }),
+    deleteTruckType: (id) =>
+      respond(() => {
+        const index = truckTypes.findIndex((t) => t.id === id)
+        if (index < 0) throw notFound(`Tip kamiona ${id} ne postoji.`)
+        truckTypes.splice(index, 1)
       }),
 
     createOptimizationJob: (request: OptimizationJobRequest) =>

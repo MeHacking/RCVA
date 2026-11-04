@@ -1,17 +1,20 @@
-import type { Truck } from '../../api/types'
+import type { Truck, TruckType } from '../../api/types'
+import { STANDARD_TYPE_NAME } from '../../api/truckValidation'
 import { STANDARD_TRUCK } from '../../domain/fleet'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { truckToFormValues, type TruckFormValues } from './truckFormValidation'
 
 /**
- * A truck the new-truck form can be filled from: the standard curtain-sider or a truck that is
- * already in the list. Only the measures are copied; the name gets the first free number.
+ * A truck type the new-truck form can be filled from: the built-in standard curtain-sider or
+ * a type the user added. Only the measures are copied; the name gets the first free number.
+ * Trucks already in the list are not offered (04.11.2026: "Kamion 1", "Kamion 2"... are trucks,
+ * not kinds of truck).
  */
 export interface TruckTemplate {
   /** value of the select option */
   key: string
   label: string
-  /** the name the new truck is offered ("Šleper 1" -> "Šleper 3" when 2 is taken) */
+  /** the name the new truck is offered ("Hladnjača" -> "Hladnjača 3" when 1 and 2 are taken) */
   baseName: string
   values: Omit<TruckFormValues, 'name' | 'available'>
 }
@@ -32,7 +35,7 @@ function measures(truck: Measures) {
 }
 
 /** "13,6 LDM, 24000 kg, 13600 × 2480 × 2700 mm"; without the payload where it is not stored (server). */
-function describe(truck: Measures, withPayload: boolean): string {
+export function describeMeasures(truck: Measures, withPayload: boolean): string {
   const parts = [`${formatLdm(truck.capacityLdmTenths)} LDM`]
   if (withPayload) parts.push(truck.capacityKg === null ? 'bez ograničenja težine' : `${formatKg(truck.capacityKg)} kg`)
   const dimensions = formatDimensionsMm(truck.innerLengthMm, truck.innerWidthMm, truck.innerHeightMm)
@@ -40,29 +43,22 @@ function describe(truck: Measures, withPayload: boolean): string {
   return parts.join(', ')
 }
 
-/** The standard curtain-sider first, then the trucks in the list in their order. */
-export function truckTemplates(trucks: Truck[], { withPayload = true }: { withPayload?: boolean } = {}): TruckTemplate[] {
-  const label = (truck: Measures) => describe(truck, withPayload)
-  const standard = { ...STANDARD_TRUCK }
+/** The built-in standard curtain-sider as a type, for the list of types. */
+export const STANDARD_TYPE: Omit<TruckType, 'id'> = { name: STANDARD_TYPE_NAME, ...STANDARD_TRUCK }
+
+/** The standard curtain-sider first, then the user's types in their order. */
+export function truckTemplates(types: TruckType[], { withPayload = true }: { withPayload?: boolean } = {}): TruckTemplate[] {
+  const label = (type: Omit<TruckType, 'id'>) => `${type.name} (${describeMeasures(type, withPayload)})`
   return [
-    {
-      key: STANDARD_TEMPLATE_KEY,
-      label: `Standardna cerada (${label(standard)})`,
-      baseName: 'Kamion',
-      values: measures(standard),
-    },
-    ...trucks.map((truck) => ({
-      key: String(truck.id),
-      label: `${truck.name} (${label(truck)})`,
-      baseName: truck.name.trim().replace(/\s*\d+$/, '') || truck.name.trim(),
-      values: measures(truck),
-    })),
+    // Its trucks are "Kamion N", as the process owner asked for (B1).
+    { key: STANDARD_TEMPLATE_KEY, label: label(STANDARD_TYPE), baseName: 'Kamion', values: measures(STANDARD_TYPE) },
+    ...types.map((type) => ({ key: `type-${type.id}`, label: label(type), baseName: type.name.trim(), values: measures(type) })),
   ]
 }
 
 /**
  * "<base> N" with the smallest N from 1 that no truck has yet (names compared without case and
- * surrounding spaces), so a copy never gets the name of the truck it was copied from.
+ * surrounding spaces), so a new truck never gets the name of one in the list.
  */
 export function nextFreeName(baseName: string, takenNames: string[]): string {
   const taken = new Set(takenNames.map((name) => name.trim().toLocaleLowerCase('sr')))

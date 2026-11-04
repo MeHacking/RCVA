@@ -310,15 +310,8 @@ describe('local optimization', () => {
 })
 
 describe('local storage on the device', () => {
-  const TRUCK = {
-    name: 'Cerada 7',
-    capacityLdmTenths: 136,
-    capacityKg: 24_000,
-    available: true,
-    innerLengthMm: 13_600,
-    innerWidthMm: 2480,
-    innerHeightMm: 2700,
-  }
+  const measures = { capacityLdmTenths: 136, capacityKg: 24_000, innerLengthMm: 13_600, innerWidthMm: 2480, innerHeightMm: 2700 }
+  const TRUCK = { name: 'Cerada 7', available: true, ...measures }
 
   it('starts from the scenario once and stores it at once', async () => {
     const store = createMemoryStore<LocalData>()
@@ -339,6 +332,65 @@ describe('local storage on the device', () => {
     const after = setup('small', steps, store)
     expect((await after.listTrucks()).map((t) => t.name)).toEqual(['Šleper A', 'Solo 1', 'Cerada 7'])
     expect((await after.createTruck(TRUCK)).id).toBe(created.id + 1)
+  })
+
+  it('keeps truck types and their next id across a restart; a type changes no truck', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const cold = await api.createTruckType({ ...measures, name: ' Hladnjača ' })
+    const solo = await api.createTruckType({ ...measures, name: 'Solo', capacityLdmTenths: 70, capacityKg: null })
+    expect(cold).toEqual({ id: 1, ...measures, name: 'Hladnjača' })
+    const trucksBefore = await api.listTrucks()
+    const last = await api.createTruckType({ ...measures, name: 'Mega' })
+    await api.updateTruckType(solo.id, { ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: null })
+    await api.deleteTruckType(cold.id)
+    await api.deleteTruckType(last.id)
+    expect(await api.listTrucks()).toEqual(trucksBefore)
+
+    const after = setup('small', steps, store)
+    expect(await after.listTruckTypes()).toEqual([{ id: 2, ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: null }])
+    // The id of a removed type is not given again.
+    expect((await after.createTruckType({ ...measures, name: 'Hladnjača' })).id).toBe(4)
+  })
+
+  it('checks a truck type: measures, a name no other type has, and not the built-in one', async () => {
+    const api = setup('small')
+    await api.createTruckType({ ...measures, name: 'Hladnjača' })
+    const other = await api.createTruckType({ ...measures, name: 'Solo' })
+
+    const bad = await rejection(api.createTruckType({ ...measures, name: ' ', capacityLdmTenths: 0, innerWidthMm: -1 }))
+    expect(bad.status).toBe(400)
+    expect(bad.problem.errors).toEqual({
+      name: 'Naziv je obavezan.',
+      capacityLdmTenths: 'Kapacitet mora biti veći od 0.',
+      innerWidthMm: 'Mora biti pozitivan ceo broj.',
+    })
+    expect((await rejection(api.createTruckType({ ...measures, name: 'HLADNJAČA ' }))).problem.errors).toEqual({
+      name: 'Tip sa tim nazivom već postoji.',
+    })
+    expect((await rejection(api.updateTruckType(other.id, { ...measures, name: 'hladnjača' }))).problem.errors).toEqual({
+      name: 'Tip sa tim nazivom već postoji.',
+    })
+    expect((await rejection(api.createTruckType({ ...measures, name: 'standardna cerada' }))).problem.errors).toEqual({
+      name: '„Standardna cerada“ je ugrađen tip; izaberite drugi naziv.',
+    })
+    // A type keeps its own name when it is saved again.
+    await api.updateTruckType(other.id, { ...measures, name: 'Solo', capacityKg: 12_000 })
+    expect((await api.listTruckTypes())?.map((t) => t.name)).toEqual(['Hladnjača', 'Solo'])
+
+    expect((await rejection(api.updateTruckType(99, { ...measures, name: 'X' }))).status).toBe(404)
+    expect((await rejection(api.deleteTruckType(99))).status).toBe(404)
+  })
+
+  it('loads a snapshot stored before truck types existed', async () => {
+    const store = createMemoryStore<LocalData>()
+    await setup('small', steps, store).listTrucks()
+    const older: Partial<LocalData> = storedData(store)
+    delete older.truckTypes
+    delete older.nextTruckTypeId
+    const api = setup('small', steps, createMemoryStore<LocalData>({ version: 1, data: older }))
+    expect(await api.listTruckTypes()).toEqual([])
+    expect((await api.createTruckType({ ...measures, name: 'Hladnjača' })).id).toBe(1)
   })
 
   it('keeps a finished job with its result and 3D plan', async () => {

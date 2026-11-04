@@ -146,6 +146,24 @@ describe('mock trucks', () => {
   })
 })
 
+describe('mock truck types', () => {
+  const TYPE = { name: 'Hladnjača', capacityLdmTenths: 136, capacityKg: 20_000, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null }
+
+  it('starts without types, keeps them while the page lives, and checks them as the device does', async () => {
+    const { api } = setup('small')
+    expect(await api.listTruckTypes()).toEqual([])
+    const created = await api.createTruckType(TYPE)
+    await api.updateTruckType(created.id, { ...TYPE, capacityKg: null })
+    expect(await api.listTruckTypes()).toEqual([{ id: 1, ...TYPE, capacityKg: null }])
+    expect((await rejection(api.createTruckType({ ...TYPE, name: 'hladnjača' }))).problem.errors).toEqual({
+      name: 'Tip sa tim nazivom već postoji.',
+    })
+    await api.deleteTruckType(created.id)
+    expect(await api.listTruckTypes()).toEqual([])
+    expect((await rejection(api.deleteTruckType(created.id))).status).toBe(404)
+  })
+})
+
 describe('mock truck removal', () => {
   it('removes a truck (204) and then reports 404 for it', async () => {
     const { api } = setup('small')

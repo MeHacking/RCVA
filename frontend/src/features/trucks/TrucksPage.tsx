@@ -1,15 +1,23 @@
 import { useCallback, useState } from 'react'
 import { useApi } from '../../api/apiContext'
 import { describeError } from '../../api/client'
-import type { Truck } from '../../api/types'
+import type { Truck, TruckType } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { TruckForm } from './TruckForm'
 import { TruckLocations } from './TruckLocations'
+import { TruckTypeForm } from './TruckTypeForm'
+import { TruckTypes } from './TruckTypes'
 
-type Editing = { mode: 'create' } | { mode: 'edit'; truck: Truck } | null
+/** One form at a time on the page: a truck's or a truck type's. */
+type Editing =
+  | { mode: 'create' }
+  | { mode: 'edit'; truck: Truck }
+  | { mode: 'createType'; draft: Omit<TruckType, 'id'> | null }
+  | { mode: 'editType'; type: TruckType }
+  | null
 
 export function TrucksPage() {
   const api = useApi()
@@ -18,6 +26,10 @@ export function TrucksPage() {
   // Only the application on the device knows where the trucks are (null elsewhere).
   const loadStarts = useCallback(() => api.getTruckStarts(), [api])
   const [starts, reloadStarts] = useAsyncData(loadStarts)
+  // Only the application on the device keeps truck types (null on the backend).
+  const loadTypes = useCallback(() => api.listTruckTypes(), [api])
+  const [types, reloadTypes] = useAsyncData(loadTypes)
+  const typeList = types.status === 'success' ? (types.data ?? []) : []
   const [editing, setEditing] = useState<Editing>(null)
   /** truck waiting for the user to confirm removal */
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
@@ -28,6 +40,16 @@ export function TrucksPage() {
     setEditing(null)
     reload()
     reloadStarts()
+  }
+
+  const handleTypeSaved = () => {
+    setEditing(null)
+    reloadTypes()
+  }
+
+  const handleTypeDeleted = (type: TruckType) => {
+    if (editing?.mode === 'editType' && editing.type.id === type.id) setEditing(null)
+    reloadTypes()
   }
 
   const askDelete = (truck: Truck) => {
@@ -56,17 +78,22 @@ export function TrucksPage() {
       <PageHeader
         title="Kamioni"
         actions={
-          <button type="button" onClick={() => setEditing({ mode: 'create' })} disabled={trucks.status !== 'success'}>
+          <button
+            type="button"
+            onClick={() => setEditing({ mode: 'create' })}
+            disabled={trucks.status !== 'success' || types.status === 'loading'}
+          >
             Dodaj kamion
           </button>
         }
       />
 
-      {editing && (
+      {(editing?.mode === 'create' || editing?.mode === 'edit') && (
         <TruckForm
           key={editing.mode === 'edit' ? editing.truck.id : 'new'}
           truck={editing.mode === 'edit' ? editing.truck : null}
           trucks={trucks.status === 'success' ? trucks.data : []}
+          types={typeList}
           onSaved={handleSaved}
           onCancel={() => setEditing(null)}
         />
@@ -111,6 +138,28 @@ export function TrucksPage() {
         </section>
       )}
       {starts.status === 'error' && <ErrorState title="Lokacije kamiona nisu učitane" message={starts.message} onRetry={reloadStarts} />}
+
+      {types.status === 'success' && types.data && (
+        <TruckTypes
+          types={types.data}
+          editingId={editing?.mode === 'editType' ? editing.type.id : null}
+          onAdd={() => setEditing({ mode: 'createType', draft: null })}
+          onEdit={(type) => setEditing({ mode: 'editType', type })}
+          onDeleted={handleTypeDeleted}
+          form={
+            (editing?.mode === 'createType' || editing?.mode === 'editType') && (
+              <TruckTypeForm
+                key={editing.mode === 'editType' ? editing.type.id : 'new'}
+                type={editing.mode === 'editType' ? editing.type : null}
+                draft={editing.mode === 'createType' ? editing.draft : null}
+                onSaved={handleTypeSaved}
+                onCancel={() => setEditing(null)}
+              />
+            )
+          }
+        />
+      )}
+      {types.status === 'error' && <ErrorState title="Tipovi kamiona nisu učitani" message={types.message} onRetry={reloadTypes} />}
     </section>
   )
 }

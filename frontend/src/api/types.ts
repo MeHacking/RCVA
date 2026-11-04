@@ -63,6 +63,25 @@ export interface Truck {
 /** Body of POST /trucks and PUT /trucks/{id}; the location is set with setTruckStart */
 export type TruckInput = Omit<Truck, 'id' | 'startLocationId' | 'startSetAfterJobId'>
 
+/**
+ * NOT IN SPEC v2 (only on the device): a kind of truck the user adds trucks from, with the
+ * measures a new truck gets. A truck does not remember its type: changing a type later
+ * changes no truck. The standard curtain-sider is built in and is not one of these.
+ */
+export interface TruckType {
+  id: number
+  name: string
+  capacityLdmTenths: number
+  /** null = weight is not limited */
+  capacityKg: number | null
+  innerLengthMm: number | null
+  innerWidthMm: number | null
+  innerHeightMm: number | null
+}
+
+/** NOT IN SPEC v2: body of createTruckType and updateTruckType */
+export type TruckTypeInput = Omit<TruckType, 'id'>
+
 /** NOT IN SPEC v2: where a truck starts the next job, and the location proposed for it */
 export interface TruckStart {
   truckId: number
@@ -417,6 +436,8 @@ export interface DeviceDataSummary {
   shipments: number
   locations: number
   trucks: number
+  /** truck types the user added */
+  truckTypes: number
   /** completed optimization jobs */
   results: number
   /** remembered coordinates, road distances and road lines */

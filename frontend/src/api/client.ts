@@ -26,6 +26,8 @@ import type {
   TruckStart,
   TruckStartInput,
   TruckStartResult,
+  TruckType,
+  TruckTypeInput,
 } from './types'
 
 /**
@@ -68,6 +70,17 @@ export interface ApiClient {
    * HTTP and in the mock.
    */
   setTruckStart(truckId: number, input: TruckStartInput): Promise<TruckStartResult>
+  /**
+   * NOT IN SPEC v2: the truck types the user added (without the built-in standard
+   * curtain-sider), in the order they were added; null where there are none (backend).
+   */
+  listTruckTypes(): Promise<TruckType[] | null>
+  /** NOT IN SPEC v2: 400 by field (also a name already used); 404 over HTTP */
+  createTruckType(input: TruckTypeInput): Promise<TruckType>
+  /** NOT IN SPEC v2: 400 by field, 404 for an unknown type (and over HTTP); no truck changes */
+  updateTruckType(id: number, input: TruckTypeInput): Promise<TruckType>
+  /** NOT IN SPEC v2: 404 for an unknown type (and over HTTP); trucks made from it stay */
+  deleteTruckType(id: number): Promise<void>
 
   getBase(): Promise<BaseSettings>
 

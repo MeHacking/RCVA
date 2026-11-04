@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Truck } from '../../src/api/types'
+import type { TruckType } from '../../src/api/types'
 import { truckToFormValues } from '../../src/features/trucks/truckFormValidation'
 import {
   STANDARD_TEMPLATE_KEY,
@@ -8,24 +8,23 @@ import {
   truckTemplates,
 } from '../../src/features/trucks/truckTemplates'
 
-const truck = (over: Partial<Truck>): Truck => ({
+const type = (over: Partial<TruckType>): TruckType => ({
   id: 1,
-  name: 'Šleper 1',
+  name: 'Šleper',
   capacityLdmTenths: 136,
   capacityKg: 24000,
-  available: true,
   innerLengthMm: 13600,
   innerWidthMm: 2480,
   innerHeightMm: 2700,
   ...over,
 })
 
-const SOLO = truck({ id: 7, name: 'Solo', capacityLdmTenths: 70, capacityKg: null, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null, available: false })
+const SOLO = type({ id: 7, name: 'Solo', capacityLdmTenths: 70, capacityKg: null, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null })
 
 describe('truckTemplates', () => {
-  it('offers the standard curtain-sider first, then every truck in the list', () => {
-    const templates = truckTemplates([truck({}), SOLO])
-    expect(templates.map((t) => t.key)).toEqual([STANDARD_TEMPLATE_KEY, '1', '7'])
+  it('offers the standard curtain-sider first, then every type in its order', () => {
+    const templates = truckTemplates([type({}), SOLO])
+    expect(templates.map((t) => t.key)).toEqual([STANDARD_TEMPLATE_KEY, 'type-1', 'type-7'])
     expect(templates[0]).toMatchObject({
       label: 'Standardna cerada (13,6 LDM, 24000 kg, 13600 × 2480 × 2700 mm)',
       baseName: 'Kamion',
@@ -38,6 +37,10 @@ describe('truckTemplates', () => {
     })
   })
 
+  it('offers only the standard curtain-sider when there are no types', () => {
+    expect(truckTemplates([]).map((t) => t.label)).toEqual(['Standardna cerada (13,6 LDM, 24000 kg, 13600 × 2480 × 2700 mm)'])
+  })
+
   it('leaves the payload out of the label where it is not stored', () => {
     expect(truckTemplates([SOLO], { withPayload: false }).map((t) => t.label)).toEqual([
       'Standardna cerada (13,6 LDM, 13600 × 2480 × 2700 mm)',
@@ -45,12 +48,8 @@ describe('truckTemplates', () => {
     ])
   })
 
-  it('drops the number at the end of the name for the offered name', () => {
-    expect(truckTemplates([truck({ name: ' Cerada 12 ' }), truck({ name: '12' })]).map((t) => t.baseName)).toEqual([
-      'Kamion',
-      'Cerada',
-      '12',
-    ])
+  it('offers the name of the type, a number included', () => {
+    expect(truckTemplates([type({ name: ' Cerada 12 ' })]).map((t) => t.baseName)).toEqual(['Kamion', 'Cerada 12'])
   })
 })
 
@@ -63,7 +62,7 @@ describe('nextFreeName', () => {
 })
 
 describe('applyTemplate', () => {
-  const [, sleper, solo] = truckTemplates([truck({}), SOLO])
+  const [standard, sleper, solo] = truckTemplates([type({}), SOLO])
   const taken = ['Šleper 1', 'Šleper 2', 'Solo']
 
   it('copies the measures, keeps availability and offers a free name', () => {
@@ -79,6 +78,10 @@ describe('applyTemplate', () => {
       available: false,
     })
     expect(filled.offeredName).toBe('Šleper 3')
+  })
+
+  it('names a standard curtain-sider "Kamion N"', () => {
+    expect(applyTemplate(truckToFormValues(null), standard, ['Kamion 1', 'Šleper 1'], null).values.name).toBe('Kamion 2')
   })
 
   it('replaces an offered name, but never a name the user typed', () => {

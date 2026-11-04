@@ -10,6 +10,8 @@ import { NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../optimization/jobStatus'
 // the data file, the extra-truck advice) are shown only there.
 
 const ON_DEVICE = apiMode() === 'local'
+// The backend keeps no truck types: there a new truck is filled only from the standard curtain-sider.
+const TRUCK_TYPES = apiMode() !== 'server'
 
 interface Chapter {
   id: string
@@ -257,10 +259,19 @@ function Steps() {
         dostupan ne ulazi u optimizaciju.
       </p>
       <p>
-        Kada dodajete kamion isti kao neki koji već imate, izaberite ga u polju <strong>„Popuni prema“</strong> (ili
-        „Standardna cerada“): kapacitet, nosivost i dimenzije se prepišu, a naziv dobija prvi slobodan broj (posle
-        „Šleper 2“ to je „Šleper 3“). Sve vrednosti posle možete promeniti; naziv koji ste sami upisali ostaje.
+        Pri dodavanju kamiona u polju <strong>„Popuni prema“</strong> birate ručni unos ili <strong>tip kamiona</strong>:
+        kapacitet, nosivost i dimenzije se prepišu iz tipa, a naziv dobija prvi slobodan broj (standardna cerada daje
+        „Kamion 1“, „Kamion 2“…, a tip „Hladnjača“ daje „Hladnjača 1“…). Sve vrednosti posle možete promeniti; naziv
+        koji ste sami upisali ostaje.
       </p>
+      {TRUCK_TYPES && (
+        <p>
+          Tipovi se vode u odeljku <strong>„Tipovi kamiona“</strong>, ispod kamiona. „Standardna cerada“ je ugrađena i
+          ne menja se, jer po njoj aplikacija predlaže dodatne kamione kada postojeći nisu dovoljni. Svoj tip dodajete
+          dugmetom „Dodaj tip“ i posle ga menjate ili uklanjate. Izmena ili uklanjanje tipa ne menja kamione koji su
+          već dodati.
+        </p>
+      )}
       {ON_DEVICE && (
         <>
           <p>

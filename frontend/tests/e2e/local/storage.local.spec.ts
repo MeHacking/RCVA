@@ -39,6 +39,27 @@ test('keeps a new truck and the last result after a page reload', async ({ page 
   expect(errors).toEqual([])
 })
 
+test('keeps a truck type after a page reload, and fills a new truck from it', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/trucks')
+  await page.getByRole('button', { name: 'Dodaj tip' }).click()
+  await page.getByLabel('Naziv tipa').fill('Hladnjača')
+  await page.getByLabel('Kapacitet (LDM)').fill('12')
+  await page.getByLabel('Nosivost (kg)').fill('18000')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  const types = page.getByRole('table', { name: 'Tipovi kamiona' })
+  await expect(types.getByRole('row', { name: /Hladnjača/ })).toContainText('18000')
+
+  await page.reload()
+  await expect(types.getByRole('row', { name: /Hladnjača/ })).toContainText('12,0')
+  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
+  await page.getByLabel('Popuni prema').selectOption({ label: 'Hladnjača (12,0 LDM, 18000 kg)' })
+  await expect(page.getByLabel('Naziv', { exact: true })).toHaveValue('Hladnjača 1')
+  await page.getByRole('button', { name: 'Sačuvaj', exact: true }).click()
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Hladnjača 1/ })).toContainText('18000')
+  expect(errors).toEqual([])
+})
+
 test('shows a job cut off by a reload as failed, and can start a new one', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/optimization')

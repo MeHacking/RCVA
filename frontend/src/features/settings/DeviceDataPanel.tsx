@@ -156,6 +156,7 @@ export function DeviceDataPanel() {
               <li>pošiljke: {review.summary.shipments}</li>
               <li>mesta: {review.summary.locations}</li>
               <li>kamioni: {review.summary.trucks}</li>
+              <li>tipovi kamiona: {review.summary.truckTypes}</li>
               <li>rezultati optimizacije: {review.summary.results}</li>
               <li>
                 zapamćene koordinate: {review.summary.geocodes}, kilometraže: {review.summary.distances}, linije po

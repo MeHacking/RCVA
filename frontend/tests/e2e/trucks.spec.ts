@@ -1,16 +1,30 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { collectPageErrors } from './consoleGuard.ts'
 
 // Runs against the default mock scenario "small" (3 trucks). Mock state lives in memory,
 // so every page load starts from the fixture again.
 
+async function addType(page: Page, type: { name: string; ldm: string; kg?: string; dimensions?: [string, string, string] }) {
+  await page.getByRole('button', { name: 'Dodaj tip' }).click()
+  await page.getByLabel('Naziv tipa').fill(type.name)
+  await page.getByLabel('Kapacitet (LDM)').fill(type.ldm)
+  if (type.kg) await page.getByLabel('Nosivost (kg)').fill(type.kg)
+  if (type.dimensions) {
+    await page.getByLabel('Dužina').fill(type.dimensions[0])
+    await page.getByLabel('Širina').fill(type.dimensions[1])
+    await page.getByLabel('Visina').fill(type.dimensions[2])
+  }
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  await expect(page.getByRole('table', { name: 'Tipovi kamiona' }).getByRole('row', { name: new RegExp(type.name) })).toBeVisible()
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/trucks')
-  await expect(page.getByRole('table')).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Kamioni' })).toBeVisible()
 })
 
 test('lists the fixture trucks', async ({ page }) => {
-  const rows = page.getByRole('table').getByRole('row')
+  const rows = page.getByRole('table', { name: 'Kamioni' }).getByRole('row')
   await expect(rows).toHaveCount(4) // header + 3
   await expect(rows.nth(1)).toContainText('Šleper 1')
   await expect(rows.nth(1)).toContainText('13,6')
@@ -25,7 +39,7 @@ test('rejects capacity 0 and keeps the table unchanged', async ({ page }) => {
 
   await expect(page.getByText('Kapacitet mora biti veći od 0.')).toBeVisible()
   await expect(capacity).toHaveAttribute('aria-invalid', 'true')
-  await expect(page.getByRole('table').getByRole('row').nth(1)).toContainText('13,6')
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row').nth(1)).toContainText('13,6')
 })
 
 test('edits a truck and shows the saved values', async ({ page }) => {
@@ -68,41 +82,101 @@ test('saves a payload, and shows an empty one as not limited', async ({ page }) 
   await expect(page.getByRole('row', { name: /Šleper 1/ })).toContainText('24000')
 })
 
-test('fills a new truck from one already in the list', async ({ page }) => {
+test('fills a new truck from a truck type, never from a truck in the list', async ({ page }) => {
   const errors = collectPageErrors(page)
   // Nothing to choose when changing a truck.
   await page.getByRole('button', { name: 'Izmeni Šleper 1' }).click()
   await expect(page.getByLabel('Popuni prema')).toHaveCount(0)
   await page.getByRole('button', { name: 'Otkaži' }).click()
 
+  await addType(page, { name: 'Hladnjača', ldm: '12,0', kg: '18000', dimensions: ['12000', '2400', '2500'] })
+
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   const template = page.getByLabel('Popuni prema')
   await expect(template.getByRole('option')).toHaveText([
     'Ručni unos',
-    /^Standardna cerada \(13,6 LDM/,
-    /^Šleper 1 \(13,6 LDM/,
-    /^Šleper 2 \(13,6 LDM/,
-    /^Solo 1 \(/,
+    'Standardna cerada (13,6 LDM, 24000 kg, 13600 × 2480 × 2700 mm)',
+    'Hladnjača (12,0 LDM, 18000 kg, 12000 × 2400 × 2500 mm)',
   ])
 
-  await template.selectOption({ label: (await template.getByRole('option').nth(2).textContent()) ?? '' })
-  await expect(page.getByLabel('Naziv')).toHaveValue('Šleper 3')
+  await template.selectOption({ label: 'Standardna cerada (13,6 LDM, 24000 kg, 13600 × 2480 × 2700 mm)' })
+  await expect(page.getByLabel('Naziv', { exact: true })).toHaveValue('Kamion 1')
   await expect(page.getByLabel('Kapacitet (LDM)')).toHaveValue('13,6')
+  await expect(page.getByLabel('Nosivost (kg)')).toHaveValue('24000')
   await expect(page.getByLabel('Dužina')).toHaveValue('13600')
-  await expect(page.getByLabel('Širina')).toHaveValue('2480')
-  await expect(page.getByLabel('Visina')).toHaveValue('2700')
 
-  // A name the user typed stays when another truck is chosen.
-  await page.getByLabel('Naziv').fill('Šleper Novi Sad')
-  await template.selectOption({ label: (await template.getByRole('option').nth(4).textContent()) ?? '' })
-  await expect(page.getByLabel('Naziv')).toHaveValue('Šleper Novi Sad')
-  await template.selectOption({ label: (await template.getByRole('option').nth(2).textContent()) ?? '' })
-  await page.getByRole('button', { name: 'Sačuvaj' }).click()
+  await template.selectOption({ label: 'Hladnjača (12,0 LDM, 18000 kg, 12000 × 2400 × 2500 mm)' })
+  await expect(page.getByLabel('Naziv', { exact: true })).toHaveValue('Hladnjača 1')
+  await expect(page.getByLabel('Kapacitet (LDM)')).toHaveValue('12,0')
+  await expect(page.getByLabel('Nosivost (kg)')).toHaveValue('18000')
+  await expect(page.getByLabel('Visina')).toHaveValue('2500')
 
-  const row = page.getByRole('row', { name: /Šleper Novi Sad/ })
-  await expect(row).toContainText('13,6')
-  await expect(row).toContainText('13600 × 2480 × 2700 mm')
-  await expect(page.getByRole('table').getByRole('row')).toHaveCount(5) // header + 4
+  // A name the user typed stays when another type is chosen.
+  await page.getByLabel('Naziv', { exact: true }).fill('Hladnjača Novi Sad')
+  await template.selectOption({ label: 'Standardna cerada (13,6 LDM, 24000 kg, 13600 × 2480 × 2700 mm)' })
+  await expect(page.getByLabel('Naziv', { exact: true })).toHaveValue('Hladnjača Novi Sad')
+  await template.selectOption({ label: 'Hladnjača (12,0 LDM, 18000 kg, 12000 × 2400 × 2500 mm)' })
+  await page.getByRole('button', { name: 'Sačuvaj', exact: true }).click()
+
+  const trucks = page.getByRole('table', { name: 'Kamioni' })
+  const row = trucks.getByRole('row', { name: /Hladnjača Novi Sad/ })
+  await expect(row).toContainText('12,0')
+  await expect(row).toContainText('12000 × 2400 × 2500 mm')
+  await expect(trucks.getByRole('row')).toHaveCount(5) // header + 4
+  expect(errors).toEqual([])
+})
+
+test('adds, changes and removes a truck type; the standard curtain-sider stays as it is', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const types = page.getByRole('table', { name: 'Tipovi kamiona' })
+  await expect(types.getByRole('row')).toHaveCount(2) // header + the standard curtain-sider
+  const standard = types.getByRole('row', { name: /Standardna cerada/ })
+  await expect(standard).toContainText('24000')
+  await expect(standard).toContainText('ugrađen')
+  await expect(standard.getByRole('button')).toHaveCount(0)
+
+  // Checked as a truck is; the built-in name and a name already used are refused.
+  await page.getByRole('button', { name: 'Dodaj tip' }).click()
+  await expect(page.getByLabel('Naziv tipa')).toBeFocused()
+  await page.getByLabel('Kapacitet (LDM)').fill('0')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  await expect(page.getByText('Unesite naziv tipa.')).toBeVisible()
+  await expect(page.getByText('Kapacitet mora biti veći od 0.')).toBeVisible()
+  await page.getByLabel('Naziv tipa').fill('standardna cerada')
+  await page.getByLabel('Kapacitet (LDM)').fill('13,6')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  await expect(page.locator('.field__error', { hasText: '„Standardna cerada“ je ugrađen tip; izaberite drugi naziv.' })).toBeVisible()
+  await page.getByRole('button', { name: 'Otkaži' }).click()
+  await expect(types.getByRole('row')).toHaveCount(2)
+
+  await addType(page, { name: 'Solo', ldm: '7' })
+  await expect(types.getByRole('row', { name: /Solo/ })).toContainText('bez ograničenja')
+  await page.getByRole('button', { name: 'Dodaj tip' }).click()
+  await page.getByLabel('Naziv tipa').fill(' SOLO ')
+  await page.getByLabel('Kapacitet (LDM)').fill('7')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  await expect(page.locator('.field__error', { hasText: 'Tip sa tim nazivom već postoji.' })).toBeVisible()
+  await page.getByRole('button', { name: 'Otkaži' }).click()
+
+  // Changing a type changes no truck.
+  const trucksBefore = await page.getByRole('table', { name: 'Kamioni' }).innerText()
+  await page.getByRole('button', { name: 'Izmeni tip Solo' }).click()
+  await expect(page.getByLabel('Naziv tipa')).toHaveValue('Solo')
+  await page.getByLabel('Naziv tipa').fill('Solo 7 m')
+  await page.getByLabel('Nosivost (kg)').fill('9000')
+  await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
+  await expect(types.getByRole('row', { name: /Solo 7 m/ })).toContainText('9000')
+  expect(await page.getByRole('table', { name: 'Kamioni' }).innerText()).toBe(trucksBefore)
+
+  // Removed after confirming in the row; cancel keeps it.
+  await page.getByRole('button', { name: 'Ukloni tip Solo 7 m' }).click()
+  await page.getByRole('group', { name: 'Potvrda uklanjanja tipa: Solo 7 m' }).getByRole('button', { name: 'Otkaži' }).click()
+  await expect(types.getByRole('row')).toHaveCount(3)
+  await page.getByRole('button', { name: 'Ukloni tip Solo 7 m' }).click()
+  await page.getByRole('button', { name: 'Da, ukloni' }).click()
+  await expect(types.getByRole('row')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
+  await expect(page.getByLabel('Popuni prema').getByRole('option')).toHaveCount(2)
   expect(errors).toEqual([])
 })
 
@@ -127,7 +201,7 @@ test('removes a truck after confirming in the row; cancel keeps it', async ({ pa
   await page.getByRole('button', { name: 'Ukloni Solo 1' }).click()
   await page.getByRole('group', { name: 'Potvrda uklanjanja: Solo 1' }).getByRole('button', { name: 'Da, ukloni' }).click()
   await expect(page.getByRole('row', { name: /Solo 1/ })).toHaveCount(0)
-  await expect(page.getByRole('table').getByRole('row')).toHaveCount(3) // header + 2
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row')).toHaveCount(3) // header + 2
   expect(errors).toEqual([])
 })
 

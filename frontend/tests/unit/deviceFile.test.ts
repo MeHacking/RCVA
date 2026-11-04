@@ -70,6 +70,9 @@ async function usedDevice(key = 'kljuc-uredjaja-a') {
     innerWidthMm: 2480,
     innerHeightMm: 2700,
   })
+  const measures = { capacityLdmTenths: 70, capacityKg: null, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null }
+  await api.createTruckType({ name: 'Solo', ...measures })
+  await api.createTruckType({ name: 'Hladnjača', ...measures, capacityKg: 12_000 })
   // A place the device knows: no lookup.
   await api.setTruckStart(truck.id, { place: { name: 'Subotica', postalCode: null, country: 'RS' } })
   const { id } = await api.createOptimizationJob(REQUEST)
@@ -113,11 +116,25 @@ describe('data file of the device', () => {
       shipments: stored.shipments.length,
       locations: stored.locations.length,
       trucks: 4,
+      truckTypes: 2,
       results: 1,
       distances: Object.keys(stored.distanceCache ?? {}).length,
       routeLines: 1,
     })
     expect(summary.distances).toBeGreaterThan(0)
+    expect(data.truckTypes?.map((t) => t.name)).toEqual(['Solo', 'Hladnjača'])
+  })
+
+  it('reads a file made before truck types existed', async () => {
+    const { api } = await usedDevice()
+    const file = JSON.parse(await exported(api)) as { data: Record<string, unknown> }
+    delete file.data.truckTypes
+    delete file.data.nextTruckTypeId
+    const older = JSON.stringify(file)
+    expect((await api.checkDeviceData(older)).truckTypes).toBe(0)
+    await api.replaceDeviceData(older)
+    expect(await api.listTruckTypes()).toEqual([])
+    expect((await api.createTruckType({ name: 'Solo', capacityLdmTenths: 70, capacityKg: null, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null })).id).toBe(1)
   })
 
   it('is named after the local date', () => {
@@ -157,6 +174,9 @@ describe('data file of the device', () => {
       [changed((f) => (f.data.trucks[0].startLocationId = 'Beograd')), `${broken}fajl.data.trucks[0].startLocationId nije ceo broj.`],
       [changed((f) => (f.data.settings.extraTruckSavingPercent = '10')), `${broken}fajl.data.settings.extraTruckSavingPercent nije ceo broj.`],
       [changed((f) => (f.data.jobs[0].input.freeTrucks = -0.5)), `${broken}fajl.data.jobs[0].input.freeTrucks nije ceo broj.`],
+      [changed((f) => (f.data.truckTypes[1].capacityLdmTenths = '7')), `${broken}fajl.data.truckTypes[1].capacityLdmTenths nije ceo broj.`],
+      [changed((f) => (f.data.truckTypes[1].id = f.data.truckTypes[0].id)), `${broken}tip kamiona 1 se ponavlja.`],
+      [changed((f) => (f.data.nextTruckTypeId = 2)), `${broken}brojač id-jeva je manji od postojećeg id-ja.`],
     ]
     for (const [text, message] of cases) {
       const error = await rejection(api.checkDeviceData(text))

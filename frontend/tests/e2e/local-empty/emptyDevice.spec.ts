@@ -15,6 +15,6 @@ test('runs on the device by default and starts empty', async ({ page }) => {
   await expect(page.getByText('Nema unetih pošiljki')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Ukloni sve pošiljke' })).toBeDisabled()
   await page.goto('/trucks')
-  await expect(page.getByRole('table')).toHaveCount(0)
+  await expect(page.getByRole('table', { name: 'Kamioni' })).toHaveCount(0)
   expect(errors).toEqual([])
 })

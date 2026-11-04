@@ -18,7 +18,7 @@ import {
 } from '../mock/import/importStore'
 import type { PlaceWarning } from '../mock/import/importRows'
 import { createShipmentEditor } from '../mock/shipmentEdit'
-import { assertValidTruck } from '../truckValidation'
+import { assertValidTruck, assertValidTruckType, toTruckType } from '../truckValidation'
 import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from './deviceFile'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
@@ -38,6 +38,7 @@ import {
   type Shipment,
   type Truck,
   type TruckStart,
+  type TruckType,
   type TruckStartResult,
 } from '../types'
 
@@ -151,6 +152,9 @@ export interface LocalData {
   routeLineCache?: Record<string, RouteLine['path']>
   /** when each job was started (ISO 8601), oldest first; the last KEPT_JOB_LOG */
   jobLog?: string[]
+  /** added 04.11.2026: the truck types the user added, in that order (older data has none) */
+  truckTypes?: TruckType[]
+  nextTruckTypeId?: number
 }
 
 /** Coordinates written to 6 decimals (about 10 cm), so a moved place is a new pair. */
@@ -184,6 +188,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   let distanceCache: Record<string, number | null> = {}
   let routeLineCache: Record<string, RouteLine['path']> = {}
   let jobLog: string[] = []
+  const truckTypes: TruckType[] = []
+  let nextTruckTypeId = 1
   const roadDistances = createOrsDistances(ors)
   const roadLines = createOrsLines(ors)
   // A line being asked for, by `lineKey`: a second request for it waits for the same answer.
@@ -275,6 +281,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     routeLineCache = data.routeLineCache ?? {}
     // Older data has no log: it starts from the jobs kept then.
     jobLog = data.jobLog ?? data.jobs.map((j) => j.createdAt).sort()
+    truckTypes.splice(0, truckTypes.length, ...(data.truckTypes ?? []))
+    nextTruckTypeId = data.nextTruckTypeId ?? Math.max(0, ...truckTypes.map((t) => t.id)) + 1
     jobs.clear()
     let interrupted = false
     for (const job of data.jobs) {
@@ -302,6 +310,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       distanceCache,
       routeLineCache,
       jobLog,
+      truckTypes,
+      nextTruckTypeId,
     }
   }
 
@@ -763,6 +773,30 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           })
         }
         trucks.splice(index, 1)
+      }),
+
+    listTruckTypes: () => respond(() => truckTypes),
+    // A type is only what a new truck is filled from, so it may change while a job runs.
+    createTruckType: (input) =>
+      change(() => {
+        assertValidTruckType(input, truckTypes, null)
+        const created = toTruckType(nextTruckTypeId++, input)
+        truckTypes.push(created)
+        return created
+      }),
+    updateTruckType: (id, input) =>
+      change(() => {
+        const index = truckTypes.findIndex((t) => t.id === id)
+        if (index < 0) throw notFound(`Tip kamiona ${id} ne postoji.`)
+        assertValidTruckType(input, truckTypes, id)
+        truckTypes[index] = toTruckType(id, input)
+        return truckTypes[index]
+      }),
+    deleteTruckType: (id) =>
+      change(() => {
+        const index = truckTypes.findIndex((t) => t.id === id)
+        if (index < 0) throw notFound(`Tip kamiona ${id} ne postoji.`)
+        truckTypes.splice(index, 1)
       }),
 
     createOptimizationJob: (request) =>

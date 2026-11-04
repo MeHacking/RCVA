@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   apiErrorsToForm,
   truckToFormValues,
+  truckTypeToFormValues,
   validateTruckForm,
+  validateTruckTypeForm,
   type TruckFormValues,
 } from '../../src/features/trucks/truckFormValidation'
 
@@ -111,5 +113,39 @@ describe('apiErrorsToForm', () => {
       capacityKg: 'w',
       innerLengthMm: 'y',
     })
+  })
+})
+
+describe('validateTruckTypeForm', () => {
+  it('gives a type without availability, also from a form marked unavailable', () => {
+    expect(validateTruckTypeForm({ ...VALID, available: false })).toEqual({
+      ok: true,
+      input: { name: 'Šleper 9', capacityLdmTenths: 136, capacityKg: 24000, innerLengthMm: 13600, innerWidthMm: 2480, innerHeightMm: 2700 },
+    })
+  })
+
+  it('asks for the name of the type and checks the measures as for a truck', () => {
+    expect(validateTruckTypeForm({ ...VALID, name: ' ', capacityLdm: '0', innerWidthMm: '' })).toEqual({
+      ok: false,
+      errors: {
+        name: 'Unesite naziv tipa.',
+        capacityLdm: 'Kapacitet mora biti veći od 0.',
+        dimensions: 'Unesite sve tri dimenzije tovarnog prostora ili nijednu.',
+      },
+    })
+  })
+
+  it('fills the form from a type', () => {
+    const { available, ...values } = truckTypeToFormValues({
+      name: 'Solo',
+      capacityLdmTenths: 70,
+      capacityKg: null,
+      innerLengthMm: null,
+      innerWidthMm: null,
+      innerHeightMm: null,
+    })
+    expect(available).toBe(true)
+    expect(values).toEqual({ name: 'Solo', capacityLdm: '7,0', capacityKg: '', innerLengthMm: '', innerWidthMm: '', innerHeightMm: '' })
+    expect(truckTypeToFormValues(null)).toEqual(truckToFormValues(null))
   })
 })
