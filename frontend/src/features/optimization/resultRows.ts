@@ -1,4 +1,21 @@
-import type { BaseSettings, Location, OptimizationResult, Shipment, StopType, Truck } from '../../api/types'
+import { ORS_ATTRIBUTION } from '../../api/local/openRouteService'
+import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
+import type { BaseSettings, DistanceSource, Location, OptimizationResult, Shipment, StopType, Truck } from '../../api/types'
+
+/** Only the application on the device says where the distances come from. */
+export const DISTANCE_SOURCES: Record<DistanceSource, string> = {
+  'driving-hgv': `po putu za teretna vozila (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,
+  'driving-car': `po putu za automobile (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,
+  airline: 'vazdušna linija, ne po putu (nema ključa za OpenRouteService u Podešavanjima)',
+}
+
+/** What the total distance covers. */
+export function distanceScope(result: OptimizationResult): string {
+  if (!result.openRoute) return 'uključuje povratak u bazu'
+  return result.routes.some((r) => r.startLocationId !== undefined)
+    ? 'od lokacije kamiona do poslednjeg istovara'
+    : 'od prvog utovara do poslednjeg istovara'
+}
 
 /** Master data needed to turn ids in a result into readable rows. */
 export interface ReferenceData {

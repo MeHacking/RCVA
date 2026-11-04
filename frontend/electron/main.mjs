@@ -1,6 +1,7 @@
 // @ts-check
-import { app, BrowserWindow, Menu, net, protocol, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell } from 'electron'
 import { existsSync, statSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -15,7 +16,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // application's own User-Agent. Links to other sites open in the default browser.
 
 const ORIGIN = 'app://rcva'
-const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web')
+const HERE = path.dirname(fileURLToPath(import.meta.url))
+const WEB = path.join(HERE, 'web')
 const USER_AGENT = `RCVA/${app.getVersion()} (desktop aplikacija za planiranje utovara i ruta)`
 
 // Tests keep their data apart from the user's.
@@ -39,8 +41,35 @@ if (!app.requestSingleInstanceLock()) {
     session.defaultSession.setUserAgent(USER_AGENT)
     protocol.handle('app', (request) => net.fetch(pathToFileURL(fileFor(request.url)).toString()))
     Menu.setApplicationMenu(null)
+    ipcMain.handle('rcva:save-pdf', savePdf)
     createWindow()
   })
+}
+
+/**
+ * The results report as a PDF file (electron/preload.cjs): the user picks where, then the
+ * page is printed with its print styles. RCVA_PDF_PATH (tests only) skips the dialog.
+ * @param {Electron.IpcMainInvokeEvent} event
+ * @param {unknown} name the suggested file name
+ * @returns {Promise<string | null>} the saved file, or null when cancelled
+ */
+async function savePdf(event, name) {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  if (!window || !event.senderFrame?.url.startsWith(`${ORIGIN}/`)) return null
+  const fileName = `${String(name).replace(/\.pdf$/i, '').replace(/[^\p{L}\p{N}._-]+/gu, '-') || 'rcva'}.pdf`
+  const target =
+    process.env.RCVA_PDF_PATH ??
+    (
+      await dialog.showSaveDialog(window, {
+        title: 'Sačuvaj PDF',
+        defaultPath: path.join(app.getPath('documents'), fileName),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      })
+    ).filePath
+  if (!target) return null
+  const pdf = await event.sender.printToPDF({ preferCSSPageSize: true, printBackground: true })
+  await writeFile(target, pdf)
+  return target
 }
 
 /**
@@ -64,7 +93,12 @@ function createWindow() {
     icon: path.join(WEB, 'logo.png'),
     show: false,
     backgroundColor: '#f5efe6',
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      preload: path.join(HERE, 'preload.cjs'),
+    },
   })
   window.once('ready-to-show', () => window.show())
   // New windows (links with target="_blank") and navigation away from the application go to the browser.

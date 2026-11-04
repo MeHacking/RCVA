@@ -1,7 +1,8 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
+import { Icon } from '../../components/Icon'
 import type { MapModel, PlaceKind } from './mapModel'
 
 // Leaflet directly (BSD-2-Clause; react-leaflet is not used, see CLAUDE.md). One map per
@@ -30,6 +31,49 @@ export default function RouteMap({ model }: { model: MapModel }) {
   // by the user stays.
   const signature = JSON.stringify(model)
   const fitted = useRef<string | null>(null)
+
+  // Full screen: the browser's own (Esc leaves it), or, where there is none (some phones) or it
+  // is refused, the map spread over the whole page.
+  const frame = useRef<HTMLDivElement>(null)
+  const [native, setNative] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const full = native || expanded
+
+  useEffect(() => {
+    const onChange = () => setNative(document.fullscreenElement !== null && document.fullscreenElement === frame.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expanded])
+
+  // The map's box changed size: Leaflet measures it again (after the new layout), or tiles stay missing.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => map.current?.map.invalidateSize())
+    return () => cancelAnimationFrame(id)
+  }, [full])
+
+  async function toggleFullscreen() {
+    const element = frame.current
+    if (!element) return
+    if (document.fullscreenElement) return document.exitFullscreen()
+    if (expanded) return setExpanded(false)
+    if (document.fullscreenEnabled) {
+      try {
+        return await element.requestFullscreen()
+      } catch {
+        // refused (e.g. not from a click): spread over the page instead
+      }
+    }
+    setExpanded(true)
+  }
 
   useEffect(() => {
     const element = container.current
@@ -94,16 +138,28 @@ export default function RouteMap({ model }: { model: MapModel }) {
   }, [signature])
 
   return (
-    <div
-      ref={container}
-      className="route-map"
-      role="region"
-      aria-label="Mapa ruta"
-      data-testid="route-map"
-      data-routes={model.routes.filter((r) => r.path.length >= 2).length}
-      data-places={model.places.length}
-      data-road-routes={model.routes.filter((r) => r.alongRoad).length}
-    />
+    <div ref={frame} className={`route-map-frame${expanded ? ' route-map-frame--expanded' : ''}`}>
+      <div
+        ref={container}
+        className="route-map"
+        role="region"
+        aria-label="Mapa ruta"
+        data-testid="route-map"
+        data-routes={model.routes.filter((r) => r.path.length >= 2).length}
+        data-places={model.places.length}
+        data-road-routes={model.routes.filter((r) => r.alongRoad).length}
+      />
+      <button
+        type="button"
+        className="route-map__fullscreen"
+        onClick={() => void toggleFullscreen()}
+        aria-pressed={full}
+        title={full ? 'Izađi iz prikaza preko celog ekrana (Esc)' : 'Mapa preko celog ekrana'}
+      >
+        <Icon name={full ? 'collapse' : 'expand'} size={16} />
+        <span className="visually-hidden">Ceo ekran</span>
+      </button>
+    </div>
   )
 }
 

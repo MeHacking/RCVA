@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { apiMode } from '../../api/apiMode'
+import { Icon } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
 import { NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../optimization/jobStatus'
 
@@ -19,7 +20,8 @@ interface Chapter {
 export function HelpPage() {
   const chapters: Chapter[] = [
     { id: 'ukratko', title: 'Ukratko', body: <Overview /> },
-    { id: 'koraci', title: 'Kako se koristi, korak po korak', body: <Steps /> },
+    // Not "koraci": that is the id of the subheading "Koraci" (Subheading takes ids from the text).
+    { id: 'upotreba', title: 'Kako se koristi, korak po korak', body: <Steps /> },
     { id: 'algoritam', title: 'Kako radi optimizacija', body: <Algorithm /> },
     { id: 'saveti', title: 'Saveti za najbolje rezultate', body: <Tips /> },
     { id: 'poruke', title: 'Poruke i šta znače', body: <Messages /> },
@@ -33,23 +35,146 @@ export function HelpPage() {
           prikazani.
         </p>
       )}
-      <nav className="panel help__contents" aria-label="Sadržaj uputstva">
-        <h2>Sadržaj</h2>
-        <ol>
+      <div className="help__layout">
+        <div className="help__text">
           {chapters.map((c) => (
-            <li key={c.id}>
-              <a href={`#${c.id}`}>{c.title}</a>
-            </li>
+            <section key={c.id} id={c.id} className="panel help__chapter" aria-labelledby={`${c.id}-title`}>
+              <h2 id={`${c.id}-title`}>{c.title}</h2>
+              {c.body}
+            </section>
           ))}
-        </ol>
-      </nav>
-      {chapters.map((c) => (
-        <section key={c.id} id={c.id} className="panel help__chapter" aria-labelledby={`${c.id}-title`}>
-          <h2 id={`${c.id}-title`}>{c.title}</h2>
-          {c.body}
-        </section>
-      ))}
+        </div>
+        <Contents chapters={chapters} />
+      </div>
     </section>
+  )
+}
+
+/**
+ * A numbered heading inside a chapter, with an id from its text so the contents can link to it.
+ * The contents read its number and title from data attributes.
+ */
+function Subheading({ n, children }: { n: number; children: string }) {
+  return (
+    <h3 id={slug(children)} data-number={n} data-title={children}>
+      <span className="number-badge">
+        {n}
+        <span className="visually-hidden">. </span>
+      </span>
+      {children}
+    </h3>
+  )
+}
+
+/** Combining marks left by NFD (the č, ć, š, ž without their marks) */
+const MARKS = new RegExp('[\\u0300-\\u036f]', 'g')
+
+function slug(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(MARKS, '')
+    .replace(/đ/g, 'dj')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+interface Entry {
+  id: string
+  number: string
+  title: string
+}
+
+/**
+ * The contents beside the text: the chapters; a click on one goes there and opens its
+ * subheadings (read from the page, so the parts shown only on the device come and go by
+ * themselves), one chapter open at a time. The part being read is marked as the page scrolls.
+ */
+function Contents({ chapters }: { chapters: Chapter[] }) {
+  const [subheadings, setSubheadings] = useState<Record<string, Entry[]>>({})
+  const [current, setCurrent] = useState<string | null>(null)
+  /** the chapter whose subheadings show; none at first */
+  const [open, setOpen] = useState<string | null>(null)
+
+  useEffect(() => {
+    const found: Record<string, Entry[]> = {}
+    const headings: HTMLElement[] = []
+    for (const chapter of document.querySelectorAll<HTMLElement>('.help__chapter')) {
+      headings.push(chapter)
+      found[chapter.id] = [...chapter.querySelectorAll<HTMLElement>('h3[id]')].map((h) => {
+        headings.push(h)
+        return { id: h.id, number: h.dataset.number ?? '', title: h.dataset.title ?? '' }
+      })
+    }
+    // The part being read: the last heading that has passed the line under the top bar.
+    const line = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) * 16 + 40
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const passed = headings.filter((h) => h.getBoundingClientRect().top <= line())
+      // At the very bottom the last part counts as read, even if its heading cannot reach the line.
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
+      setCurrent((atEnd ? headings.at(-1) : passed.at(-1) ?? headings[0])?.id ?? null)
+    }
+    const onScroll = () => {
+      if (frame === 0) frame = requestAnimationFrame(update)
+    }
+    // The first frame shows the subheadings and the part in view.
+    frame = requestAnimationFrame(() => {
+      setSubheadings(found)
+      update()
+    })
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame !== 0) cancelAnimationFrame(frame)
+    }
+  }, [])
+
+  return (
+    <nav className="panel panel--dark help__contents" aria-label="Sadržaj uputstva">
+      <h2>Sadržaj</h2>
+      <ol className="help__contents-chapters">
+        {chapters.map((c) => {
+          const subs = subheadings[c.id] ?? []
+          const isOpen = open === c.id
+          // A closed chapter stands for the part being read inside it.
+          const isCurrent = c.id === current || (!isOpen && subs.some((s) => s.id === current))
+          return (
+            <li key={c.id}>
+              <a
+                href={`#${c.id}`}
+                className={`help__contents-link help__contents-chapter${isOpen ? ' help__contents-chapter--open' : ''}`}
+                aria-current={isCurrent ? 'location' : undefined}
+                aria-expanded={subs.length > 0 ? isOpen : undefined}
+                onClick={() => setOpen(c.id)}
+              >
+                <span>{c.title}</span>
+                {subs.length > 0 && <Icon name="chevron" size={14} />}
+              </a>
+              {isOpen && subs.length > 0 && (
+                <ul className="help__contents-sub">
+                  {subs.map((s) => (
+                    <li key={s.id}>
+                      <a
+                        href={`#${s.id}`}
+                        className="help__contents-link help__contents-subheading"
+                        aria-current={s.id === current ? 'location' : undefined}
+                      >
+                        <span className="help__contents-number">{`${s.number}. `}</span>
+                        {s.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
   )
 }
 
@@ -88,7 +213,7 @@ function Overview() {
 function Steps() {
   return (
     <>
-      <h3>1. Uvoz pošiljki iz Excel-a</h3>
+      <Subheading n={1}>Uvoz pošiljki iz Excel-a</Subheading>
       <p>
         Na ekranu <Link to="/shipments">Pošiljke</Link> kliknite „Uvezi Excel“ i pratite četiri koraka: izbor fajla,
         mapiranje kolona, pregled i ispravke, potvrda.
@@ -109,7 +234,7 @@ function Steps() {
         </li>
       </ul>
 
-      <h3>2. Provera pošiljki</h3>
+      <Subheading n={2}>Provera pošiljki</Subheading>
       <p>
         Pošiljka sa statusom <strong>„Nejasna lokacija“</strong> nema koordinate za mesto utovara ili istovara i ne
         može u optimizaciju. Kliknite „Izmeni“ u njenom redu i:
@@ -125,7 +250,7 @@ function Steps() {
         mestom…“, pa jedna ispravka popravlja sve. U istom obrascu menjate i ID, LDM, težinu i opis.
       </p>
 
-      <h3>3. Kamioni</h3>
+      <Subheading n={3}>Kamioni</Subheading>
       <p>
         Na ekranu <Link to="/trucks">Kamioni</Link> unesite naziv, kapacitet u LDM i nosivost u kg (prazno znači bez
         ograničenja). Dimenzije tovarnog prostora su potrebne samo za 3D prikaz. Kamion koji nije označen kao
@@ -146,7 +271,7 @@ function Steps() {
         </>
       )}
 
-      <h3>4. Pokretanje optimizacije</h3>
+      <Subheading n={4}>Pokretanje optimizacije</Subheading>
       <p>
         Kliknite „Pokreni optimizaciju“ (gore desno) ili na ekranu <Link to="/optimization">Rezultati</Link> zadajte
         vremensko ograničenje i pokrenite odatle. Optimizacija traži najbolje rešenje dok ne istekne zadato vreme
@@ -169,7 +294,7 @@ function Steps() {
         </ul>
       )}
 
-      <h3>5. Rezultat</h3>
+      <Subheading n={5}>Rezultat</Subheading>
       <ul>
         <li>
           <strong>Kamioni i kilometri:</strong> broj korišćenih kamiona i ukupna kilometraža svih ruta
@@ -191,11 +316,16 @@ function Steps() {
         <li>
           <strong>3D prikaz:</strong> ilustrativni raspored robe u kamionu; ono što se prvo istovara stoji kod vrata.
         </li>
+        <li>
+          <strong>Izvezi PDF:</strong> izveštaj sa rezimeom na prvoj strani i svakim kamionom na svojoj strani (stanice
+          redom, sa kilometrima), da se može dati vozaču. U aplikaciji za PC birate gde se fajl čuva; u pregledaču se
+          otvara štampa, gde izaberete „Sačuvaj kao PDF“.
+        </li>
       </ul>
 
       {ON_DEVICE && (
         <>
-          <h3>6. Podešavanja i podaci na uređaju</h3>
+          <Subheading n={6}>Podešavanja i podaci na uređaju</Subheading>
           <ul>
             <li>
               <Link to="/settings">Podešavanja</Link>: traženje koordinata preko Nominatim-a, ključ za
@@ -220,7 +350,7 @@ function Steps() {
 function Algorithm() {
   return (
     <>
-      <h3>Pravila koja svako rešenje poštuje</h3>
+      <Subheading n={1}>Pravila koja svako rešenje poštuje</Subheading>
       <ul>
         <li>Pošiljka se ne deli: cela ide jednim kamionom.</li>
         <li>
@@ -235,7 +365,7 @@ function Algorithm() {
         <li>Ukupan LDM i težina pošiljki na kamionu ne prelaze njegov kapacitet i nosivost.</li>
       </ul>
 
-      <h3>Koraci</h3>
+      <Subheading n={2}>Koraci</Subheading>
       <ol>
         <li>
           <strong>Provera unapred.</strong> Ako je dokazano da rešenje ne postoji (npr. pošiljka je veća od svakog
@@ -263,7 +393,7 @@ function Algorithm() {
 
       {ON_DEVICE && (
         <>
-          <h3>Preporuka dodatnog kamiona</h3>
+          <Subheading n={3}>Preporuka dodatnog kamiona</Subheading>
           <p>
             Posle rešenja aplikacija isti zadatak reši još jednom, sa tačno jednim kamionom više. Ako je tada
             kilometara manje bar za procenat iz Podešavanja (podrazumevano 10 %), rezultat to prikaže sa dugmetom „Dodaj
@@ -271,7 +401,7 @@ function Algorithm() {
             kamion se pri tom računa kao da kreće iz prvog magacina, bez prazne vožnje, pa je stvarna ušteda nešto
             manja ako je kamion daleko.
           </p>
-          <h3>Kilometraže</h3>
+          <Subheading n={4}>Kilometraže</Subheading>
           <p>
             Bez ključa za OpenRouteService rastojanja su vazdušna linija: rezultat i dalje dobro poredi rute, ali su
             kilometri manji od stvarnih. Sa ključem rastojanja su po putu (za teretna vozila ili automobile, po
@@ -280,7 +410,7 @@ function Algorithm() {
         </>
       )}
 
-      <h3>Šta optimizacija ne garantuje</h3>
+      <Subheading n={ON_DEVICE ? 5 : 3}>Šta optimizacija ne garantuje</Subheading>
       <ul>
         <li>
           Nađeno rešenje je najbolje koje je optimizacija našla u zadatom vremenu, a ne dokaz da boljeg nema. Na

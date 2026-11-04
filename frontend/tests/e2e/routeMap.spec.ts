@@ -141,3 +141,52 @@ test('warns about an unknown job or truck and shows all routes', async ({ page }
   await expect(page.getByText('Kamion #42 nema rutu u ovom rezultatu')).toBeVisible()
   await expect(routeCards(page)).toHaveCount(2)
 })
+
+test('the map goes full screen and back, and fills the page where the browser has no full screen', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.setViewportSize({ width: 1200, height: 800 })
+  await runJob(page)
+  await page.getByRole('navigation').getByRole('link', { name: 'Mapa ruta' }).click()
+  const button = page.getByRole('button', { name: 'Ceo ekran' })
+  const size = async () => {
+    const box = (await map(page).boundingBox())!
+    return [Math.round(box.width), Math.round(box.height)]
+  }
+  /** A loaded tile covers the map's bottom right corner (Leaflet knows the map's real size). */
+  const cornerTiled = () =>
+    page.evaluate(() => {
+      const box = document.querySelector('.route-map')!.getBoundingClientRect()
+      const [x, y] = [box.right - 20, box.bottom - 20]
+      return [...document.querySelectorAll('.route-map .leaflet-tile-loaded')].some((tile) => {
+        const r = tile.getBoundingClientRect()
+        return r.left <= x && x <= r.right && r.top <= y && y <= r.bottom
+      })
+    })
+  const before = await size()
+  expect(before[1]).toBeLessThan(800)
+
+  // The browser's own full screen: the map's frame takes the screen, the map fills it.
+  await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  expect(await page.evaluate(() => document.fullscreenElement?.className)).toContain('route-map-frame')
+  await expect.poll(size).toEqual([1200, 800])
+  // Leaflet measured again: the larger map has tiles down to its far corner.
+  await expect.poll(cornerTiled).toBe(true)
+  await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  expect(await page.evaluate(() => document.fullscreenElement)).toBeNull()
+  await expect.poll(size).toEqual(before)
+
+  // Without it (some phones): spread over the page, above the bars; Esc closes.
+  await page.evaluate(() => Object.defineProperty(document, 'fullscreenEnabled', { value: false }))
+  await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  expect(await page.evaluate(() => document.fullscreenElement)).toBeNull()
+  await expect.poll(size).toEqual([1200, 800])
+  await expect.poll(cornerTiled).toBe(true)
+  await expect(button).toBeInViewport()
+  await page.keyboard.press('Escape')
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await expect.poll(size).toEqual(before)
+  expect(errors).toEqual([])
+})

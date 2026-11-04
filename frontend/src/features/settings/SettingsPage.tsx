@@ -7,6 +7,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { DeviceDataPanel } from './DeviceDataPanel'
+import { SettingsPart } from './SettingsPart'
 
 /** Settings of the application on the device; the mock and the backend have none. */
 export function SettingsPage() {
@@ -15,7 +16,7 @@ export function SettingsPage() {
   const [settings, reload] = useAsyncData(load)
 
   return (
-    <section>
+    <section className="settings">
       <PageHeader title="Podešavanja" />
       {settings.status === 'loading' && <LoadingState label="Učitavanje podešavanja…" />}
       {settings.status === 'error' && (
@@ -43,7 +44,9 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
   const [contactEmail, setContactEmail] = useState(initial.contactEmail ?? '')
   const [orsApiKey, setOrsApiKey] = useState(initial.orsApiKey ?? '')
   const [orsProfile, setOrsProfile] = useState<OrsProfile>(initial.orsProfile)
-  const [savingPercent, setSavingPercent] = useState(initial.extraTruckSavingPercent === null ? '' : String(initial.extraTruckSavingPercent))
+  const [savingPercent, setSavingPercent] = useState(
+    initial.extraTruckSavingPercent === null ? '' : String(initial.extraTruckSavingPercent),
+  )
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -87,117 +90,147 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
       </span>
     )
   const hint = (field: Field, text: ReactNode) => (
-    <span id={`${id}-${field}-hint`} className="text--muted">
+    <span id={`${id}-${field}-hint`} className="field__hint">
       {text}
     </span>
   )
 
   return (
-    <form className="panel settings-form" onSubmit={handleSubmit} noValidate aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>Koordinate mesta</h2>
-      <p className="text--muted">
-        Pri potvrdi uvoza aplikacija traži koordinate novih mesta preko javnog servisa Nominatim (OpenStreetMap),
-        najviše jedno mesto u sekundi. Svaki odgovor se pamti na uređaju i isto mesto se više ne traži. Šalje se samo
-        naziv mesta i oznaka zemlje. <OsmAttribution />
-      </p>
+    <form className="panel settings-form" onSubmit={handleSubmit} noValidate aria-label="Podešavanja aplikacije">
+      <SettingsPart
+        n={1}
+        title="Koordinate mesta"
+        about={
+          <>
+            <p className="text--muted">
+              Pri potvrdi uvoza aplikacija traži koordinate novih mesta preko javnog servisa Nominatim (OpenStreetMap),
+              najviše jedno mesto u sekundi.
+            </p>
+            <p className="text--muted">
+              Svaki odgovor se pamti na uređaju i isto mesto se više ne traži. Šalje se samo naziv mesta i oznaka
+              zemlje. <OsmAttribution />
+            </p>
+          </>
+        }
+      >
+        <div className="field field--checkbox">
+          <input
+            id={`${id}-geocoding`}
+            type="checkbox"
+            checked={geocodingEnabled}
+            onChange={(e) => setGeocodingEnabled(e.target.checked)}
+          />
+          <label htmlFor={`${id}-geocoding`}>Traži koordinate preko Nominatim-a</label>
+        </div>
 
-      <div className="field field--checkbox">
-        <input
-          id={`${id}-geocoding`}
-          type="checkbox"
-          checked={geocodingEnabled}
-          onChange={(e) => setGeocodingEnabled(e.target.checked)}
-        />
-        <label htmlFor={`${id}-geocoding`}>Traži koordinate preko Nominatim-a</label>
-      </div>
+        <div className="field">
+          <label htmlFor={`${id}-contactEmail`}>E-adresa za Nominatim (neobavezno)</label>
+          <input
+            id={`${id}-contactEmail`}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={contactEmail}
+            onChange={(e) => setContactEmail(e.target.value)}
+            aria-invalid={errors.contactEmail ? true : undefined}
+            aria-describedby={described('contactEmail', true)}
+          />
+          {hint(
+            'contactEmail',
+            'Šalje se uz svaki upit, da bi vas operateri servisa mogli kontaktirati ako nešto nije u redu.',
+          )}
+          {fieldError('contactEmail')}
+        </div>
+      </SettingsPart>
 
-      <div className="field">
-        <label htmlFor={`${id}-contactEmail`}>E-adresa za Nominatim (neobavezno)</label>
-        <input
-          id={`${id}-contactEmail`}
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          value={contactEmail}
-          onChange={(e) => setContactEmail(e.target.value)}
-          aria-invalid={errors.contactEmail ? true : undefined}
-          aria-describedby={described('contactEmail', true)}
-        />
-        {hint('contactEmail', 'Šalje se uz svaki upit, da bi vas operateri servisa mogli kontaktirati ako nešto nije u redu.')}
-        {fieldError('contactEmail')}
-      </div>
+      <SettingsPart
+        n={2}
+        title="Kilometraže"
+        about={
+          <>
+            <p className="text--muted">
+              Sa ključem za OpenRouteService optimizacija računa kilometre po putu, a mapa crta rute po putu; bez ključa
+              računa vazdušnu liniju, i rezultat to piše.
+            </p>
+            <p className="text--muted">
+              Šalju se samo koordinate mesta, i samo ono što još nije izračunato; kilometraže i linije se pamte na
+              uređaju. Besplatan ključ je na nalogu na{' '}
+              <a href="https://account.heigit.org" target="_blank" rel="noreferrer">
+                account.heigit.org
+              </a>{' '}
+              (kartica „API Key“).
+            </p>
+          </>
+        }
+      >
+        <div className="field">
+          <label htmlFor={`${id}-orsApiKey`}>Ključ za OpenRouteService</label>
+          <input
+            id={`${id}-orsApiKey`}
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={orsApiKey}
+            onChange={(e) => setOrsApiKey(e.target.value)}
+            aria-invalid={errors.orsApiKey ? true : undefined}
+            aria-describedby={described('orsApiKey', true)}
+          />
+          {hint('orsApiKey', 'Čuva se samo na ovom uređaju. Prazno = vazdušna linija.')}
+          {fieldError('orsApiKey')}
+        </div>
 
-      <h2 className="settings-form__section">Kilometraže</h2>
-      <p className="text--muted">
-        Sa ključem za OpenRouteService optimizacija računa kilometre po putu, a mapa crta rute po putu; bez ključa
-        računa vazdušnu liniju, i rezultat to piše. Šalju se samo koordinate mesta, i samo ono što još nije
-        izračunato; kilometraže i linije se pamte na uređaju. Besplatan ključ je na nalogu na{' '}
-        <a href="https://account.heigit.org" target="_blank" rel="noreferrer">
-          account.heigit.org
-        </a>{' '}
-        (kartica „API Key“).
-      </p>
+        <div className="field">
+          <label htmlFor={`${id}-orsProfile`}>Putevi za</label>
+          <select
+            id={`${id}-orsProfile`}
+            value={orsProfile}
+            onChange={(e) => setOrsProfile(e.target.value as OrsProfile)}
+            aria-invalid={errors.orsProfile ? true : undefined}
+            aria-describedby={described('orsProfile', false)}
+          >
+            <option value="driving-hgv">teretna vozila</option>
+            <option value="driving-car">automobile</option>
+          </select>
+          {fieldError('orsProfile')}
+        </div>
+      </SettingsPart>
 
-      <div className="field">
-        <label htmlFor={`${id}-orsApiKey`}>Ključ za OpenRouteService</label>
-        <input
-          id={`${id}-orsApiKey`}
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          value={orsApiKey}
-          onChange={(e) => setOrsApiKey(e.target.value)}
-          aria-invalid={errors.orsApiKey ? true : undefined}
-          aria-describedby={described('orsApiKey', true)}
-        />
-        {hint('orsApiKey', 'Čuva se samo na ovom uređaju. Prazno = vazdušna linija.')}
-        {fieldError('orsApiKey')}
-      </div>
+      <SettingsPart
+        n={3}
+        title="Preporuka dodatnog kamiona"
+        about={
+          <p className="text--muted">
+            Posle optimizacije aplikacija proba i sa jednim kamionom više i predloži ga kada je kilometara bar toliko
+            posto manje.
+          </p>
+        }
+      >
+        <div className="field">
+          <label htmlFor={`${id}-extraTruckSavingPercent`}>Preporuka dodatnog kamiona: najmanja ušteda (%)</label>
+          <input
+            id={`${id}-extraTruckSavingPercent`}
+            inputMode="numeric"
+            value={savingPercent}
+            onChange={(e) => setSavingPercent(e.target.value)}
+            aria-invalid={errors.extraTruckSavingPercent ? true : undefined}
+            aria-describedby={described('extraTruckSavingPercent', true)}
+          />
+          {hint('extraTruckSavingPercent', 'Prazno = bez preporuke (optimizacija tada traje upola kraće).')}
+          {fieldError('extraTruckSavingPercent')}
+        </div>
+      </SettingsPart>
 
-      <div className="field">
-        <label htmlFor={`${id}-orsProfile`}>Putevi za</label>
-        <select
-          id={`${id}-orsProfile`}
-          value={orsProfile}
-          onChange={(e) => setOrsProfile(e.target.value as OrsProfile)}
-          aria-invalid={errors.orsProfile ? true : undefined}
-          aria-describedby={described('orsProfile', false)}
-        >
-          <option value="driving-hgv">teretna vozila</option>
-          <option value="driving-car">automobile</option>
-        </select>
-        {fieldError('orsProfile')}
-      </div>
-
-      <div className="field">
-        <label htmlFor={`${id}-extraTruckSavingPercent`}>Preporuka dodatnog kamiona: najmanja ušteda (%)</label>
-        <input
-          id={`${id}-extraTruckSavingPercent`}
-          inputMode="numeric"
-          value={savingPercent}
-          onChange={(e) => setSavingPercent(e.target.value)}
-          aria-invalid={errors.extraTruckSavingPercent ? true : undefined}
-          aria-describedby={described('extraTruckSavingPercent', true)}
-        />
-        {hint(
-          'extraTruckSavingPercent',
-          'Posle optimizacije aplikacija proba i sa jednim kamionom više i predloži ga kada je kilometara bar toliko posto manje. Prazno = bez preporuke (optimizacija tada traje upola kraće).',
+      <div className="settings-form__footer">
+        {formError && (
+          <p role="alert" className="text--error">
+            Čuvanje nije uspelo: {formError}
+          </p>
         )}
-        {fieldError('extraTruckSavingPercent')}
-      </div>
-
-      {formError && (
-        <p role="alert" className="text--error">
-          Čuvanje nije uspelo: {formError}
-        </p>
-      )}
-      {saved && (
-        <p role="status" className="text--success">
-          Podešavanja su sačuvana.
-        </p>
-      )}
-
-      <div className="form-actions">
+        {saved && (
+          <p role="status" className="text--success">
+            Podešavanja su sačuvana.
+          </p>
+        )}
         <button type="submit" className="button--primary" disabled={saving}>
           {saving ? 'Čuvanje…' : 'Sačuvaj'}
         </button>

@@ -166,13 +166,114 @@ fieldset.field {
   margin-bottom: var(--space-4);
 }
 
-.truck-form,
-.settings-form {
+.truck-form {
   max-width: 34rem;
 }
 
-.settings-form__section {
-  margin-top: var(--space-6);
+/* A part's number in a cherry circle, before its heading (the guide, the settings). */
+.number-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  color: var(--accent-text);
+  background: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0;
+}
+
+/*
+ * Settings: numbered parts, as in the guide. Each part has what it does on the left and its
+ * fields on the right (one column when narrow); a line between parts; saving at the bottom.
+ */
+.settings {
+  container-type: inline-size;
+}
+
+.settings-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--border);
+}
+
+.settings-part:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* The last thing in its card (the data part): the card's own padding is enough below it. */
+.settings-part:last-child {
+  padding-bottom: 0;
+}
+
+@container (min-width: 52rem) {
+  .settings-part {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+.settings-part__about h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.settings-part__about p {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.settings-part__fields {
+  max-width: 32rem;
+}
+
+.settings-part__fields .field:last-child {
+  margin-bottom: 0;
+}
+
+/* Export and import of the data on the device: two buttons of one size, in the bottom right
+   corner of the card (as wide as the fields above; under the text when narrow). */
+.device-data .settings-part__fields {
+  align-self: end;
+  justify-self: end;
+  width: min(100%, 32rem);
+}
+
+.data-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+button.data-action {
+  height: 2.75rem;
+  border-radius: var(--radius-lg);
+}
+
+/* The messages after an export or an import, under the buttons. */
+.data-actions ~ p {
+  margin: var(--space-3) 0 0;
+}
+
+.settings-form__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.settings-form__footer p {
+  margin: 0;
 }
 
 /* Tables (dense) */
@@ -639,10 +740,6 @@ button.button--danger:hover:not(:disabled) {
   gap: var(--space-2);
 }
 
-.device-data {
-  max-width: 34rem;
-  margin-top: var(--space-6);
-}
 
 .device-data__summary {
   margin: var(--space-2) 0 var(--space-4);
@@ -718,12 +815,13 @@ button.button--danger:hover:not(:disabled) {
 
 /*
  * Dark cards: cherry (panel--cherry, the dashboard's warnings) and dark grey (panel--dark, the
- * load against the fleet). Everything on them turns light: text, links, muted notes, plain
- * buttons (see-through with a light edge), the focus ring; the primary button turns cream with
- * cherry text.
+ * load against the fleet; table-wrap--dark, the truck locations). Everything on them turns
+ * light: text, links, muted notes, plain buttons (see-through with a light edge), the focus
+ * ring; the primary button turns cream with cherry text. Input fields stay light.
  */
 .panel.panel--cherry,
-.panel.panel--dark {
+.panel.panel--dark,
+.table-wrap.table-wrap--dark {
   color: var(--on-dark-text);
   border-color: var(--card-dark-border);
   box-shadow: var(--card-dark-edge), var(--shadow-card);
@@ -733,40 +831,81 @@ button.button--danger:hover:not(:disabled) {
   background: var(--card-cherry-surface);
 }
 
-.panel.panel--dark {
+.panel.panel--dark,
+.table-wrap.table-wrap--dark {
   background: var(--card-dark-surface);
 }
 
-:is(.panel--cherry, .panel--dark) :is(h2, h3, a) {
+/* A dark table on a dark card sits a shade deeper, framed by a faint line instead of a shadow. */
+:is(.panel--dark, .panel--cherry) .table-wrap.table-wrap--dark {
+  background: var(--on-dark-inset);
+  border-color: var(--on-dark-frame);
+  box-shadow: none;
+}
+
+/* Its header stays in the deeper shade (only a touch lighter), so the rounded top corners show. */
+:is(.panel--dark, .panel--cherry) .table-wrap--dark .table thead th {
+  background: var(--on-dark-row);
+}
+
+/* A dark table: faint light lines, header and row hover; the editor row slightly lighter. */
+.table-wrap--dark .table th,
+.table-wrap--dark .table td {
+  border-bottom-color: var(--on-dark-line);
+}
+
+.table-wrap--dark .table thead th {
+  color: var(--on-dark-muted);
+  background: var(--on-dark-control);
+}
+
+.table-wrap--dark .table tbody tr:hover,
+.table-wrap--dark .table__editor-row > td {
+  background: var(--on-dark-row);
+}
+
+.table-wrap--dark .field > label {
   color: var(--on-dark-text);
 }
 
-:is(.panel--cherry, .panel--dark) .text--muted {
+.table-wrap--dark .field__hint {
   color: var(--on-dark-muted);
 }
 
-:is(.panel--cherry, .panel--dark) button {
+.table-wrap--dark :is(.field__error, .text--error) {
+  color: var(--on-dark-danger);
+}
+
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) :is(h2, h3, a) {
+  color: var(--on-dark-text);
+}
+
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) .text--muted {
+  color: var(--on-dark-muted);
+}
+
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) button {
   color: var(--on-dark-text);
   background: var(--on-dark-control);
   border-color: var(--on-dark-control-border);
   box-shadow: none;
 }
 
-:is(.panel--cherry, .panel--dark) button:hover:not(:disabled) {
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) button:hover:not(:disabled) {
   background: var(--on-dark-control-hover);
 }
 
-:is(.panel--cherry, .panel--dark) button.button--primary {
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) button.button--primary {
   color: var(--accent);
   background: var(--cream);
   border-color: var(--cream);
 }
 
-:is(.panel--cherry, .panel--dark) button.button--primary:hover:not(:disabled) {
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) button.button--primary:hover:not(:disabled) {
   background: var(--white);
   border-color: var(--white);
 }
 
-:is(.panel--cherry, .panel--dark) :focus-visible {
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) :focus-visible {
   box-shadow: var(--on-dark-focus-ring);
 }

@@ -1,22 +1,17 @@
-import { ORS_ATTRIBUTION } from '../../api/local/openRouteService'
-import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
-import type { DistanceSource, OptimizationJob, OptimizationResult } from '../../api/types'
+import { useState } from 'react'
+import type { OptimizationJob, OptimizationResult } from '../../api/types'
+import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { ErrorState, LoadingState } from '../../components/states'
 import { formatTime } from '../../format/time'
-import { formatKm, formatLdm, formatScore } from '../../format/units'
-import { buildTruckRows, buildUnassignedRows, type ReferenceData } from './resultRows'
+import { formatKm, formatLdm } from '../../format/units'
+import { exportPdf, reportFileName } from './exportPdf'
+import { ResultReport } from './ResultReport'
+import { buildTruckRows, buildUnassignedRows, DISTANCE_SOURCES, distanceScope, type ReferenceData } from './resultRows'
 import { RouteTable } from './RouteTable'
 import { useReferenceData } from './useReferenceData'
 import { ExtraTruckNotice, ShortageActions } from './FleetActions'
 import type { StartOptions } from './lastJobContext'
-
-/** Only the application on the device says where the distances come from. */
-const DISTANCE_SOURCES: Record<DistanceSource, string> = {
-  'driving-hgv': `po putu za teretna vozila (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,
-  'driving-car': `po putu za automobile (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,
-  airline: 'vazdušna linija, ne po putu (nema ključa za OpenRouteService u Podešavanjima)',
-}
 
 /** `options`: how the job was started, on the device; there the result offers trucks to add. */
 export function ResultView({
@@ -29,14 +24,31 @@ export function ResultView({
   options?: StartOptions | null
 }) {
   const [reference, reload] = useReferenceData()
+  const [pdf, setPdf] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+
+  async function savePdf() {
+    setPdf(null)
+    try {
+      const outcome = await exportPdf(reportFileName(job.id))
+      if (outcome.kind === 'saved') setPdf({ tone: 'success', text: `PDF je sačuvan: ${outcome.path}` })
+    } catch (error) {
+      setPdf({ tone: 'error', text: `PDF nije napravljen: ${error instanceof Error ? error.message : String(error)}` })
+    }
+  }
 
   return (
     <div className="result">
       <p className="text--muted result__meta">
         Posao #{job.id} · završen {formatTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
       </p>
+      {reference.status === 'success' && <ResultReport job={job} result={result} reference={reference.data} />}
 
-      <Summary job={job} result={result} />
+      <Summary result={result} onExport={reference.status === 'success' ? () => void savePdf() : null} />
+      {pdf && (
+        <p role={pdf.tone === 'error' ? 'alert' : 'status'} className={pdf.tone === 'error' ? 'text--error' : 'text--success'}>
+          {pdf.text}
+        </p>
+      )}
       <Validation result={result} />
       {options && <ExtraTruckNotice result={result} options={options} />}
       {options && result.unassignedShipmentIds.length > 0 && (
@@ -61,15 +73,12 @@ export function ResultView({
   )
 }
 
-function Summary({ job, result }: { job: OptimizationJob; result: OptimizationResult }) {
+/** Three cards of the result, then "Izvezi PDF" as a fourth, dark one (once the names are loaded). */
+function Summary({ result, onExport }: { result: OptimizationResult; onExport: (() => void) | null }) {
   const atLowerBound = result.trucksUsed === result.trucksLowerBound
-  const score =
-    job.scoreHard !== null && job.scoreMedium !== null && job.scoreSoft !== null
-      ? formatScore(job.scoreHard, job.scoreMedium, job.scoreSoft)
-      : '–'
   return (
-    <dl className="stats">
-      <div className="stat">
+    <div className="stats">
+      <dl className="stat">
         <dt>Kamioni</dt>
         <dd className="stat__value">{result.trucksUsed}</dd>
         <dd className="stat__hint">
@@ -77,32 +86,18 @@ function Summary({ job, result }: { job: OptimizationJob; result: OptimizationRe
             ? 'jednako donjoj granici po kapacitetu'
             : `donja granica po kapacitetu: ${result.trucksLowerBound}`}
         </dd>
-      </div>
-      <div className="stat">
+      </dl>
+      <dl className="stat">
         <dt>Ukupna kilometraža</dt>
         <dd className="stat__value">{formatKm(result.totalMeters)}</dd>
-        <dd className="stat__hint">
-          {!result.openRoute
-            ? 'uključuje povratak u bazu'
-            : result.routes.some((r) => r.startLocationId !== undefined)
-              ? 'od lokacije kamiona do poslednjeg istovara'
-              : 'od prvog utovara do poslednjeg istovara'}
-        </dd>
+        <dd className="stat__hint">{distanceScope(result)}</dd>
         {result.distanceSource && (
           <dd className="stat__hint" data-testid="distance-source">
             {DISTANCE_SOURCES[result.distanceSource]}
           </dd>
         )}
-      </div>
-      <div className="stat">
-        <dt>Skor (Hard/Medium/Soft)</dt>
-        <dd className="stat__value stat__value--mono">{score}</dd>
-        <dd className="stat__hint">
-          {/* On the device medium also counts LDM left out, and trucks only above the ones at no cost. */}
-          {result.openRoute ? 'medium = −kamioni (i izostavljeni LDM), soft = −metri' : 'medium = −kamioni, soft = −metri'}
-        </dd>
-      </div>
-      <div className="stat">
+      </dl>
+      <dl className="stat">
         <dt>Validator</dt>
         <dd className={`stat__value ${result.validation.passed ? 'text--success' : 'text--error'}`}>
           {result.validation.passed ? 'Prošao' : 'Nije prošao'}
@@ -110,8 +105,17 @@ function Summary({ job, result }: { job: OptimizationJob; result: OptimizationRe
         <dd className="stat__hint">
           {result.validation.passed ? 'bez grešaka' : `grešaka: ${result.validation.violations.length}`}
         </dd>
-      </div>
-    </dl>
+      </dl>
+      {onExport && (
+        <button type="button" className="stat stat-action" onClick={onExport}>
+          <span className="stat-action__title">
+            <Icon name="download" size={22} />
+            Izvezi PDF
+          </span>
+          <span className="stat-action__hint">rezime i strana po kamionu</span>
+        </button>
+      )}
+    </div>
   )
 }
 

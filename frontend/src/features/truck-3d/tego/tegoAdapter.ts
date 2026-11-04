@@ -53,6 +53,11 @@ export function toViewerItems(placements: Placement[]): ViewerItem[] {
   }))
 }
 
+/** The colour of the block at this index in the placements, as CSS (for the list beside the view). */
+export function placementColor(index: number): string {
+  return `#${COLORS[index % COLORS.length].slice(2)}`
+}
+
 /** Field mapping for mapItems / mapBins (same keys as TeGo's defaultMapping). */
 export const VIEWER_MAPPING: TegoMapping = {
   x_start: ['x'],

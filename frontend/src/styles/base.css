@@ -68,6 +68,15 @@ a {
   white-space: nowrap;
 }
 
+/* Fields get a width of their own (input { width: 100% } in components.css), which a hidden
+   one must not keep: the hidden file field once widened the settings page by 470 px. */
+input.visually-hidden:not([type='checkbox']) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+}
+
 .text--muted {
   color: var(--text-muted);
 }

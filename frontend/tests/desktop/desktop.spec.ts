@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import writeExcelFile from 'write-excel-file/node'
@@ -35,7 +35,8 @@ const outside: { url: string; userAgent: string }[] = []
 async function launch(): Promise<{ app: ElectronApplication; page: Page }> {
   // VS Code sets ELECTRON_RUN_AS_NODE for its child processes; Electron would then run as plain Node.
   const env = Object.fromEntries(
-    Object.entries({ ...process.env, RCVA_USER_DATA: userData }).filter(
+    // RCVA_PDF_PATH: where "Izvezi PDF" writes, instead of asking with a dialog.
+    Object.entries({ ...process.env, RCVA_USER_DATA: userData, RCVA_PDF_PATH: path.join(userData, 'rezultat.pdf') }).filter(
       (entry): entry is [string, string] => entry[0] !== 'ELECTRON_RUN_AS_NODE' && entry[1] !== undefined,
     ),
   )
@@ -133,6 +134,14 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
+
+  // The results as a PDF file, written by the application itself: the summary and one truck.
+  const pdfPath = path.join(userData, 'rezultat.pdf')
+  await page.getByRole('button', { name: 'Izvezi PDF' }).click()
+  await expect(page.getByText(`PDF je sačuvan: ${pdfPath}`)).toBeVisible({ timeout: 15_000 })
+  const pdf = readFileSync(pdfPath)
+  expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
+  expect(pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)).toHaveLength(2)
   await app.close()
 
   ;({ app, page } = await launch())

@@ -154,26 +154,64 @@
   justify-content: space-between;
   gap: var(--space-4);
   width: 100%;
+  container-type: inline-size;
 }
 
 .job-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   min-width: 0;
 }
 
-.job-status__label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  white-space: nowrap;
+/* The status and the facts as a row of chips; the whole row opens the results. */
+.job-status__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 3px;
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color 0.15s;
 }
 
-/* Up to two lines (e.g. a PROVEN cause); the full text is in the title attribute. */
-.job-status__detail {
+.job-status__link:hover {
+  background: var(--chip-hover);
+}
+
+.job-status__link .badge {
+  flex: none;
+}
+
+.job-status__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  height: 1.625rem;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  background: var(--chip-surface);
+  border: 1px solid var(--chip-border);
+  border-radius: 999px;
+}
+
+.job-status__fact .icon {
+  color: var(--text-muted);
+}
+
+.job-status__fact--success .icon {
+  color: var(--success);
+}
+
+.job-status__fact--danger,
+.job-status__fact--danger .icon {
+  color: var(--danger);
+}
+
+/* A sentence after the chips, up to two lines (e.g. a PROVEN cause); all of it is in the title. */
+.job-status__message {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -184,13 +222,48 @@
   line-height: 1.3;
 }
 
-.job-status__detail strong {
-  font-weight: var(--weight-semibold);
+/* A narrow bar keeps the status, trucks and kilometres. */
+@container (max-width: 44rem) {
+  .job-status__fact--minor {
+    display: none;
+  }
 }
 
-.job-status__sep {
-  color: var(--gray-300);
-  margin: 0 var(--space-2);
+/* While a job runs: a light sliding along the bottom edge of the bar. */
+.top-bar__progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.top-bar__progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 35%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: top-bar-progress 1.4s ease-in-out infinite;
+}
+
+@keyframes top-bar-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-bar__progress::after {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 /* Main content */
@@ -251,6 +324,199 @@
 .result__meta {
   margin-bottom: var(--space-3);
   font-size: var(--text-sm);
+}
+
+/* The result's cards are lists of their own (a card may be a button), without a list's margin. */
+dl.stat {
+  margin: 0;
+}
+
+/* "Izvezi PDF": the last card of the result's row, as large as the others, in dark grey. */
+button.stat.stat-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  height: auto;
+  color: var(--on-dark-text);
+  background: var(--dark-grey);
+  border-color: var(--dark-grey);
+  /* No light inner edge: on the dark it reads as a second border. */
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  white-space: normal;
+}
+
+button.stat.stat-action:hover:not(:disabled) {
+  background: var(--gray-700);
+  border-color: var(--gray-700);
+  box-shadow: var(--shadow-card-raised);
+}
+
+/* The icon on the title's line. */
+.stat-action__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.stat-action__hint {
+  font-size: var(--text-sm);
+  font-weight: normal;
+  color: var(--on-dark-muted);
+}
+
+/*
+ * The results report (ResultReport.tsx): not on the screen; in print only it shows, the
+ * application is hidden. A4, black on white, the summary on page one and each truck on a page
+ * of its own, tables that repeat their head and do not split a row.
+ */
+.report {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  body {
+    background: var(--white);
+  }
+
+  /* Only where there is a report (the results); any other screen prints as it is. */
+  body:has(> .report) #root {
+    display: none;
+  }
+
+  .report {
+    display: block;
+    color: var(--text);
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+
+  .report h1,
+  .report h2 {
+    margin: 0;
+    letter-spacing: 0.03em;
+  }
+
+  .report h1 {
+    font-size: 16pt;
+  }
+
+  .report h2 {
+    margin: 16pt 0 6pt;
+    font-size: 12pt;
+  }
+
+  .report__header {
+    display: flex;
+    align-items: center;
+    gap: 10pt;
+    padding-bottom: 8pt;
+    border-bottom: 2px solid var(--accent);
+  }
+
+  .report__logo {
+    flex: none;
+  }
+
+  .report__meta {
+    margin: 2pt 0 0;
+    color: var(--text-muted);
+  }
+
+  .report__summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6pt 16pt;
+    margin: 12pt 0 0;
+  }
+
+  .report__summary dt {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+
+  .report__summary dd {
+    margin: 1pt 0 0;
+    font-size: 12pt;
+    font-weight: var(--weight-semibold);
+  }
+
+  .report__summary dd span {
+    font-size: 9pt;
+    font-weight: normal;
+    color: var(--text-muted);
+  }
+
+  .report__violations {
+    margin: 8pt 0 0;
+    color: var(--danger);
+  }
+
+  .report__table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .report__table th,
+  .report__table td {
+    padding: 4pt 6pt;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .report__table thead th {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    border-bottom: 1.5px solid var(--text);
+  }
+
+  .report__table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .report__table thead {
+    display: table-header-group;
+  }
+
+  .report__table tr {
+    break-inside: avoid;
+  }
+
+  .report__note {
+    margin: 10pt 0 0;
+    font-size: 8pt;
+    color: var(--text-muted);
+  }
+
+  /* Each truck on a page of its own, for its driver. */
+  .report__truck {
+    break-before: page;
+  }
+
+  .report__truck h2 {
+    margin-top: 0;
+    font-size: 14pt;
+  }
+
+  .report__truck .report__meta {
+    margin-bottom: 10pt;
+  }
 }
 
 .route-table tbody th {
@@ -341,6 +607,61 @@
   /* Leaflet's panes and controls use z-index up to 1000; keep them under the sticky top bar. */
   isolation: isolate;
   background: var(--surface-muted);
+}
+
+/* The map with its full-screen button, top right like Leaflet's own buttons. */
+.route-map-frame {
+  position: relative;
+}
+
+button.route-map__fullscreen {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  /* above the map's panes (isolated in .route-map) */
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--text);
+  background: var(--white);
+  border: 2px solid var(--leaflet-control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+button.route-map__fullscreen:hover:not(:disabled) {
+  background: var(--gray-50);
+}
+
+/* In full screen the map takes all of it. */
+.route-map-frame:fullscreen {
+  background: var(--surface-muted);
+}
+
+.route-map-frame:fullscreen .route-map {
+  height: 100%;
+  border-radius: 0;
+}
+
+/* Without the browser's full screen: over the whole page, above the bars. */
+.route-map-frame--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--surface-muted);
+}
+
+.route-map-frame--expanded .route-map {
+  height: 100%;
+  border-radius: 0;
+}
+
+/* The glass card around it blurs with backdrop-filter, which would hold a fixed child inside
+   the card (and under its stacking): off while the map is spread. */
+.panel:has(.route-map-frame--expanded) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* Leaflet 1.9 blends tiles with plus-lighter (against seams at fractional zoom); inside the
@@ -616,8 +937,9 @@
   margin-top: var(--space-4);
 }
 
-.truck-locations__all {
-  margin-bottom: var(--space-3);
+/* The text and the buttons above the table keep clear of it. */
+.truck-locations .table-wrap {
+  margin-top: var(--space-6);
 }
 
 /* A proposed truck location with its two answers, in a table cell. */
@@ -964,13 +1286,37 @@ button.quick-action--primary:hover:not(:disabled) {
   color: var(--text-muted);
 }
 
+/* The list beside the 3D view: the truck's fill and cargo space, then one row per shipment,
+   each with the colour of its block. */
 .truck-3d__list h2 {
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.truck-3d__list .ldm-bar {
+  min-width: 0;
+}
+
+.truck-3d__list .ldm-bar__track {
+  flex: 1;
 }
 
 .truck-3d__space {
-  margin-bottom: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-3) 0 var(--space-4);
   font-size: var(--text-sm);
+}
+
+.truck-3d__chip {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--chip-border);
+  border-radius: 999px;
+  background: var(--chip-surface);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .truck-3d__shipments {
@@ -979,24 +1325,80 @@ button.quick-action--primary:hover:not(:disabled) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 button.truck-3d__shipment {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'swatch id ldm'
+    '. route route'
+    '. meta meta';
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: 2px;
   width: 100%;
   height: auto;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   font-weight: normal;
   text-align: left;
   white-space: normal;
+  background: var(--tile-surface);
+  border: 1px solid var(--card-border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+button.truck-3d__shipment:hover:not(:disabled, [aria-pressed='true']) {
+  background: var(--tile-surface-hover);
 }
 
 button.truck-3d__shipment[aria-pressed='true'] {
   background: var(--accent-subtle);
-  border-color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+.truck-3d__swatch {
+  grid-area: swatch;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+}
+
+.truck-3d__id {
+  grid-area: id;
+  font-weight: var(--weight-semibold);
+}
+
+.truck-3d__ldm {
+  grid-area: ldm;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.truck-3d__route {
+  grid-area: route;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.truck-3d__route .icon {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.truck-3d__meta {
+  grid-area: meta;
+  font-size: var(--text-xs);
+}
+
+.truck-3d__meta:empty {
+  display: none;
 }
 
 .nav-footer {
@@ -1008,54 +1410,293 @@ button.truck-3d__shipment[aria-pressed='true'] {
 }
 
 /* The user guide: readable lines, a contents list, chapters as panels. */
-.help__contents,
-.help__chapter {
-  max-width: 52rem;
+/* The guide: the text on the left, using the width of the page, and the contents in a dark
+   bar on the right that stays in view. A narrow page puts the contents above the text. */
+.help {
+  container-type: inline-size;
 }
 
-.help__contents ol {
+/* No gap of its own: the cards keep their space below them. */
+.help__layout {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.help__text {
+  min-width: 0;
+}
+
+@container (min-width: 58rem) {
+  .help__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    column-gap: var(--card-gap);
+    align-items: start;
+  }
+
+  .help__contents {
+    position: sticky;
+    top: calc(var(--topbar-height) + var(--space-4));
+    max-height: calc(100vh - var(--topbar-height) - var(--space-6));
+    overflow-y: auto;
+  }
+}
+
+/* Under the sticky top bar, a link lands on its heading with room to spare. */
+.help__chapter,
+.help__chapter h3 {
+  scroll-margin-top: calc(var(--topbar-height) + var(--space-4));
+}
+
+:root:has(.help) {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:has(.help) {
+    scroll-behavior: auto;
+  }
+}
+
+.help__contents h2 {
+  margin-bottom: var(--space-3);
+}
+
+.help__contents ol,
+.help__contents ul {
+  list-style: none;
   margin: 0;
-  padding-left: var(--space-5);
-  line-height: 1.8;
+  padding: 0;
 }
 
+.help__contents-chapters > li + li {
+  margin-top: var(--space-1);
+}
+
+/* Links on the dark bar: light text, a faint light row under the pointer. */
+.help__contents .help__contents-link {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--on-dark-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+  text-decoration: none;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.help__contents .help__contents-link:hover {
+  background: var(--on-dark-row);
+}
+
+/* A chapter: its title, and a chevron that turns when its subheadings are open. */
+.help__contents .help__contents-chapter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.help__contents-chapter .icon {
+  flex: none;
+  color: var(--on-dark-muted);
+  transition: transform 0.15s;
+}
+
+.help__contents-chapter--open .icon {
+  transform: rotate(90deg);
+}
+
+.help__contents .help__contents-chapter--open {
+  background: var(--on-dark-control);
+}
+
+/* The part being read: a rose bar on the left and a lighter row. */
+.help__contents .help__contents-link[aria-current='location'] {
+  border-left-color: var(--on-dark-accent);
+  background: var(--on-dark-control-hover);
+}
+
+.help__contents-sub {
+  margin: var(--space-1) 0 var(--space-2) var(--space-3);
+}
+
+.help__contents .help__contents-sub .help__contents-link {
+  padding: 0.3rem var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: normal;
+  color: var(--on-dark-muted);
+}
+
+.help__contents .help__contents-sub .help__contents-link[aria-current='location'] {
+  color: var(--on-dark-text);
+  font-weight: var(--weight-semibold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help__contents-chapter .icon {
+    transition: none;
+  }
+}
+
+/* The guide's text: calm paragraphs, numbered parts set apart by a line, cherry bullets,
+   steps in circles, tips as small cards and the messages in two columns. */
 .help__chapter {
-  line-height: 1.6;
-  scroll-margin-top: var(--space-4);
+  line-height: 1.65;
+}
+
+.help__chapter > h2 {
+  margin-bottom: var(--space-4);
 }
 
 .help__chapter p {
   margin: 0 0 var(--space-3);
 }
 
+.help__chapter strong {
+  font-weight: var(--weight-semibold);
+}
+
+/* A numbered part: its number in a cherry circle; from the second one on, a line above it. */
 .help__chapter h3 {
-  margin: var(--space-4) 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
   font-size: var(--text-lg);
 }
 
+.help__chapter > h2 + h3 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Lists: a small cherry dot, or for the numbered ones a number in an open circle. */
 .help__chapter ul,
 .help__chapter ol {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+.help__chapter li {
+  position: relative;
   padding-left: var(--space-5);
 }
 
 .help__chapter li + li {
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
 }
 
+.help__chapter ul > li::before {
+  content: '';
+  position: absolute;
+  left: 0.35rem;
+  top: 0.65em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.help__chapter ol {
+  counter-reset: help-step;
+}
+
+.help__chapter ol > li {
+  counter-increment: help-step;
+  padding-left: 2.25rem;
+}
+
+.help__chapter ol > li::before {
+  content: counter(help-step);
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+/* Tips: small cards side by side, a cherry edge on the left. */
+.help__chapter ul.help__tips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--space-3);
+}
+
+.help__chapter .help__tips > li {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--tile-surface);
+  border: 1px solid var(--card-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.help__chapter .help__tips > li::before {
+  content: none;
+}
+
+/* Messages: the message on the left, what it means on the right; one column when narrow. */
 .help__messages {
   margin: 0;
 }
 
-.help__messages > div + div {
-  margin-top: var(--space-3);
+.help__messages > div {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: var(--space-1) var(--space-5);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.help__messages > div:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .help__messages dt {
   font-weight: var(--weight-semibold);
+  color: var(--accent);
 }
 
 .help__messages dd {
-  margin: var(--space-1) 0 0;
+  margin: 0;
+}
+
+@container (max-width: 40rem) {
+  .help__messages > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* In the contents, a subheading's number before its title, like in the text. */
+.help__contents .help__contents-subheading {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.help__contents-number {
+  flex: none;
+  min-width: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-dark-accent);
 }
 
 /* Dashboard charts (DashboardCharts.tsx): meters, the status ring and bar lists. */

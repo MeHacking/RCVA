@@ -18,6 +18,20 @@ Pitanja za Gojka još nisu poslata (spisak od 30.10. dopunjen 02. i 03.11.).
 (pregled ekrana, probni izgled, izvođenje ekran po ekran) i pitanja (paleta uz logo, tamna tema,
 samo izgled ili i tok, ko je korisnik) postavljena su 03.11.; čeka odgovore.
 
+**Izgled, treći deo i PDF (urađeno 04.11.2026)**: gornja traka sa čipovima (klik vodi na
+Rezultate, linija dok posao radi); 3D: spisak sa bojom bloka (`placementColor`), redosledom
+istovara i popunjenošću; Uputstvo: tamna traka sadržaja desno (samo naslovi, klik otvara
+podnaslove, jedno poglavlje), numerisani podnaslovi (`Subheading n`), formatiran tekst;
+Podešavanja: numerisani delovi (`SettingsPart`), dugmad podataka dole desno; mapa preko celog
+ekrana (Fullscreen API, inače preko stranice; `backdrop-filter` kartice se tada gasi);
+**Izvezi PDF** (Rezultati, tamna kartica umesto „Skor“): `ResultReport.tsx` (portal u body, vidi
+se samo u štampi, strana po kamionu), u pregledaču `window.print()`, na PC-u
+`electron/preload.cjs` + `printToPDF` (`RCVA_PDF_PATH` za testove). **Zamke**: skriveno
+polje (`input.visually-hidden`) je zadržavalo širinu polja i širilo stranicu (sada pravilo u
+`base.css`); viseći selektor `.truck-form,` je obrazac kamiona pretvorio u krug; `npx prettier`
+nije deo projekta (podrazumevana pravila menjaju stil). Testovi: `resultReport.local.spec.ts`,
+desktop PDF korak, dopune u `help`, `smoke`, `routeMap`, `deviceData`.
+
 **Izgled, drugi deo (urađeno 04.11.2026)**, na zahtev korisnika, korak po korak (provera
 snimcima ekrana; testovi samo kad se dira raspored ili TeGo):
 - Stranica bež (`--bg: var(--beige)`), kartice belo staklo (`--card-surface` providna bela,

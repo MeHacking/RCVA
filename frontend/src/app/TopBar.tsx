@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Badge, type BadgeTone } from '../components/Badge'
-import { Icon } from '../components/Icon'
+import { Icon, type IconName } from '../components/Icon'
 import { formatKm } from '../format/units'
 import { JOB_STATUS_LABELS, NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../features/optimization/jobStatus'
 import { useLastJob, type LastJobState } from '../features/optimization/lastJobContext'
@@ -19,111 +19,129 @@ export function TopBar() {
   return (
     <div className="top-bar">
       <div className="job-status" data-testid="last-job-status" role="status" aria-live="polite">
-        <span className="job-status__label">Poslednja optimizacija</span>
-        <Badge tone={view.tone} pulse={view.busy}>
-          {view.label}
-        </Badge>
-        <span className={`job-status__detail ${view.detailClass ?? ''}`} title={view.details.join(' · ')}>
-          {view.details.map((part, index) => (
-            <span key={index}>
-              {index > 0 && (
-                <span className="job-status__sep" aria-hidden="true">
-                  ·
-                </span>
-              )}
-              {part}
+        <Link to="/optimization" className="job-status__link" title={[view.label, ...view.facts.map((f) => f.text), view.message].filter(Boolean).join(' · ')}>
+          <span className="visually-hidden">Poslednja optimizacija: </span>
+          <Badge tone={view.tone} pulse={view.busy}>
+            {view.label}
+          </Badge>
+          {view.facts.map((fact) => (
+            <span
+              key={fact.text}
+              className={`job-status__fact${fact.minor ? ' job-status__fact--minor' : ''}${fact.tone ? ` job-status__fact--${fact.tone}` : ''}`}
+            >
+              <Icon name={fact.icon} size={14} />
+              {fact.text}
             </span>
           ))}
-        </span>
+          {view.message && <span className={`job-status__message ${view.messageClass ?? ''}`}>{view.message}</span>}
+        </Link>
       </div>
       <button type="button" className="button--primary" onClick={() => void startJob()} disabled={view.busy}>
         <Icon name="play" size={14} />
         Pokreni optimizaciju
       </button>
+      {view.busy && <span className="top-bar__progress" aria-hidden="true" />}
     </div>
   )
+}
+
+/** A short fact about the job, shown as a chip with an icon. */
+interface Fact {
+  icon: IconName
+  text: string
+  /** hidden first when the bar is narrow */
+  minor?: boolean
+  /** colours the icon (success) or the whole chip (danger) */
+  tone?: 'success' | 'danger'
 }
 
 interface StatusView {
   tone: BadgeTone
   label: string
-  details: string[]
+  facts: Fact[]
+  /** a sentence after the chips (a cause, an error, what to do) */
+  message?: string
+  messageClass?: string
   /** a job is being started or is still running */
   busy: boolean
-  detailClass?: string
 }
 
 function describe(state: LastJobState): StatusView {
   switch (state.kind) {
     case 'idle':
-      return { tone: 'neutral', label: 'Nije pokretano', details: ['Optimizacija još nije pokretana.'], busy: false, detailClass: 'text--muted' }
+      return { tone: 'neutral', label: 'Nije pokretano', facts: [], message: 'Optimizacija još nije pokretana.', messageClass: 'text--muted', busy: false }
     case 'starting':
-      return { tone: 'info', label: 'Pokretanje', details: ['Slanje zahteva…'], busy: true }
+      return { tone: 'info', label: 'Pokretanje', facts: [], message: 'Slanje zahteva…', busy: true }
     case 'needsLocations':
-      return { tone: 'warning', label: 'Lokacije kamiona', details: ['Potvrdite gde su kamioni pre pokretanja.'], busy: false }
+      return { tone: 'warning', label: 'Lokacije kamiona', facts: [], message: 'Potvrdite gde su kamioni pre pokretanja.', busy: false }
     case 'proven':
       return {
         tone: 'danger',
         label: PROVEN_TITLE,
-        details: state.causes.length > 0 ? state.causes : [state.detail],
+        facts: [],
+        message: (state.causes.length > 0 ? state.causes : [state.detail]).join(' · '),
+        messageClass: 'text--error',
         busy: false,
-        detailClass: 'text--error',
       }
     case 'startFailed':
       return {
         tone: 'danger',
         label: 'Greška',
-        details: [`Pokretanje nije uspelo: ${state.message}`],
+        facts: [],
+        message: `Pokretanje nije uspelo: ${state.message}`,
+        messageClass: 'text--error',
         busy: false,
-        detailClass: 'text--error',
       }
     case 'tracking': {
-      const jobLabel = `Posao #${state.jobId}`
-      const { job, result, pollError } = state
+      const job: Fact = { icon: 'job', text: `Posao #${state.jobId}` }
+      const { job: status, result, pollError } = state
       if (pollError) {
         return {
           tone: 'danger',
           label: 'Greška',
-          details: [jobLabel, `praćenje statusa nije uspelo: ${pollError}`],
+          facts: [job],
+          message: `praćenje statusa nije uspelo: ${pollError}`,
+          messageClass: 'text--error',
           busy: false,
-          detailClass: 'text--error',
         }
       }
-      if (!job) return { tone: 'info', label: 'Učitavanje', details: [jobLabel], busy: true }
+      if (!status) return { tone: 'info', label: 'Učitavanje', facts: [job], busy: true }
 
-      switch (job.status) {
+      switch (status.status) {
         case 'QUEUED':
-          return { tone: 'info', label: JOB_STATUS_LABELS.QUEUED, details: [jobLabel], busy: true }
+          return { tone: 'info', label: JOB_STATUS_LABELS.QUEUED, facts: [job], busy: true }
         case 'RUNNING':
           return {
             tone: 'info',
             label: JOB_STATUS_LABELS.RUNNING,
-            details: [jobLabel, `vremensko ograničenje ${job.timeLimitSeconds} s`],
+            facts: [job, { icon: 'clock', text: `vremensko ograničenje ${status.timeLimitSeconds} s` }],
             busy: true,
           }
         case 'COMPLETED': {
-          if (!result) return { tone: 'success', label: JOB_STATUS_LABELS.COMPLETED, details: [jobLabel], busy: false }
+          if (!result) return { tone: 'success', label: JOB_STATUS_LABELS.COMPLETED, facts: [job], busy: false }
           const passed = result.validation.passed
           return {
             tone: passed ? 'success' : 'danger',
             label: passed ? JOB_STATUS_LABELS.COMPLETED : 'Validator nije prošao',
-            details: [
-              jobLabel,
-              `Kamioni: ${result.trucksUsed}`,
-              formatKm(result.totalMeters),
-              `Validator: ${passed ? 'prošao' : 'nije prošao'}`,
+            facts: [
+              { ...job, minor: true },
+              { icon: 'truck', text: `Kamioni: ${result.trucksUsed}` },
+              { icon: 'map', text: formatKm(result.totalMeters) },
+              passed
+                ? { icon: 'check', text: 'Validator: prošao', minor: true, tone: 'success' }
+                : { icon: 'alert', text: 'Validator: nije prošao', tone: 'danger' },
             ],
             busy: false,
           }
         }
         case 'INFEASIBLE':
-          return job.infeasibilityKind === 'NOT_FOUND'
-            ? { tone: 'warning', label: 'Rešenje nije nađeno', details: [jobLabel, NOT_FOUND_MESSAGE], busy: false }
-            : { tone: 'danger', label: JOB_STATUS_LABELS.INFEASIBLE, details: [jobLabel], busy: false }
+          return status.infeasibilityKind === 'NOT_FOUND'
+            ? { tone: 'warning', label: 'Rešenje nije nađeno', facts: [job], message: NOT_FOUND_MESSAGE, busy: false }
+            : { tone: 'danger', label: JOB_STATUS_LABELS.INFEASIBLE, facts: [job], busy: false }
         case 'CANCELLED':
-          return { tone: 'neutral', label: JOB_STATUS_LABELS.CANCELLED, details: [jobLabel], busy: false }
+          return { tone: 'neutral', label: JOB_STATUS_LABELS.CANCELLED, facts: [job], busy: false }
         case 'FAILED':
-          return { tone: 'danger', label: JOB_STATUS_LABELS.FAILED, details: [jobLabel], busy: false }
+          return { tone: 'danger', label: JOB_STATUS_LABELS.FAILED, facts: [job], busy: false }
       }
     }
   }

@@ -46,8 +46,11 @@
   --card-surface-solid: var(--white);
   --card-border: rgba(255, 255, 255, 0.9);
   --card-blur: blur(14px) saturate(140%);
-  /* The top bar is the same glass, in the light cream */
+  /* The top bar is the same glass, in the light cream; its facts are small white chips */
   --topbar-surface: rgba(255, 252, 247, 0.75);
+  --chip-surface: rgba(255, 255, 255, 0.7);
+  --chip-border: var(--gray-200);
+  --chip-hover: rgba(94, 26, 46, 0.06);
   /* Page decoration: layered paper waves (BackgroundWaves), lightest sheet on top, close tones
      so the page stays calm; each sheet casts a soft warm shadow on the one below */
   --wave-1: #faf3e8;
@@ -75,6 +78,11 @@
   --on-dark-control: rgba(255, 255, 255, 0.1);
   --on-dark-control-hover: rgba(255, 255, 255, 0.2);
   --on-dark-control-border: rgba(255, 255, 255, 0.3);
+  --on-dark-line: rgba(255, 255, 255, 0.1);
+  --on-dark-row: rgba(255, 255, 255, 0.05);
+  /* A deeper shade inside a dark card (a table on it) */
+  --on-dark-inset: rgba(0, 0, 0, 0.22);
+  --on-dark-frame: rgba(255, 255, 255, 0.16);
   --on-dark-focus-ring: 0 0 0 3px rgba(245, 239, 230, 0.6);
   --surface-muted: var(--gray-50);
   --border: var(--gray-200);
@@ -143,4 +151,6 @@
   --route-7: #8a5a2b;
   --route-8: #3f4f66;
   --map-height: 26rem;
+  /* The edge Leaflet gives its own map buttons (zoom), for ours next to them */
+  --leaflet-control-border: rgba(0, 0, 0, 0.2);
 }

@@ -63,4 +63,7 @@ test('the guide leaves out what only the application on the device has', async (
   await expect(page.getByText('Aplikacija sada ne radi na uređaju')).toBeVisible()
   await expect(page.getByRole('region', { name: 'Kako se koristi, korak po korak' })).not.toContainText('Lokacije kamiona')
   await expect(page.getByRole('heading', { name: 'Preporuka dodatnog kamiona' })).toHaveCount(0)
+  // Without the two device-only parts the numbers still follow on: the last one is 3.
+  const algorithm = page.getByRole('region', { name: 'Kako radi optimizacija' })
+  await expect(algorithm.getByRole('heading', { level: 3 })).toHaveText([/^1\.?\s*Pravila/, /^2\.?\s*Koraci/, /^3\.?\s*Šta optimizacija/])
 })

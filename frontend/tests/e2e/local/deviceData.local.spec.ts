@@ -102,3 +102,23 @@ test('refuses a bad file and changes nothing', async ({ page }) => {
   await page.goto('/trucks')
   await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Ostaje cerada/ })).toBeVisible()
 })
+
+test('the settings never scroll sideways, and the data buttons sit in the bottom right corner', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  for (const width of [1440, 900]) {
+    await page.setViewportSize({ width, height: 800 })
+    await page.goto('/settings')
+    await expect(page.getByRole('button', { name: 'Izvezi podatke' })).toBeVisible()
+    // The hidden file field once kept the width of a field and widened the page by 470 px.
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
+    expect(scrollWidth, `width ${width}`).toBeLessThanOrEqual(clientWidth)
+
+    const card = (await page.locator('.device-data').boundingBox())!
+    const buttons = (await page.locator('.data-actions').boundingBox())!
+    const padding = await page.locator('.device-data').evaluate((e) => parseFloat(getComputedStyle(e).paddingRight))
+    expect(Math.round(card.x + card.width - padding - (buttons.x + buttons.width)), `right, width ${width}`).toBeLessThanOrEqual(1)
+    const bottomPadding = await page.locator('.device-data').evaluate((e) => parseFloat(getComputedStyle(e).paddingBottom))
+    expect(Math.round(card.y + card.height - bottomPadding - (buttons.y + buttons.height)), `bottom, width ${width}`).toBeLessThanOrEqual(1)
+  }
+  expect(errors).toEqual([])
+})
