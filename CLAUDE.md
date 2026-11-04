@@ -4,8 +4,8 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 04.11.2026 (izgled: talasi u pozadini, staklene kartice, tamne kartice,
-pločice brzih akcija); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 04.11.2026.
+Poslednje ažuriranje: 04.11.2026 (novi kamion prema postojećem: meni „Popuni prema“; pre toga
+izgled i izvoz PDF-a); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 04.11.2026.
 
 ## Gde smo stali (03.11.2026)
 
@@ -807,8 +807,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (03.11.2026, posle Uputstva i Pregleda sa grafikonima, na Node 24.14.0): frontend tsc,
-lint i build čisti, 408 Vitest testova, Playwright 75 i desktop 4 prolaze (spakovani
+Stanje (04.11.2026, posle menija „Popuni prema“, na Node 24.14.0): frontend tsc, lint i build
+čisti, 414 Vitest testova prolaze (ceo Playwright posle toga nije puštan, samo Kamioni, Uputstvo
+i lokacije kamiona, 15). Ranije (03.11.2026, posle Uputstva i Pregleda sa grafikonima): 408 Vitest testova, Playwright 75 i desktop 4 prolaze (spakovani
 `RCVA.exe` proveren pre ovih izmena, sa novom ikonicom); `test:oracle` sa 2 s (`ORACLE_MS=2000`) daje iste brojeve kao 29.10.
 Provereno na pokvarenom kodu (33 izmene): 32 obaraju testove, jedna je ekvivalentna
 (potvrđen predlog bez zapisa vremena: predlog je tada ionako mesto kamiona).
