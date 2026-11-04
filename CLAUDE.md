@@ -29,7 +29,7 @@ spiska** (dugme u redu kamiona; naziv tipa bez broja na kraju, `typeDraftFromTru
 - Testovi: `truckTemplates.test.ts` (9), dopune u `truckFormValidation`, `localClient`,
   `deviceFile`, `mockClient`; e2e u `trucks.spec.ts` (3 nova) i `storage.local.spec.ts`
   (tip posle osvežavanja). Na stranici Kamioni su sada dve tabele, pa testovi traže tabelu po
-  imenu („Kamioni“, „Tipovi kamiona“). Provereno na pokvarenom kodu (22 izmene): svaka obara
+  imenu („Kamioni“, „Tipovi kamiona“). Provereno na pokvarenom kodu (21 izmena): svaka obara
   testove (brojač id-jeva tipa je u prvom pokušaju promakao, pa test sada briše i poslednji tip).
 - Dugme u redu se zove „Napravi tip od <kamion>“, ne „Sačuvaj … kao tip“: ime koje počinje sa
   „Sačuvaj“ obaralo je postojeće testove (`getByRole('button', { name: 'Sačuvaj' })`).
