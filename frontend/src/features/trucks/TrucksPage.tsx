@@ -66,6 +66,7 @@ export function TrucksPage() {
         <TruckForm
           key={editing.mode === 'edit' ? editing.truck.id : 'new'}
           truck={editing.mode === 'edit' ? editing.truck : null}
+          trucks={trucks.status === 'success' ? trucks.data : []}
           onSaved={handleSaved}
           onCancel={() => setEditing(null)}
         />

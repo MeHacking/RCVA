@@ -11,10 +11,13 @@ import {
   type TruckFormField,
   type TruckFormValues,
 } from './truckFormValidation'
+import { applyTemplate, truckTemplates } from './truckTemplates'
 
 interface TruckFormProps {
   /** null = add a new truck */
   truck: Truck | null
+  /** the trucks in the list: a new truck can be filled from one of them */
+  trucks?: Truck[]
   onSaved: (truck: Truck) => void
   onCancel: () => void
 }
@@ -22,13 +25,32 @@ interface TruckFormProps {
 // The backend does not store a payload (B2 is only on the device), so the field would be lost there.
 const PAYLOAD_SUPPORTED = apiMode() !== 'server'
 
-export function TruckForm({ truck, onSaved, onCancel }: TruckFormProps) {
+export function TruckForm({ truck, trucks = [], onSaved, onCancel }: TruckFormProps) {
   const api = useApi()
   const id = useId()
   const [values, setValues] = useState<TruckFormValues>(() => truckToFormValues(truck))
   const [errors, setErrors] = useState<TruckFormErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [templateKey, setTemplateKey] = useState('')
+  /** the name the last template offered, replaced by the next one until the user types their own */
+  const [offeredName, setOfferedName] = useState<string | null>(null)
+  const templates = truck ? [] : truckTemplates(trucks, { withPayload: PAYLOAD_SUPPORTED })
+
+  function chooseTemplate(key: string) {
+    setTemplateKey(key)
+    const template = templates.find((t) => t.key === key)
+    if (!template) return
+    const filled = applyTemplate(
+      values,
+      template,
+      trucks.map((t) => t.name),
+      offeredName,
+    )
+    setValues(filled.values)
+    setOfferedName(filled.offeredName)
+    setErrors({})
+  }
 
   const set = <K extends keyof TruckFormValues>(field: K, value: TruckFormValues[K]) =>
     setValues((previous) => ({ ...previous, [field]: value }))
@@ -72,6 +94,28 @@ export function TruckForm({ truck, onSaved, onCancel }: TruckFormProps) {
   return (
     <form className="panel truck-form" onSubmit={handleSubmit} noValidate aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`}>{truck ? `Izmena kamiona #${truck.id}` : 'Novi kamion'}</h2>
+
+      {!truck && (
+        <div className="field">
+          <label htmlFor={`${id}-template`}>Popuni prema</label>
+          <select
+            id={`${id}-template`}
+            value={templateKey}
+            onChange={(e) => chooseTemplate(e.target.value)}
+            aria-describedby={`${id}-template-hint`}
+          >
+            <option value="">Ručni unos</option>
+            {templates.map((template) => (
+              <option key={template.key} value={template.key}>
+                {template.label}
+              </option>
+            ))}
+          </select>
+          <span id={`${id}-template-hint`} className="field__hint">
+            Kapacitet, nosivost i dimenzije se prepisuju iz izabranog kamiona; posle ih možete menjati.
+          </span>
+        </div>
+      )}
 
       <div className="field">
         <label htmlFor={`${id}-name`}>Naziv</label>

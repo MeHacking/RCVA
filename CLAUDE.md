@@ -9,6 +9,15 @@ pločice brzih akcija); videti „Gde smo stali“. Sve je push-ovano na `origin
 
 ## Gde smo stali (03.11.2026)
 
+**Novi kamion prema postojećem (urađeno 04.11.2026)**, na zahtev korisnika („moramo uvek da
+unosimo ponovo“): u obrascu „Novi kamion“ (samo pri dodavanju) padajući meni „Popuni prema“:
+„Ručni unos“, „Standardna cerada“ (`STANDARD_TRUCK`) i svaki kamion sa spiska. Izbor prepisuje
+kapacitet, nosivost i dimenzije (dostupnost ostaje); naziv dobija prvi slobodan broj
+(`nextFreeName`: „Šleper 1“ → „Šleper 3“ ako postoji 2), a naziv koji je korisnik sam upisao
+se ne dira. U režimu `server` natpis opcije ne pominje nosivost. Logika u
+`features/trucks/truckTemplates.ts`; Uputstvo dopunjeno. Testovi: `truckTemplates.test.ts`
+(6), e2e u `trucks.spec.ts`; provereno na pokvarenom kodu (5 izmena), svaka obara testove.
+
 **Sledeće**: aplikacija za **telefon** (plan predložiti i potvrditi pre početka). Ideja o
 utovaru i istovaru usput je razmotrena 03.11.2026: **dve faze ostaju** (Gojko potvrdio A1),
 a ideja je zapisana u „Mogući pravci razvoja“.

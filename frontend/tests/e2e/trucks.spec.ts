@@ -68,6 +68,44 @@ test('saves a payload, and shows an empty one as not limited', async ({ page }) 
   await expect(page.getByRole('row', { name: /Šleper 1/ })).toContainText('24000')
 })
 
+test('fills a new truck from one already in the list', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  // Nothing to choose when changing a truck.
+  await page.getByRole('button', { name: 'Izmeni Šleper 1' }).click()
+  await expect(page.getByLabel('Popuni prema')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Otkaži' }).click()
+
+  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
+  const template = page.getByLabel('Popuni prema')
+  await expect(template.getByRole('option')).toHaveText([
+    'Ručni unos',
+    /^Standardna cerada \(13,6 LDM/,
+    /^Šleper 1 \(13,6 LDM/,
+    /^Šleper 2 \(13,6 LDM/,
+    /^Solo 1 \(/,
+  ])
+
+  await template.selectOption({ label: (await template.getByRole('option').nth(2).textContent()) ?? '' })
+  await expect(page.getByLabel('Naziv')).toHaveValue('Šleper 3')
+  await expect(page.getByLabel('Kapacitet (LDM)')).toHaveValue('13,6')
+  await expect(page.getByLabel('Dužina')).toHaveValue('13600')
+  await expect(page.getByLabel('Širina')).toHaveValue('2480')
+  await expect(page.getByLabel('Visina')).toHaveValue('2700')
+
+  // A name the user typed stays when another truck is chosen.
+  await page.getByLabel('Naziv').fill('Šleper Novi Sad')
+  await template.selectOption({ label: (await template.getByRole('option').nth(4).textContent()) ?? '' })
+  await expect(page.getByLabel('Naziv')).toHaveValue('Šleper Novi Sad')
+  await template.selectOption({ label: (await template.getByRole('option').nth(2).textContent()) ?? '' })
+  await page.getByRole('button', { name: 'Sačuvaj' }).click()
+
+  const row = page.getByRole('row', { name: /Šleper Novi Sad/ })
+  await expect(row).toContainText('13,6')
+  await expect(row).toContainText('13600 × 2480 × 2700 mm')
+  await expect(page.getByRole('table').getByRole('row')).toHaveCount(5) // header + 4
+  expect(errors).toEqual([])
+})
+
 test('requires all three dimensions or none', async ({ page }) => {
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Naziv').fill('X')

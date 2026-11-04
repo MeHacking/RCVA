@@ -256,6 +256,11 @@ function Steps() {
         ograničenja). Dimenzije tovarnog prostora su potrebne samo za 3D prikaz. Kamion koji nije označen kao
         dostupan ne ulazi u optimizaciju.
       </p>
+      <p>
+        Kada dodajete kamion isti kao neki koji već imate, izaberite ga u polju <strong>„Popuni prema“</strong> (ili
+        „Standardna cerada“): kapacitet, nosivost i dimenzije se prepišu, a naziv dobija prvi slobodan broj (posle
+        „Šleper 2“ to je „Šleper 3“). Sve vrednosti posle možete promeniti; naziv koji ste sami upisali ostaje.
+      </p>
       {ON_DEVICE && (
         <>
           <p>
