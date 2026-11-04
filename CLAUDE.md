@@ -4,10 +4,41 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 04.11.2026 (novi kamion prema postojećem: meni „Popuni prema“; pre toga
-izgled i izvoz PDF-a); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 04.11.2026.
+Poslednje ažuriranje: 04.11.2026 (tipovi kamiona; pre toga meni „Popuni prema“, izgled i izvoz
+PDF-a); videti „Gde smo stali“. Tipovi kamiona (`e217d15`, `eb709ca`) **još nisu push-ovani**.
 
 ## Gde smo stali (03.11.2026)
+
+**Tipovi kamiona (urađeno 04.11.2026)**, na zahtev korisnika: „Popuni prema“ više ne nudi
+kamione sa spiska (Kamion 1, Kamion 2…), nego „Ručni unos“, ugrađenu „Standardna cerada“ i
+tipove koje je korisnik dodao. Odluke korisnika: **standardna cerada je ugrađena i ne menja se**
+(po njoj rade „Dodaj N cerada“ i preporuka dodatnog kamiona), i **„Napravi tip“ od kamiona sa
+spiska** (dugme u redu kamiona; naziv tipa bez broja na kraju, `typeDraftFromTruck`).
+- `TruckType` / `TruckTypeInput` i `ApiClient.listTruckTypes/createTruckType/updateTruckType/
+  deleteTruckType` (NOT IN SPEC v2). Provera u `api/truckValidation.ts`
+  (`assertValidTruckType`): mere kao kod kamiona, naziv jedinstven bez obzira na velika slova i
+  razmake, ne sme biti „Standardna cerada“ (`STANDARD_TYPE_NAME`). Kamion ne pamti tip, pa izmena
+  ili brisanje tipa ne menja kamione; zato tip sme da se menja i dok posao radi.
+- Uređaj: `LocalData.truckTypes` i `nextTruckTypeId` (neobavezni; stari snimci i fajlovi rade),
+  u fajlu sa podacima i u pregledu pre uvoza („tipovi kamiona: N“). Mock: u memoriji, kreće
+  prazan. `httpClient`: `null` / 404, pa se u režimu `server` odeljak ne prikazuje.
+- Ekran: odeljak „Tipovi kamiona“ na dnu stranice Kamioni (`TruckTypes.tsx`, obrazac
+  `TruckTypeForm.tsx` unutar odeljka; zajednička polja mera u `TruckMeasureFields.tsx`). Na
+  stranici je uvek otvoren najviše jedan obrazac (kamion ili tip). Kamion od standardne cerade
+  dobija „Kamion N“, od tipa „<naziv tipa> N“. Uputstvo dopunjeno.
+- Testovi: `truckTemplates.test.ts` (9), dopune u `truckFormValidation`, `localClient`,
+  `deviceFile`, `mockClient`; e2e u `trucks.spec.ts` (3 nova) i `storage.local.spec.ts`
+  (tip posle osvežavanja). Na stranici Kamioni su sada dve tabele, pa testovi traže tabelu po
+  imenu („Kamioni“, „Tipovi kamiona“). Provereno na pokvarenom kodu (22 izmene): svaka obara
+  testove (brojač id-jeva tipa je u prvom pokušaju promakao, pa test sada briše i poslednji tip).
+- Dugme u redu se zove „Napravi tip od <kamion>“, ne „Sačuvaj … kao tip“: ime koje počinje sa
+  „Sačuvaj“ obaralo je postojeće testove (`getByRole('button', { name: 'Sačuvaj' })`).
+- **Zatečeno, nije ispravljeno**: `optimization.spec.ts` („runs a job and shows summary…“) pada i
+  na kodu pre ovih izmena, jer traži karticu „Skor“ koju je izvoz PDF-a (`e484e22`) zamenio.
+  `routeMap.spec.ts` (test na liniji 71) je jednom pao u punom prolazu (dva opisa mesta odjednom),
+  a sam prolazi (4 od 4, i na starijem kodu).
+- Na širini telefona (390 px) bočna traka zauzima svoje mesto i sadržaj je stisnut na svim
+  ekranima; to je deo koraka „telefon“.
 
 **Novi kamion prema postojećem (urađeno 04.11.2026)**, na zahtev korisnika („moramo uvek da
 unosimo ponovo“): u obrascu „Novi kamion“ (samo pri dodavanju) padajući meni „Popuni prema“:
@@ -807,9 +838,10 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (04.11.2026, posle menija „Popuni prema“, na Node 24.14.0): frontend tsc, lint i build
-čisti, 414 Vitest testova prolaze (ceo Playwright posle toga nije puštan, samo Kamioni, Uputstvo
-i lokacije kamiona, 15). Ranije (03.11.2026, posle Uputstva i Pregleda sa grafikonima): 408 Vitest testova, Playwright 75 i desktop 4 prolaze (spakovani
+Stanje (04.11.2026, posle tipova kamiona, na Node 24.14.0): frontend tsc, lint i build čisti,
+425 Vitest testova prolaze, Playwright 80 od 82 (pada zastareli test „Skor“ u
+`optimization.spec.ts` i jednom nestabilni test mape; videti „Gde smo stali“). Pre toga (posle
+menija „Popuni prema“): 414 Vitest testova. Ranije (03.11.2026, posle Uputstva i Pregleda sa grafikonima): 408 Vitest testova, Playwright 75 i desktop 4 prolaze (spakovani
 `RCVA.exe` proveren pre ovih izmena, sa novom ikonicom); `test:oracle` sa 2 s (`ORACLE_MS=2000`) daje iste brojeve kao 29.10.
 Provereno na pokvarenom kodu (33 izmene): 32 obaraju testove, jedna je ekvivalentna
 (potvrđen predlog bez zapisa vremena: predlog je tada ionako mesto kamiona).
