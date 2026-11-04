@@ -5,7 +5,7 @@ automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 04.11.2026 (tipovi kamiona; pre toga meni „Popuni prema“, izgled i izvoz
-PDF-a); videti „Gde smo stali“. Tipovi kamiona (`e217d15`, `eb709ca`) **još nisu push-ovani**.
+PDF-a); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 04.11.2026.
 
 ## Gde smo stali (03.11.2026)
 
