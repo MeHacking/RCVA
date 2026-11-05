@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { apiMode, apiModeLabel } from '../api/apiMode'
 import { BackgroundWaves } from '../components/BackgroundWaves'
 import { Icon, type IconName } from '../components/Icon'
@@ -28,19 +29,14 @@ export function AppLayout() {
             <span className="brand__tagline">Rutiranje i Vizualizacija</span>
           </span>
         </div>
-        <ul className="nav-list">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.to}>
-              <NavLink to={item.to} end={item.to === '/'} className="nav-link">
-                <Icon name={item.icon} />
-                {item.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-        <p className="nav-footer" data-testid="data-source">
-          {apiModeLabel(apiMode())}
-        </p>
+        <NavList />
+        <div className="nav-footer">
+          <span className="nav-footer__chip">
+            {/* Where the data is: this computer (on the device, or the sample data in the browser), or the server. */}
+            <Icon name={apiMode() === 'server' ? 'server' : 'monitor'} size={15} />
+            <span data-testid="data-source">{apiModeLabel(apiMode())}</span>
+          </span>
+        </div>
       </nav>
       <header className="app__top">
         <TopBar />
@@ -49,5 +45,50 @@ export function AppLayout() {
         <Outlet />
       </main>
     </div>
+  )
+}
+
+/**
+ * The screens, with a highlight under the open one that glides to the next one when the
+ * screen changes (it is placed on the active link after each change; the first time without
+ * gliding, so it does not fly in from the top).
+ */
+function NavList() {
+  const list = useRef<HTMLUListElement>(null)
+  const { pathname } = useLocation()
+  const [mark, setMark] = useState<{ top: number; height: number; glide: boolean } | null>(null)
+
+  useLayoutEffect(() => {
+    const box = list.current
+    const active = box?.querySelector<HTMLElement>('.nav-link.active')
+    // Measured on the screen, not by offsetTop: while the items slide in (a transform on each), an
+    // item, not the list, is the link's offset parent.
+    const next =
+      box && active
+        ? { top: active.getBoundingClientRect().top - box.getBoundingClientRect().top, height: active.offsetHeight }
+        : null
+    setMark((before) => (next ? { ...next, glide: before !== null } : null))
+  }, [pathname])
+
+  return (
+    <ul ref={list} className="nav-list">
+      {mark && (
+        <li
+          className={`nav-mark${mark.glide ? ' nav-mark--glide' : ''}`}
+          style={{ transform: `translateY(${mark.top}px)`, height: mark.height }}
+          aria-hidden="true"
+        />
+      )}
+      {NAV_ITEMS.map((item) => (
+        <li key={item.to}>
+          <NavLink to={item.to} end={item.to === '/'} className="nav-link">
+            <span className="nav-link__icon">
+              <Icon name={item.icon} />
+            </span>
+            {item.label}
+          </NavLink>
+        </li>
+      ))}
+    </ul>
   )
 }

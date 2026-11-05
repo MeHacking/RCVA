@@ -204,6 +204,63 @@ export function chunks(sources: number[], destinations: number[]): Array<[number
   return result
 }
 
+export const ORS_SNAP_URL = 'https://api.heigit.org/openrouteservice/v2/snap'
+
+/** The nearest point on a road the profile may use; null when there is none within the radius. */
+export interface RoadPoint {
+  at: LatLon
+  /** from the given point to `at` */
+  distanceMeters: number
+  /** the road's name, when OSM has one */
+  street: string | null
+}
+
+export type RoadSnap = (
+  points: LatLon[],
+  request: { apiKey: string; profile: OrsProfile; radiusMeters: number },
+) => Promise<Array<RoadPoint | null>>
+
+/**
+ * ORS Snap (POST /v2/snap/{profile}/json): for each point, the nearest place on a road the
+ * profile may drive, within the radius (a place in a zone closed to lorries gets the nearest
+ * road they may use). In turn with the other ORS requests.
+ */
+export function createOrsSnap(options: OrsOptions): RoadSnap {
+  const inTurn = createTurns(options)
+  return (points, { apiKey, profile, radiusMeters }) =>
+    inTurn(async () => {
+      const body = await post(options.fetch, `${ORS_SNAP_URL}/${profile}/json`, apiKey, 'najbliži put', {
+        locations: points.map((p) => [p.lon, p.lat]),
+        radius: radiusMeters,
+      })
+      const answers = (body as { locations?: unknown } | null)?.locations
+      if (!Array.isArray(answers) || answers.length !== points.length) {
+        throw new RoadDistanceError('OpenRouteService je vratio neočekivan odgovor za najbliži put.')
+      }
+      return answers.map((answer): RoadPoint | null => {
+        if (answer === null) return null
+        const { location, snapped_distance: distance, name } = answer as {
+          location?: unknown
+          snapped_distance?: unknown
+          name?: unknown
+        }
+        if (
+          !Array.isArray(location) ||
+          location.length < 2 ||
+          !location.slice(0, 2).every((n) => typeof n === 'number' && Number.isFinite(n)) ||
+          typeof distance !== 'number'
+        ) {
+          throw new RoadDistanceError('OpenRouteService je vratio neočekivan odgovor za najbliži put.')
+        }
+        return {
+          at: { lat: location[1] as number, lon: location[0] as number },
+          distanceMeters: Math.round(distance),
+          street: typeof name === 'string' && name.trim() !== '' ? name.trim() : null,
+        }
+      })
+    })
+}
+
 /** One request at a time, each started at least `minIntervalMs` after the one before, also after a failure. */
 function createTurns(options: OrsOptions) {
   const {

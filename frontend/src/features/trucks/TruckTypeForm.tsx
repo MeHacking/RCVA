@@ -16,17 +16,15 @@ import { FieldError, TruckMeasureFields } from './TruckMeasureFields'
 interface TruckTypeFormProps {
   /** null = add a new type */
   type: TruckType | null
-  /** what a new type goes on from (typed before "Otkaži"); empty when not given */
-  initialValues?: TruckFormValues | null
   onSaved: (type: TruckType) => void
-  /** gets what was typed, so adding a type can go on later */
-  onCancel: (values: TruckFormValues) => void
+  /** closes the types card, the form with it */
+  onClose: () => void
 }
 
-export function TruckTypeForm({ type, initialValues = null, onSaved, onCancel }: TruckTypeFormProps) {
+export function TruckTypeForm({ type, onSaved, onClose }: TruckTypeFormProps) {
   const api = useApi()
   const id = useId()
-  const [values, setValues] = useState<TruckFormValues>(() => initialValues ?? truckTypeToFormValues(type))
+  const [values, setValues] = useState<TruckFormValues>(() => truckTypeToFormValues(type))
   const [errors, setErrors] = useState<TruckFormErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -97,8 +95,8 @@ export function TruckTypeForm({ type, initialValues = null, onSaved, onCancel }:
         <button type="submit" className="button--primary" disabled={saving}>
           {saving ? 'Čuvanje…' : 'Sačuvaj tip'}
         </button>
-        <button type="button" onClick={() => onCancel(values)} disabled={saving}>
-          Otkaži
+        <button type="button" className="button--primary edit-card__close" onClick={onClose} disabled={saving}>
+          Zatvori
         </button>
       </div>
     </form>

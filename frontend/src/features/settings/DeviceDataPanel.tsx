@@ -5,15 +5,13 @@ import type { DeviceDataSummary } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { formatDateTime } from '../../format/time'
+import { clearAfterReload, keepForReload, readAfterReload } from './afterReload'
 import { SettingsPart } from './SettingsPart'
 
 // Export and import of all data on the device (step 4d): the only backup of what the
 // browser keeps, and the way to move it to another device. An import first checks the
 // whole file and shows what it holds; the data is replaced only after a confirmation, and
 // then the page reloads, so every screen starts from the new data.
-
-/** Survives the reload after an import, so the page can say what was imported. */
-const IMPORTED_KEY = 'rcva-imported'
 
 type ImportState =
   | { kind: 'idle' }
@@ -29,9 +27,9 @@ export function DeviceDataPanel() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [state, setState] = useState<ImportState>({ kind: 'idle' })
   // Read on the first render, removed after it, so the message shows once.
-  const [imported, setImported] = useState<string | null>(() => storage((s) => s.getItem(IMPORTED_KEY)))
+  const [imported, setImported] = useState<string | null>(readAfterReload)
   useEffect(() => {
-    storage((s) => s.removeItem(IMPORTED_KEY))
+    clearAfterReload()
   }, [])
 
   async function exportData() {
@@ -73,7 +71,7 @@ export function DeviceDataPanel() {
     try {
       const summary = await api.replaceDeviceData(state.content)
       const message = `Podaci su uvezeni iz fajla ${state.fileName} (izvezen ${formatDateTime(summary.exportedAt)}).`
-      storage((s) => s.setItem(IMPORTED_KEY, message))
+      keepForReload(message)
       window.location.reload()
     } catch (error) {
       setState({ kind: 'error', message: describeError(error) })
@@ -182,13 +180,4 @@ export function DeviceDataPanel() {
       </SettingsPart>
     </div>
   )
-}
-
-/** sessionStorage may be blocked; the message after an import is only a convenience. */
-function storage<T>(act: (s: Storage) => T): T | null {
-  try {
-    return act(sessionStorage)
-  } catch {
-    return null
-  }
 }

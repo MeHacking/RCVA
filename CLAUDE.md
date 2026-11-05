@@ -4,10 +4,74 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 04.11.2026 (tipovi kamiona; pre toga meni „Popuni prema“, izgled i izvoz
-PDF-a); videti „Gde smo stali“. Sve je push-ovano na `origin/main` 04.11.2026.
+Poslednje ažuriranje: 04.11.2026 (ekran Kamioni: id-jevi, kartica tipova, ukloni sve; pre toga
+tipovi kamiona, „Popuni prema“, izgled i izvoz PDF-a); videti „Gde smo stali“. Kod je
+push-ovan na `origin/main` 04.11.2026 (`f99e877`).
 
 ## Gde smo stali (03.11.2026)
+
+**Dorade 05.11.2026**, na zahtev korisnika:
+- **Najbliži put za kamione** (Oslo: „nema puta za teretna vozila“, centar zatvoren za kamione).
+  409 „Nema puta“ nosi `noRoadPlaceIds` (NOT IN SPEC v2): mesta do kojih ne vodi nijedan put,
+  inače sva mesta iz neuspelih parova. `ApiClient.proposeRoadPoints` (ORS Snap, `POST
+  /v2/snap/{profil}/json`, `{ locations: [[lon, lat]], radius }`, `ROAD_POINT_RADIUS_M` 5000;
+  odgovor po tački `null` ili `location`, `name`, `snapped_distance`; ništa ne menja),
+  `moveToRoadPoint` (posle potvrde; `geocodeStatus` `MANUAL`, `Location.movedFrom` čuva prvu
+  izvornu tačku) i `restoreRoadPoint` (409 ako nije pomereno). Snap postoji na
+  api.heigit.org (proveren zahtevom bez ključa: 401, nepostojeća putanja 404); Matrix po
+  dokumentaciji ne prima veći poluprečnik. Najveći poluprečnik i kvota za Snap nisu navedeni.
+  Ekran: ispod greške na Rezultatima `RoadPoints.tsx` (predlog na dugme, kvačica po mestu,
+  upozorenje preko 2 km, linkovi „sada“/„posle“ na OSM, „Primeni (N) i pokreni ponovo“); u
+  izmeni pošiljke „pomereno do puta za kamione, X km od izvorne tačke“ i „Vrati izvornu
+  tačku“. `movedFrom` je i u fajlu sa podacima (proverava se). **Sa pravim ORS-om nije
+  probano** (nema ključa na ovom računaru). Mesto ostaje pomereno i za sledeće nedelje.
+- **Brisanje svih podataka** (Podešavanja, deo 5, kartica u višnji): `ApiClient.resetDevice`
+  (NOT IN SPEC v2; `freshData()` kao pri prvom pokretanju, i ključ i podešavanja; 409 dok posao
+  radi), uz lozinku `adminconfirm` (`settings/adminPassword.ts`). **Lozinka je u kodu stranice
+  i ne štiti ni od koga ko je traži**: samo od slučajnog brisanja, privremeno dok ne dođe
+  prijava. Poruka posle ponovnog učitavanja: `settings/afterReload.ts` (deli je i uvoz).
+- **Ekran Kamioni**: kartice „Novi kamion“ i „Tipovi kamiona“ tamno sive (`panel--dark`,
+  `.edit-card`, 48rem), uvek otvorena samo jedna; „Zatvori“ uz desnu ivicu u redu sa
+  „Sačuvaj“ i X gore desno („Zatvori karticu“); nema „Otkaži“ ni nastavka unosa tipa;
+  „Ukloni“ (kanta) i „Ukloni sve kamione“ u višnji.
+- **Animacije** ulaska kartica na svim ekranima (`:where(.app__main …)` u `layout.css`, Pregled
+  zadržava svoja pravila) i traka popunjenosti. Testovi koji mere položaj prvo čekaju kraj
+  animacija (`document.getAnimations()`).
+- **Bočna traka**: klizajuća oznaka izabranog ekrana (`NavList` u `AppLayout.tsx`, meri se
+  `getBoundingClientRect`, jer dok stavke ulaze `offsetTop` meri od stavke), ikonice u
+  pločicama, ulazak stavki, čip izvora podataka sa ikonicom računara ili servera; bez
+  prelaza boje u pozadini.
+- Testovi: 431 Vitest, e2e na uređaju i Kamioni prolaze; ceo e2e (84) i desktop (4) poslednji
+  put posle bočne trake.
+
+**Ekran Kamioni, dorada (urađeno 04.11.2026)**, na zahtev korisnika:
+- **Id kamiona**: nov kamion dobija najmanji id koji nema nijedan kamion i ne koristi nijedan
+  sačuvani posao (`freeTruckId` u `localClient.ts`: `job.fleet` i rute rezultata; mock: kamioni i
+  fiksni rezultat scenarija). Odluka korisnika: ne odmah posle brisanja, jer bi stari rezultat
+  pokazao drugi kamion pod tim id-jem, a nov kamion dobio predlog lokacije obrisanog.
+  `nextTruckId` ostaje u snimku i fajlu (provera fajla traži da bude iznad svih id-jeva).
+  Id tipa se i dalje ne vraća.
+- **Tipovi**: dugme „Dodaj tip kamiona“ (ikonica `layers`) pored „Dodaj kamion“ (`plus`, sada
+  `button--primary`) otvara karticu tipova ispod zaglavlja (obrazac + spisak, „Zatvori“).
+  „Napravi tip“ iz redova kamiona i `typeDraftFromTruck` su uklonjeni. Posle „Otkaži“ uneto
+  se pamti (`typeDraft`, `TruckTypeForm` `initialValues`, `onCancel(values)`), a dugme u
+  kartici glasi „Nastavi dodavanje tipa“ (posle čuvanja „Dodaj tip“, prazno).
+- **Duplikat tipa**: i drugi naziv sa istim merama (kapacitet, nosivost, tovarni prostor) kao
+  postojeći tip ili Standardna cerada je 400 („Tip „X“ već ima iste mere…“, `sameMeasures` u
+  `api/truckValidation.ts`). Standardna cerada ostaje ugrađena (odluka korisnika).
+- **Ukloni sve kamione** (NOT IN SPEC v2: `ApiClient.deleteAllTrucks()` vraća uklonjene,
+  `restoreTrucks(trucks)` ih vraća sa istim id-jevima i lokacijama; lokacija čijeg mesta više
+  nema se briše; 409 dok posao radi i kada je id ponovo zauzet; `httpClient` 404, u režimu
+  `server` se ne nudi). Ekran: dugme u zaglavlju kartice „Spisak kamiona“, potvrda „Da, ukloni
+  sve“ / „Odustani“, pa obaveštenje sa „Poništi“ dok se ne doda kamion ili ne napusti ekran.
+- Spisak kamiona je kartica istog stila kao lokacije i tipovi (`.truck-card`,
+  `.truck-card__header`). Uputstvo dopunjeno.
+- Ispravljeno: `optimization.spec.ts` je tražio karticu „Skor“ (uklonjena za „Izvezi PDF“).
+- Testovi: 427 Vitest (novi: id iz sačuvanog posla se ne vraća, ukloni sve i vrati, 409, duplikat
+  po merama; tipovi u starim testovima dobili mere različite od standardne cerade), e2e
+  `trucks.spec.ts` (nastavak posle „Otkaži“, duplikat, ukloni sve → poništi) i
+  `storage.local.spec.ts`; desktop 4. Korisnik je prijavio pad na „Otkaži“; nije ponovljen
+  (svako „Otkaži“ provereno skriptom, i na praznom uređaju), posle osvežavanja radi.
 
 **Tipovi kamiona (urađeno 04.11.2026)**, na zahtev korisnika: „Popuni prema“ više ne nudi
 kamione sa spiska (Kamion 1, Kamion 2…), nego „Ručni unos“, ugrađenu „Standardna cerada“ i

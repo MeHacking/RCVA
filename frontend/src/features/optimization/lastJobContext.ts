@@ -17,7 +17,8 @@ export type LastJobState =
   | { kind: 'needsLocations'; options: StartOptions }
   /** 422 from POST /optimization-jobs: no job was created */
   | { kind: 'proven'; detail: string; causes: string[]; missingTrucks: number | null; options: StartOptions }
-  | { kind: 'startFailed'; message: string }
+  /** "noRoadPlaceIds": with 409 Nema puta, the places no road for lorries reaches (NOT IN SPEC v2) */
+  | { kind: 'startFailed'; message: string; noRoadPlaceIds: number[]; options: StartOptions }
   | {
       kind: 'tracking'
       jobId: number

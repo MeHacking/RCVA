@@ -161,6 +161,7 @@ const LOCATION = object({
   lat: nullable(NUM),
   lon: nullable(NUM),
   geocodeStatus: oneOf('OK', 'MANUAL', 'FAILED'),
+  movedFrom: optional(nullable(object({ lat: NUM, lon: NUM, geocodeStatus: oneOf('OK', 'MANUAL', 'FAILED') }))),
 })
 const SHIPMENT = object({
   id: INT,

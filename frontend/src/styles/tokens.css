@@ -99,6 +99,8 @@
   --nav-active: rgba(245, 239, 230, 0.1);
   --nav-divider: rgba(245, 239, 230, 0.08);
   --nav-accent: #b3475f;
+  --nav-tile: rgba(245, 239, 230, 0.06);
+  --nav-tile-hover: rgba(245, 239, 230, 0.12);
 
   /* Typography */
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

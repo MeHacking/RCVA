@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useApi } from '../../api/apiContext'
-import { describeError, isProvenInfeasible, type ApiClient } from '../../api/client'
+import { ApiError, describeError, isProvenInfeasible, type ApiClient } from '../../api/client'
 import { isTerminal } from './jobStatus'
 import { LastJobContext, type LastJobState, type StartOptions } from './lastJobContext'
 
@@ -62,7 +62,8 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
           const { causes = [], missingTrucks = null } = error.problem
           return set({ kind: 'proven', detail: error.message, causes, missingTrucks, options })
         }
-        return set({ kind: 'startFailed', message: describeError(error) })
+        const noRoadPlaceIds = error instanceof ApiError ? (error.problem.noRoadPlaceIds ?? []) : []
+        return set({ kind: 'startFailed', message: describeError(error), noRoadPlaceIds, options })
       }
     },
     [api],

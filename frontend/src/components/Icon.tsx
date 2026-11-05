@@ -72,6 +72,28 @@ const PATHS = {
   ),
   chevron: <path d="m9 6 6 6-6 6" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  monitor: (
+    <>
+      <rect x="3" y="4" width="18" height="12" rx="1.5" />
+      <path d="M9 20h6M12 16v4" />
+    </>
+  ),
+  server: (
+    <>
+      <rect x="4" y="4" width="16" height="7" rx="1.5" />
+      <rect x="4" y="13" width="16" height="7" rx="1.5" />
+      <path d="M8 7.5h.01M8 16.5h.01" />
+    </>
+  ),
+  close: <path d="M6 6l12 12M18 6 6 18" />,
+  trash: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M9 7V4.5h6V7" />
+      <path d="M6.5 7l1 13h9l1-13" />
+      <path d="M10 11v5.5M14 11v5.5" />
+    </>
+  ),
   layers: (
     <>
       <path d="m12 3 9 5-9 5-9-5z" />

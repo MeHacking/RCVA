@@ -13,7 +13,6 @@ import { TruckForm } from './TruckForm'
 import { TruckLocations } from './TruckLocations'
 import { TruckTypeForm } from './TruckTypeForm'
 import { TruckTypes } from './TruckTypes'
-import type { TruckFormValues } from './truckFormValidation'
 
 /** Removing every truck at once is the device's (and the mock's); the backend has it not. */
 const CAN_REMOVE_ALL = apiMode() !== 'server'
@@ -40,11 +39,18 @@ export function TrucksPage() {
   const [editing, setEditing] = useState<Editing>(null)
   /** the truck types card: shown on "Dodaj tip kamiona", until closed */
   const [typesOpen, setTypesOpen] = useState(false)
-  /** what was typed into a new type before "Otkaži": the next "Dodaj tip" goes on from there */
-  const [typeDraft, setTypeDraft] = useState<TruckFormValues | null>(null)
+  // One card open at a time: the types card or a truck's form.
   const editType = (next: Editing) => {
     setEditing(next)
     setTypesOpen(true)
+  }
+  const editTruck = (next: Editing) => {
+    setEditing(next)
+    setTypesOpen(false)
+  }
+  const closeTypes = () => {
+    setTypesOpen(false)
+    if (editing?.mode === 'createType' || editing?.mode === 'editType') setEditing(null)
   }
   /** truck waiting for the user to confirm removal */
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
@@ -95,7 +101,6 @@ export function TrucksPage() {
   }
 
   const handleTypeSaved = () => {
-    if (editing?.mode === 'createType') setTypeDraft(null)
     setEditing(null)
     reloadTypes()
   }
@@ -135,7 +140,7 @@ export function TrucksPage() {
             <button
               type="button"
               className="button--primary"
-              onClick={() => setEditing({ mode: 'create' })}
+              onClick={() => editTruck({ mode: 'create' })}
               disabled={trucks.status !== 'success' || types.status === 'loading'}
             >
               <Icon name="plus" size={16} />
@@ -167,25 +172,16 @@ export function TrucksPage() {
         <TruckTypes
           types={types.data}
           editingId={editing?.mode === 'editType' ? editing.type.id : null}
-          onClose={() => {
-            setTypesOpen(false)
-            if (editing?.mode === 'createType' || editing?.mode === 'editType') setEditing(null)
-          }}
+          onClose={closeTypes}
           onEdit={(type) => editType({ mode: 'editType', type })}
-          onAdd={() => editType({ mode: 'createType' })}
-          continuing={typeDraft !== null}
           onDeleted={handleTypeDeleted}
           form={
             (editing?.mode === 'createType' || editing?.mode === 'editType') && (
               <TruckTypeForm
                 key={editing.mode === 'editType' ? editing.type.id : 'new'}
                 type={editing.mode === 'editType' ? editing.type : null}
-                initialValues={editing.mode === 'createType' ? typeDraft : null}
                 onSaved={handleTypeSaved}
-                onCancel={(values) => {
-                  if (editing.mode === 'createType') setTypeDraft(values)
-                  setEditing(null)
-                }}
+                onClose={closeTypes}
               />
             )
           }
@@ -255,13 +251,14 @@ export function TrucksPage() {
               {CAN_REMOVE_ALL && (
                 <button
                   type="button"
-                  className="button--ghost"
+                  className="button--primary"
                   onClick={() => {
                     setRemoveError(null)
                     setRemoveAll('asking')
                   }}
                   disabled={removeAll !== 'idle'}
                 >
+                  <Icon name="trash" size={14} />
                   Ukloni sve kamione
                 </button>
               )}
@@ -274,7 +271,7 @@ export function TrucksPage() {
               editingId={editing?.mode === 'edit' ? editing.truck.id : null}
               confirmingId={confirmingId}
               deletingId={deletingId}
-              onEdit={(truck) => setEditing({ mode: 'edit', truck })}
+              onEdit={(truck) => editTruck({ mode: 'edit', truck })}
               onAskDelete={askDelete}
               onConfirmDelete={(truck) => void confirmDelete(truck)}
               onCancelDelete={() => setConfirmingId(null)}
@@ -384,10 +381,11 @@ function TruckTable({
                     </button>
                     <button
                       type="button"
-                      className="button--ghost"
+                      className="button--primary"
                       onClick={() => onAskDelete(truck)}
                       aria-label={`Ukloni ${truck.name}`}
                     >
+                      <Icon name="trash" size={14} />
                       Ukloni
                     </button>
                   </span>

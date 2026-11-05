@@ -11,6 +11,7 @@ import { isLastJobBusy, useLastJob, type LastJobState } from './lastJobContext'
 import { ResultView } from './ResultView'
 import { apiMode } from '../../api/apiMode'
 import { LocationsCheck, ShortageActions } from './FleetActions'
+import { RoadPoints } from './RoadPoints'
 
 const DEFAULT_TIME_LIMIT_SECONDS = '60'
 // Only the application on the device adds trucks or plans without some shipments.
@@ -110,7 +111,15 @@ function JobOutcome({ state }: { state: LastJobState }) {
         </Notice>
       )
     case 'startFailed':
-      return <ErrorState title="Pokretanje nije uspelo" message={state.message} />
+      return (
+        <>
+          <ErrorState title="Pokretanje nije uspelo" message={state.message} />
+          {/* Places no road for lorries reaches: the nearest road, once confirmed (on the device). */}
+          {FLEET_ACTIONS && state.noRoadPlaceIds.length > 0 && (
+            <RoadPoints key={state.noRoadPlaceIds.join()} placeIds={state.noRoadPlaceIds} options={state.options} />
+          )}
+        </>
+      )
     case 'tracking': {
       const { job, result, pollError, jobId, options } = state
       if (pollError) return <ErrorState title={`Praćenje posla #${jobId} nije uspelo`} message={pollError} />

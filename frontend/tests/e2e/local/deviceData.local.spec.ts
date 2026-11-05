@@ -109,6 +109,8 @@ test('the settings never scroll sideways, and the data buttons sit in the bottom
     await page.setViewportSize({ width, height: 800 })
     await page.goto('/settings')
     await expect(page.getByRole('button', { name: 'Izvezi podatke' })).toBeVisible()
+    // The cards rise in when the screen opens: measure once they stand still.
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)))
     // The hidden file field once kept the width of a field and widened the page by 470 px.
     const [scrollWidth, clientWidth] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
     expect(scrollWidth, `width ${width}`).toBeLessThanOrEqual(clientWidth)
@@ -120,5 +122,32 @@ test('the settings never scroll sideways, and the data buttons sit in the bottom
     const bottomPadding = await page.locator('.device-data').evaluate((e) => parseFloat(getComputedStyle(e).paddingBottom))
     expect(Math.round(card.y + card.height - bottomPadding - (buttons.y + buttons.height)), `bottom, width ${width}`).toBeLessThanOrEqual(1)
   }
+  expect(errors).toEqual([])
+})
+
+test('erases all data only with the administrator password', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await addTruck(page, 'Proba brisanja')
+  await saveKey(page, 'tajni-kljuc-123')
+  const reset = page.getByRole('form', { name: 'Brisanje svih podataka' })
+  const password = reset.getByLabel('Administratorska lozinka')
+  const button = reset.getByRole('button', { name: 'Obriši sve podatke' })
+  await expect(button).toBeDisabled()
+
+  // A wrong password removes nothing.
+  await password.fill('pogresno')
+  await button.click()
+  await expect(reset.getByText('Pogrešna lozinka. Ništa nije obrisano.')).toBeVisible()
+  await expect(page.getByLabel('Ključ za OpenRouteService')).toHaveValue('tajni-kljuc-123')
+
+  // The right one: everything goes, then the page starts again (here from the scenario "small").
+  await password.fill('adminconfirm')
+  await button.click()
+  await expect(page.getByText('Svi podaci na uređaju su obrisani; aplikacija je kao pri prvom pokretanju.')).toBeVisible()
+  await expect(page.getByLabel('Ključ za OpenRouteService')).toHaveValue('')
+  await page.goto('/trucks')
+  const trucks = page.getByRole('table', { name: 'Kamioni' })
+  await expect(trucks.getByRole('row')).toHaveCount(4) // header + the scenario's 3
+  await expect(trucks.getByRole('row', { name: /Proba brisanja/ })).toHaveCount(0)
   expect(errors).toEqual([])
 })

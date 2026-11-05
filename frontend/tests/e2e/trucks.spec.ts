@@ -87,7 +87,7 @@ test('fills a new truck from a truck type, never from a truck in the list', asyn
   // Nothing to choose when changing a truck.
   await page.getByRole('button', { name: 'Izmeni Šleper 1' }).click()
   await expect(page.getByLabel('Popuni prema')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Otkaži' }).click()
+  await page.getByRole('button', { name: 'Zatvori', exact: true }).click()
 
   await addType(page, { name: 'Hladnjača', ldm: '12,0', kg: '18000', dimensions: ['12000', '2400', '2500'] })
 
@@ -149,8 +149,8 @@ test('adds, changes and removes a truck type; the standard curtain-sider stays a
   await page.getByLabel('Kapacitet (LDM)').fill('13,6')
   await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
   await expect(page.locator('.field__error', { hasText: '„Standardna cerada“ je ugrađen tip; izaberite drugi naziv.' })).toBeVisible()
-  await page.getByRole('button', { name: 'Otkaži' }).click()
-  await expect(types.getByRole('row')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Zatvori', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Tipovi kamiona' })).toHaveCount(0)
 
   await addType(page, { name: 'Solo', ldm: '7' })
   await expect(types.getByRole('row', { name: /Solo/ })).toContainText('bez ograničenja')
@@ -159,10 +159,11 @@ test('adds, changes and removes a truck type; the standard curtain-sider stays a
   await page.getByLabel('Kapacitet (LDM)').fill('7')
   await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
   await expect(page.locator('.field__error', { hasText: 'Tip sa tim nazivom već postoji.' })).toBeVisible()
-  await page.getByRole('button', { name: 'Otkaži' }).click()
+  await page.getByRole('button', { name: 'Zatvori', exact: true }).click()
 
-  // Changing a type changes no truck.
+  // Changing a type changes no truck (the card opens again, then its row's "Izmeni").
   const trucksBefore = await page.getByRole('table', { name: 'Kamioni' }).innerText()
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
   await page.getByRole('button', { name: 'Izmeni tip Solo' }).click()
   await expect(page.getByLabel('Naziv tipa')).toHaveValue('Solo')
   await page.getByLabel('Naziv tipa').fill('Solo 7 m')
@@ -178,28 +179,42 @@ test('adds, changes and removes a truck type; the standard curtain-sider stays a
   await page.getByRole('button', { name: 'Ukloni tip Solo 7 m' }).click()
   await page.getByRole('button', { name: 'Da, ukloni' }).click()
   await expect(types.getByRole('row')).toHaveCount(2)
-  await page.getByRole('region', { name: 'Tipovi kamiona' }).getByRole('button', { name: 'Zatvori' }).click()
+  await page.getByRole('region', { name: 'Tipovi kamiona' }).getByRole('button', { name: 'Zatvori karticu' }).click()
   await expect(page.getByRole('region', { name: 'Tipovi kamiona' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await expect(page.getByLabel('Popuni prema').getByRole('option')).toHaveCount(2)
   expect(errors).toEqual([])
 })
 
-test('a new type left with "Otkaži" goes on where it was; a type like another is refused', async ({ page }) => {
+test('one card open at a time; "Zatvori" closes it; a type like another is refused', async ({ page }) => {
   const errors = collectPageErrors(page)
+  const typesCard = page.getByRole('region', { name: 'Tipovi kamiona' })
+  const truckForm = page.getByRole('form', { name: 'Novi kamion' })
   // No more "Napravi tip" in the rows of the trucks.
   await expect(page.getByRole('button', { name: /^Napravi tip/ })).toHaveCount(0)
+
+  // The types card and the new truck's form take turns.
   await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
+  await expect(typesCard).toBeVisible()
+  await page.getByRole('button', { name: 'Dodaj kamion' }).click()
+  await expect(truckForm).toBeVisible()
+  await expect(typesCard).toHaveCount(0)
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
+  await expect(typesCard).toBeVisible()
+  await expect(truckForm).toHaveCount(0)
+
+  // "Zatvori" closes the card, and nothing typed is kept; there is no "Otkaži" any more.
+  await expect(typesCard.getByRole('button', { name: 'Otkaži' })).toHaveCount(0)
+  await page.getByLabel('Naziv tipa').fill('Hladnjača')
+  await page.getByRole('button', { name: 'Zatvori', exact: true }).click()
+  await expect(typesCard).toHaveCount(0)
+  await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
+  await expect(page.getByLabel('Naziv tipa')).toHaveValue('')
+  await expect(typesCard.getByRole('button', { name: /Nastavi/ })).toHaveCount(0)
+
+  // The standard curtain-sider's measures under another name: a duplicate.
   await page.getByLabel('Naziv tipa').fill('Hladnjača')
   await page.getByLabel('Kapacitet (LDM)').fill('13,6')
-  await page.getByRole('button', { name: 'Otkaži' }).click()
-
-  // The card stays, and its button goes on with what was typed.
-  const card = page.getByRole('region', { name: 'Tipovi kamiona' })
-  await card.getByRole('button', { name: 'Nastavi dodavanje tipa' }).click()
-  await expect(page.getByLabel('Naziv tipa')).toHaveValue('Hladnjača')
-  await expect(page.getByLabel('Kapacitet (LDM)')).toHaveValue('13,6')
-  // The standard curtain-sider's measures under another name: a duplicate.
   await page.getByLabel('Nosivost (kg)').fill('24000')
   await page.getByLabel('Dužina').fill('13600')
   await page.getByLabel('Širina').fill('2480')
@@ -209,12 +224,11 @@ test('a new type left with "Otkaži" goes on where it was; a type like another i
   await page.getByLabel('Nosivost (kg)').fill('18000')
   await page.getByRole('button', { name: 'Sačuvaj tip' }).click()
   await expect(page.getByRole('table', { name: 'Tipovi kamiona' }).getByRole('row', { name: /Hladnjača/ })).toContainText('18000')
-  // Saved: the next one starts empty.
-  await card.getByRole('button', { name: 'Dodaj tip' }).click()
-  await expect(page.getByLabel('Naziv tipa')).toHaveValue('')
+  // Saved: the card stays with the list (no form, so no "Zatvori" by "Sačuvaj"), and closes with its X.
+  await typesCard.getByRole('button', { name: 'Zatvori karticu' }).click()
+  await expect(typesCard).toHaveCount(0)
   expect(errors).toEqual([])
 })
-
 test('removes every truck after asking, and puts them back on "Poništi"', async ({ page }) => {
   const errors = collectPageErrors(page)
   const trucks = page.getByRole('table', { name: 'Kamioni' })

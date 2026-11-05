@@ -53,7 +53,6 @@ test('keeps a truck type after a page reload, and fills a new truck from it', as
   await page.reload()
   // The types card opens on asking, after a reload too.
   await page.getByRole('button', { name: 'Dodaj tip kamiona' }).click()
-  await page.getByRole('button', { name: 'Otkaži' }).click()
   await expect(types.getByRole('row', { name: /Hladnjača/ })).toContainText('12,0')
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Popuni prema').selectOption({ label: 'Hladnjača (12,0 LDM, 18000 kg)' })

@@ -159,6 +159,8 @@ describe('data file of the device', () => {
       [changed((f) => (f.data.shipments[0].ldmTenths = 2.5)), `${broken}fajl.data.shipments[0].ldmTenths nije ceo broj.`],
       [changed((f) => delete f.data.trucks), `${broken}fajl.data.trucks nije spisak.`],
       [changed((f) => (f.data.locations[1].lat = '45')), `${broken}fajl.data.locations[1].lat nije broj.`],
+      // Where a place was before it was moved to the nearest road for lorries.
+      [changed((f) => (f.data.locations[1].movedFrom = { lat: 45, lon: '19', geocodeStatus: 'OK' })), `${broken}fajl.data.locations[1].movedFrom.lon nije broj.`],
       [changed((f) => (f.data.jobs[0].status = 'GOTOVO')), `${broken}fajl.data.jobs[0].status nije jedno od: QUEUED, RUNNING, COMPLETED, INFEASIBLE, CANCELLED, FAILED.`],
       [changed((f) => (f.data.jobs[0].result.routes[0].stops[0].type = 'UTOVAR')), `${broken}fajl.data.jobs[0].result.routes[0].stops[0].type nije jedno od: PICKUP, DELIVERY.`],
       [changed((f) => (f.data.geocodeCache['proba|rs'] = { found: true, lat: 45 })), `${broken}fajl.data.geocodeCache["proba|rs"] nije zapamćena koordinata.`],

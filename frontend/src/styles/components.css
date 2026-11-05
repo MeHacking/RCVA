@@ -864,15 +864,15 @@ button.button--danger:hover:not(:disabled) {
   background: var(--on-dark-row);
 }
 
-.table-wrap--dark .field > label {
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) .field > label {
   color: var(--on-dark-text);
 }
 
-.table-wrap--dark .field__hint {
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) .field__hint {
   color: var(--on-dark-muted);
 }
 
-.table-wrap--dark :is(.field__error, .text--error) {
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) :is(.field__error, .text--error) {
   color: var(--on-dark-danger);
 }
 
@@ -908,4 +908,15 @@ button.button--danger:hover:not(:disabled) {
 
 :is(.panel--cherry, .panel--dark, .table-wrap--dark) :focus-visible {
   box-shadow: var(--on-dark-focus-ring);
+}
+
+/* A part's number on a dark card: cream with the cherry number (cherry on cherry is not seen). */
+:is(.panel--cherry, .panel--dark) .number-badge {
+  color: var(--accent);
+  background: var(--cream);
+}
+
+/* The other labels of a form on a dark card (a checkbox's, a group's legend). */
+:is(.panel--cherry, .panel--dark) :is(.field--checkbox label, .field legend) {
+  color: var(--on-dark-text);
 }

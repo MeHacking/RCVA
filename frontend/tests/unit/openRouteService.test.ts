@@ -3,6 +3,7 @@ import {
   chunks,
   createOrsDistances,
   createOrsLines,
+  createOrsSnap,
   LINE_TOLERANCE_M,
   MAX_LOCATIONS_PER_REQUEST,
   MAX_ROUTES_PER_REQUEST,
@@ -312,5 +313,46 @@ describe('simplified road lines', () => {
     expect(simplify(line, LINE_TOLERANCE_M)).toEqual([line[0], line[2], line[4]])
     expect(simplify(line, 5)).toEqual(line)
     expect(simplify(line.slice(0, 2), LINE_TOLERANCE_M)).toEqual(line.slice(0, 2))
+  })
+})
+
+describe('nearest road for lorries (ORS Snap)', () => {
+  it('sends the points as [lon, lat] with the radius, and reads a road, its name, or none', async () => {
+    const sent: { url: string; headers: Record<string, string>; body: unknown }[] = []
+    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      sent.push({ url: String(input), headers: init?.headers as Record<string, string>, body: JSON.parse(String(init?.body)) })
+      return new Response(
+        JSON.stringify({
+          locations: [{ location: [10.76, 59.92], name: ' Teretna ulica ', snapped_distance: 1840.6 }, null, { location: [20, 45], snapped_distance: 3 }],
+        }),
+      )
+    }) as typeof globalThis.fetch
+    const snap = createOrsSnap({ fetch, minIntervalMs: 0 })
+    const answers = await snap(POINTS, { ...KEY, radiusMeters: 5000 })
+    expect(sent).toEqual([
+      {
+        url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json',
+        headers: { Authorization: 'test-kljuc', 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: { locations: POINTS.map((p) => [p.lon, p.lat]), radius: 5000 },
+      },
+    ])
+    expect(answers).toEqual([
+      { at: { lat: 59.92, lon: 10.76 }, distanceMeters: 1841, street: 'Teretna ulica' },
+      null,
+      { at: { lat: 45, lon: 20 }, distanceMeters: 3, street: null },
+    ])
+  })
+
+  it('refuses an answer it does not understand, and passes the ORS failure on', async () => {
+    const answering = (response: Response) => createOrsSnap({ fetch: (async () => response) as typeof globalThis.fetch, minIntervalMs: 0 })
+    await expect(answering(new Response(JSON.stringify({ locations: [null] })))(POINTS, { ...KEY, radiusMeters: 5000 })).rejects.toThrow(
+      new RoadDistanceError('OpenRouteService je vratio neočekivan odgovor za najbliži put.'),
+    )
+    await expect(
+      answering(new Response(JSON.stringify({ locations: [{ location: ['x', 1], snapped_distance: 1 }, null, null] })))(POINTS, { ...KEY, radiusMeters: 5000 }),
+    ).rejects.toThrow('neočekivan odgovor')
+    await expect(answering(new Response('{}', { status: 429 }))(POINTS, { ...KEY, radiusMeters: 5000 })).rejects.toThrow(
+      'potrošena je kvota upita (HTTP 429)',
+    )
   })
 })

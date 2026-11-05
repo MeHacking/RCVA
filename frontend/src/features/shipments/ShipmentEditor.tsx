@@ -4,7 +4,9 @@ import { apiMode } from '../../api/apiMode'
 import { ApiError, describeError } from '../../api/client'
 import type { Location, Shipment, ShipmentUpdateResult } from '../../api/types'
 import { OsmAttribution } from '../../components/OsmAttribution'
+import { haversineMeters } from '../../domain/optimization/distance'
 import { formatCoordinates } from '../../format/coordinates'
+import { formatKm } from '../../format/units'
 import {
   apiErrorsToForm,
   buildShipmentPatch,
@@ -25,12 +27,15 @@ export function ShipmentEditor({
   locations,
   onSaved,
   onCancel,
+  onPlaceRestored,
 }: {
   shipment: Shipment
   shipments: Shipment[]
   locations: Location[]
   onSaved: (result: ShipmentUpdateResult) => void
   onCancel: () => void
+  /** a place moved to the nearest road for lorries was put back where it was */
+  onPlaceRestored: (place: Location) => void
 }) {
   const api = useApi()
   const id = useId()
@@ -89,6 +94,7 @@ export function ShipmentEditor({
         onChange={(value) => set(role, value)}
         fieldProps={fieldProps}
         fieldError={fieldError}
+        onRestored={onPlaceRestored}
       />
     )
   }
@@ -167,6 +173,7 @@ function PlaceEditor({
   onChange,
   fieldProps,
   fieldError,
+  onRestored,
 }: {
   role: PlaceRole
   idPrefix: string
@@ -179,7 +186,21 @@ function PlaceEditor({
   onChange: (value: PlaceFormValues) => void
   fieldProps: (field: ShipmentFormField) => FieldProps
   fieldError: (field: ShipmentFormField) => ReactNode
+  onRestored: (place: Location) => void
 }) {
+  const api = useApi()
+  const [restoring, setRestoring] = useState(false)
+  const [restoreError, setRestoreError] = useState<string | null>(null)
+  async function restore(place: Location) {
+    setRestoring(true)
+    setRestoreError(null)
+    try {
+      onRestored(await api.restoreRoadPoint(place.id))
+    } catch (error) {
+      setRestoreError(`Mesto nije vraćeno: ${describeError(error)}`)
+      setRestoring(false)
+    }
+  }
   const set = <K extends keyof PlaceFormValues>(field: K, text: PlaceFormValues[K]) => onChange({ ...value, [field]: text })
   const prefix = `${idPrefix}-${role}`
   const coordinatesField = `${role}Coordinates` as const
@@ -192,7 +213,28 @@ function PlaceEditor({
         {located ? (
           <>
             Koordinate: {formatCoordinates(located)}
-            {location?.geocodeStatus === 'MANUAL' && ' (ručno uneta lokacija)'}
+            {location?.movedFrom ? (
+              <>
+                {' '}
+                (pomereno do puta za kamione, {formatKm(haversineMeters(location.movedFrom, located))} od izvorne tačke){' '}
+                <button
+                  type="button"
+                  className="button--small"
+                  onClick={() => void restore(location)}
+                  disabled={restoring}
+                >
+                  {restoring ? 'Vraćanje…' : 'Vrati izvornu tačku'}
+                </button>
+              </>
+            ) : (
+              location?.geocodeStatus === 'MANUAL' && ' (ručno uneta lokacija)'
+            )}
+            {restoreError && (
+              <span role="alert" className="text--error">
+                {' '}
+                {restoreError}
+              </span>
+            )}
           </>
         ) : (
           <span className="text--error">Nema koordinata (nejasna lokacija).</span>

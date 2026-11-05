@@ -22,7 +22,7 @@ import { assertValidTruck, assertValidTruckType, toTruckType } from '../truckVal
 import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from './deviceFile'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
-import { createOrsDistances, createOrsLines, pairKey, RoadDistanceError } from './openRouteService'
+import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError } from './openRouteService'
 import {
   TERMINAL_JOB_STATUSES,
   type DeviceSettings,
@@ -34,6 +34,7 @@ import {
   type OrsProfile,
   type OptimizationJobRequest,
   type OptimizationResult,
+  type RoadPointProposal,
   type RouteLine,
   type Shipment,
   type Truck,
@@ -114,6 +115,8 @@ export const KEPT_JOBS = 10
 export const KEPT_JOB_LOG = 5000
 /** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
 export const KEPT_ROUTE_LINES = 50
+/** How far a place may be moved to the nearest road for lorries (ORS Snap). */
+export const ROAD_POINT_RADIUS_M = 5000
 
 export interface LocalJob {
   id: number
@@ -192,6 +195,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   let nextTruckTypeId = 1
   const roadDistances = createOrsDistances(ors)
   const roadLines = createOrsLines(ors)
+  const roadSnap = createOrsSnap(ors)
   // A line being asked for, by `lineKey`: a second request for it waits for the same answer.
   const askingLines = new Map<string, Promise<RouteLine['path']>>()
   const geocoder = createNominatimGeocoder({
@@ -248,7 +252,14 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
   async function restore(): Promise<void> {
     const stored = await store.load()
-    const data = stored ?? {
+    const data = stored ?? freshData()
+    const interrupted = apply(data)
+    if (!stored || interrupted) await persist()
+  }
+
+  /** What a device starts from: the scenario's data (none on an empty device), no job, the default settings. */
+  function freshData(): LocalData {
+    return {
       shipments: structuredClone(scenario.shipments),
       locations: structuredClone(scenario.locations),
       // A scenario's trucks are at its base (probni podaci), so a job can start at once.
@@ -263,8 +274,6 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       nextTruckId: Math.max(0, ...scenario.trucks.map((t) => t.id)) + 1,
       nextJobId: 1,
     }
-    const interrupted = apply(data)
-    if (!stored || interrupted) await persist()
   }
 
   /** Takes over stored (or imported) data; true when a job had to be marked FAILED. */
@@ -526,18 +535,31 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     }
 
     const noRoad: string[] = []
+    // How many pairs with each place have a road, and how many have none.
+    const roads = points.map(() => ({ some: 0, none: 0 }))
     const distance = points.map((_, i) =>
       points.map((_, j) => {
         if (same(i, j)) return 0
         const meters = distanceCache[key(i, j)]
-        if (meters === null) noRoad.push(`${used[i].name} → ${used[j].name}`)
+        if (meters === null) {
+          noRoad.push(`${used[i].name} → ${used[j].name}`)
+          roads[i].none++
+          roads[j].none++
+        } else {
+          roads[i].some++
+          roads[j].some++
+        }
         return meters ?? 0
       }),
     )
     if (noRoad.length > 0) {
+      // A place no road reaches at all is the cause; when there is none such, every place of a pair without a road.
+      const cut = used.filter((_, i) => roads[i].none > 0 && roads[i].some === 0)
+      const suspects = cut.length > 0 ? cut : used.filter((_, i) => roads[i].none > 0)
       throw new ApiError({
         title: 'Nema puta',
         status: 409,
+        noRoadPlaceIds: suspects.map((l) => l.id),
         detail:
           `OpenRouteService ne nalazi put ${PROFILE_LABELS[profile]} (${noRoad.length}): ` +
           `${noRoad.slice(0, 5).join(', ')}${noRoad.length > 5 ? ` i još ${noRoad.length - 5}` : ''}. ` +
@@ -939,6 +961,90 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     checkDeviceData: (content) => respond(() => readFile(content).summary),
+
+    proposeRoadPoints: (locationIds) =>
+      respond(async () => {
+        const apiKey = settings.orsApiKey
+        if (!apiKey) {
+          throw new ApiError({
+            title: 'Nema ključa za OpenRouteService',
+            status: 400,
+            detail: 'Najbliži put za kamione traži ključ za OpenRouteService (Podešavanja).',
+          })
+        }
+        const places = locationIds.map((id) => {
+          const place = locations.find((l) => l.id === id)
+          if (!place) throw notFound(`Mesto ${id} ne postoji.`)
+          if (place.lat === null || place.lon === null) {
+            throw new ApiError({ title: 'Mesto nema koordinate', status: 400, detail: `„${place.name}“ nema koordinate.` })
+          }
+          return { ...place, lat: place.lat, lon: place.lon }
+        })
+        let answers
+        try {
+          answers = await roadSnap(
+            places.map((p) => ({ lat: p.lat, lon: p.lon })),
+            { apiKey, profile: settings.orsProfile, radiusMeters: ROAD_POINT_RADIUS_M },
+          )
+        } catch (error) {
+          if (!(error instanceof RoadDistanceError)) throw error
+          throw new ApiError({ title: 'Najbliži put nije dostupan', status: 502, detail: error.message })
+        }
+        return places.map((place, i): RoadPointProposal => {
+          const answer = answers[i]
+          return {
+            locationId: place.id,
+            name: place.name,
+            from: { lat: place.lat, lon: place.lon },
+            to: answer ? answer.at : null,
+            distanceMeters: answer ? answer.distanceMeters : null,
+            street: answer ? answer.street : null,
+          }
+        })
+      }),
+
+    moveToRoadPoint: (locationId, to) =>
+      change(() => {
+        assertNoActiveJob('mesto se može pomeriti')
+        const place = locations.find((l) => l.id === locationId)
+        if (!place) throw notFound(`Mesto ${locationId} ne postoji.`)
+        const valid = (n: number, limit: number) => Number.isFinite(n) && Math.abs(n) <= limit
+        if (!valid(to.lat, 90) || !valid(to.lon, 180)) {
+          throw new ApiError({ title: 'Neispravne koordinate', status: 400, detail: 'Širina mora biti do ±90, dužina do ±180.' })
+        }
+        // Confirmed by the user: the place's coordinates are the user's from now on; where it was
+        // stays (the first place, if it is moved again), so it can go back.
+        if (place.lat !== null && place.lon !== null) {
+          place.movedFrom ??= { lat: place.lat, lon: place.lon, geocodeStatus: place.geocodeStatus }
+        }
+        place.lat = to.lat
+        place.lon = to.lon
+        place.geocodeStatus = 'MANUAL'
+        return structuredClone(place)
+      }),
+
+    restoreRoadPoint: (locationId) =>
+      change(() => {
+        assertNoActiveJob('mesto se može vratiti')
+        const place = locations.find((l) => l.id === locationId)
+        if (!place) throw notFound(`Mesto ${locationId} ne postoji.`)
+        const from = place.movedFrom
+        if (!from) {
+          throw new ApiError({ title: 'Mesto nije pomereno', status: 409, detail: `„${place.name}“ nije pomereno do puta za kamione.` })
+        }
+        place.lat = from.lat
+        place.lon = from.lon
+        place.geocodeStatus = from.geocodeStatus
+        place.movedFrom = null
+        return structuredClone(place)
+      }),
+
+    resetDevice: () =>
+      change(() => {
+        assertNoActiveJob('svi podaci se mogu obrisati')
+        // Everything goes, the ORS key and the settings too: as on the first start.
+        apply(freshData())
+      }),
 
     replaceDeviceData: (content) =>
       change(() => {

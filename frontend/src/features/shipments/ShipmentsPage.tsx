@@ -138,6 +138,10 @@ export function ShipmentsPage() {
                 setSaved(result)
                 reload()
               }}
+              onPlaceRestored={() => {
+                setSaved(null)
+                reload()
+              }}
             />
           </>
         ))}
@@ -161,11 +165,14 @@ function ShipmentTable({
   shipments,
   locations,
   onSaved,
+  onPlaceRestored,
 }: {
   rows: ShipmentRow[]
   shipments: Shipment[]
   locations: Location[]
   onSaved: (result: ShipmentUpdateResult) => void
+  /** a place was put back where it was before it was moved to a road (load the places again) */
+  onPlaceRestored: () => void
 }) {
   const totals = shipmentTotals(rows)
   const [editing, setEditing] = useState<number | null>(null)
@@ -244,6 +251,10 @@ function ShipmentTable({
                           onSaved(result)
                         }}
                         onCancel={() => setEditing(null)}
+                        onPlaceRestored={() => {
+                          setEditing(null)
+                          onPlaceRestored()
+                        }}
                       />
                     </td>
                   </tr>

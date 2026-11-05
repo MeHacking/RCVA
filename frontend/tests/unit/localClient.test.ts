@@ -10,7 +10,7 @@ import {
   type LocalApiOptions,
   type LocalData,
 } from '../../src/api/local/localClient'
-import { TERMINAL_JOB_STATUSES, type OptimizationJob, type OrsProfile, type RouteStop } from '../../src/api/types'
+import { TERMINAL_JOB_STATUSES, type Location, type OptimizationJob, type OrsProfile, type RouteStop } from '../../src/api/types'
 import type { SolverRunner } from '../../src/domain/optimization/solverRunner'
 import { runInThread } from '../../src/domain/optimization/solverRunner'
 import { SCENARIOS, type Scenario, type ScenarioName } from '../../src/fixtures'
@@ -29,7 +29,7 @@ const SHEET = [
 ]
 
 function setup(
-  scenario: ScenarioName | Scenario,
+  scenario: ScenarioName | LocalApiOptions['scenario'],
   runSolver: SolverRunner = steps,
   store: DeviceStore<LocalData> = createMemoryStore<LocalData>(),
 ): ApiClient {
@@ -371,6 +371,27 @@ describe('local storage on the device', () => {
     release()
     await settle(api, id)
     expect(await api.deleteAllTrucks()).toHaveLength(3)
+  })
+
+  it('goes back to the factory settings: everything gone, the key and the settings too', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup(EMPTY_START, steps, store)
+    await api.createTruck(TRUCK)
+    await api.createTruckType({ ...measures, capacityKg: 18_000, name: 'Hladnjača' })
+    await api.updateDeviceSettings({ ...(await api.getDeviceSettings())!, orsApiKey: 'tajni-kljuc', extraTruckSavingPercent: 25 })
+
+    await api.resetDevice()
+    expect(await api.listTrucks()).toEqual([])
+    expect(await api.listTruckTypes()).toEqual([])
+    expect(await api.listShipments()).toEqual([])
+    const settings = (await api.getDeviceSettings())!
+    expect(settings).toEqual(DEFAULT_SETTINGS)
+    // Stored at once: the next start finds the same empty device.
+    const after = setup(EMPTY_START, steps, store)
+    expect(await after.listTrucks()).toEqual([])
+    expect((await after.getDeviceSettings())!.orsApiKey).toBeNull()
+    // And the ids start again.
+    expect((await after.createTruck(TRUCK)).id).toBe(1)
   })
 
   it('gives a removed truck id again only when no kept job uses it', async () => {
@@ -903,6 +924,81 @@ describe('road distances from OpenRouteService on the device', () => {
     // The job was refused, but the answers were stored before that.
     expect((await rejection(client(store, fake).createOptimizationJob(REQUEST))).status).toBe(409)
     expect(fake.asked).toHaveLength(1)
+  })
+
+  it('names the place no road reaches, proposes the nearest road for lorries, and moves it once asked', async () => {
+    // One place of the scenario is closed to lorries: no road to or from it; ORS Snap finds a
+    // road 0,01° north of it (in a radius of 5 km), and from there the roads are fine.
+    const closedId = SCENARIOS.small.shipments[0].deliveryLocationId
+    const closed = SCENARIOS.small.locations.find((l) => l.id === closedId)!
+    const isClosed = (p: number[]) => Math.abs(p[0] - closed.lon!) < 1e-9 && Math.abs(p[1] - closed.lat!) < 1e-9
+    const snaps: { url: string; key: string; body: { locations: number[][]; radius: number } }[] = []
+    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources?: number[]; destinations?: number[]; radius?: number }
+      if (String(input).includes('/snap/')) {
+        snaps.push({ url: String(input), key: (init?.headers as Record<string, string>).Authorization, body: body as never })
+        const locations = body.locations.map(([lon, lat]) => ({
+          location: [lon, lat + 0.01],
+          name: 'Teretna ulica',
+          snapped_distance: 1112.3,
+        }))
+        return new Response(JSON.stringify({ locations }))
+      }
+      const at = (i: number) => body.locations[i]
+      const distances = body.sources!.map((s) =>
+        body.destinations!.map((d) =>
+          s !== d && (isClosed(at(s)) || isClosed(at(d))) ? null : road({ lon: at(s)[0], lat: at(s)[1] }, { lon: at(d)[0], lat: at(d)[1] }),
+        ),
+      )
+      return new Response(JSON.stringify({ distances }))
+    }) as typeof globalThis.fetch
+    const api = createLocalApiClient({ scenario: SCENARIOS.small, runSolver: steps, store: createMemoryStore<LocalData>(), ors: { fetch, minIntervalMs: 0 } })
+
+    // Without a key there is nothing to ask.
+    expect((await rejection(api.proposeRoadPoints([closedId]))).status).toBe(400)
+    await withKey(api)
+    const refused = await rejection(api.createOptimizationJob(REQUEST))
+    expect(refused.status).toBe(409)
+    expect(refused.problem.noRoadPlaceIds).toEqual([closedId])
+
+    // A proposal changes nothing.
+    const [proposal] = await api.proposeRoadPoints([closedId])
+    expect(proposal).toEqual({
+      locationId: closedId,
+      name: closed.name,
+      from: { lat: closed.lat, lon: closed.lon },
+      to: { lat: closed.lat! + 0.01, lon: closed.lon },
+      distanceMeters: 1112,
+      street: 'Teretna ulica',
+    })
+    expect(snaps).toEqual([
+      {
+        url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json',
+        key: 'test-kljuc',
+        body: { locations: [[closed.lon, closed.lat]], radius: 5000 },
+      },
+    ])
+    expect((await api.listLocations()).find((l) => l.id === closedId)).toMatchObject({ lat: closed.lat, geocodeStatus: closed.geocodeStatus })
+
+    // Moved once confirmed: the place's coordinates are the user's, and the job can run.
+    expect(await api.moveToRoadPoint(closedId, proposal.to!)).toMatchObject({ lat: closed.lat! + 0.01, geocodeStatus: 'MANUAL' })
+    expect((await solve(api)).validation.passed).toBe(true)
+    expect((await rejection(api.moveToRoadPoint(closedId, { lat: 91, lon: 0 }))).status).toBe(400)
+    expect((await rejection(api.moveToRoadPoint(9999, { lat: 1, lon: 1 }))).status).toBe(404)
+
+    // Where it was is kept (the first point, also when moved again), in the data file too.
+    const from = { lat: closed.lat, lon: closed.lon, geocodeStatus: closed.geocodeStatus }
+    expect((await api.moveToRoadPoint(closedId, { lat: closed.lat! + 0.02, lon: closed.lon! })).movedFrom).toEqual(from)
+    const file = (await api.exportDeviceData())!
+    expect((await api.checkDeviceData(file.content)).locations).toBe((await api.listLocations()).length)
+    expect((JSON.parse(file.content) as { data: { locations: Location[] } }).data.locations.find((l) => l.id === closedId)?.movedFrom).toEqual(from)
+
+    // And it goes back there, with the status it had; then there is nothing more to put back.
+    const back = await api.restoreRoadPoint(closedId)
+    expect(back).toMatchObject({ lat: closed.lat, lon: closed.lon, geocodeStatus: closed.geocodeStatus, movedFrom: null })
+    const again = await rejection(api.restoreRoadPoint(closedId))
+    expect([again.status, again.problem.detail]).toEqual([409, `„${closed.name}“ nije pomereno do puta za kamione.`])
+    expect((await rejection(api.restoreRoadPoint(9999))).status).toBe(404)
   })
 
   it('asks nothing for a job that is proven infeasible first', async () => {

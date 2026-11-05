@@ -84,6 +84,14 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema izmenu pošiljki.' })),
     checkDeviceData: () => Promise.reject(noDeviceData()),
     replaceDeviceData: () => Promise.reject(noDeviceData()),
+    resetDevice: () => Promise.reject(noDeviceData()),
+    // Nor roads: the backend measures as the crow flies.
+    proposeRoadPoints: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema najbliži put za kamione.' })),
+    moveToRoadPoint: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema pomeranje mesta.' })),
+    restoreRoadPoint: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema pomeranje mesta.' })),
   }
 }
 

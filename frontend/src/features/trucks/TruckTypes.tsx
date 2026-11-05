@@ -17,8 +17,6 @@ export function TruckTypes({
   editingId,
   form,
   onClose,
-  onAdd,
-  continuing,
   onEdit,
   onDeleted,
 }: {
@@ -27,10 +25,6 @@ export function TruckTypes({
   editingId: number | null
   form: ReactNode
   onClose: () => void
-  /** opens the form of a new type again, after "Otkaži" or a saved type */
-  onAdd: () => void
-  /** a new type was begun and left: the button goes on with it */
-  continuing: boolean
   onEdit: (type: TruckType) => void
   onDeleted: (type: TruckType) => void
 }) {
@@ -54,11 +48,17 @@ export function TruckTypes({
   }
 
   return (
-    <section className="panel truck-card truck-types" aria-labelledby="truck-types">
+    <section className="panel panel--dark truck-card truck-types edit-card" aria-labelledby="truck-types">
       <div className="truck-card__header">
         <h2 id="truck-types">Tipovi kamiona</h2>
-        <button type="button" className="button--ghost" onClick={onClose}>
-          Zatvori
+        <button
+          type="button"
+          className="button--ghost edit-card__x"
+          onClick={onClose}
+          aria-label="Zatvori karticu"
+          title="Zatvori"
+        >
+          <Icon name="close" size={18} />
         </button>
       </div>
       <p className="text--muted">
@@ -66,14 +66,7 @@ export function TruckTypes({
         je ugrađena i ne menja se; po njoj aplikacija predlaže i dodatne kamione kada postojeći nisu dovoljni.
       </p>
 
-      {form || (
-        <div className="form-actions">
-          <button type="button" onClick={onAdd}>
-            <Icon name="plus" size={16} />
-            {continuing ? 'Nastavi dodavanje tipa' : 'Dodaj tip'}
-          </button>
-        </div>
-      )}
+      {form}
 
       {deleteError && (
         <p role="alert" className="text--error">
@@ -81,7 +74,7 @@ export function TruckTypes({
         </p>
       )}
 
-      <div className="table-wrap">
+      <div className="table-wrap table-wrap--dark">
         <table className="table" aria-label="Tipovi kamiona">
           <thead>
             <tr>
@@ -128,13 +121,14 @@ export function TruckTypes({
                     </button>
                     <button
                       type="button"
-                      className="button--ghost"
+                      className="button--primary"
                       onClick={() => {
                         setDeleteError(null)
                         setConfirmingId(type.id)
                       }}
                       aria-label={`Ukloni tip ${type.name}`}
                     >
+                      <Icon name="trash" size={14} />
                       Ukloni
                     </button>
                   </span>

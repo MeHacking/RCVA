@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from 'react'
 import { useApi } from '../../api/apiContext'
 import { ApiError, describeError } from '../../api/client'
 import type { Truck, TruckType } from '../../api/types'
+import { Icon } from '../../components/Icon'
 import {
   apiErrorsToForm,
   fieldPropsFor,
@@ -82,8 +83,20 @@ export function TruckForm({ truck, trucks = [], types = [], onSaved, onCancel }:
   const fieldProps = fieldPropsFor(id, errors)
 
   return (
-    <form className="panel truck-form" onSubmit={handleSubmit} noValidate aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>{truck ? `Izmena kamiona #${truck.id}` : 'Novi kamion'}</h2>
+    <form className="panel panel--dark truck-form edit-card" onSubmit={handleSubmit} noValidate aria-labelledby={`${id}-title`}>
+      <div className="truck-card__header">
+        <h2 id={`${id}-title`}>{truck ? `Izmena kamiona #${truck.id}` : 'Novi kamion'}</h2>
+        <button
+          type="button"
+          className="button--ghost edit-card__x"
+          onClick={onCancel}
+          disabled={saving}
+          aria-label="Zatvori karticu"
+          title="Zatvori"
+        >
+          <Icon name="close" size={18} />
+        </button>
+      </div>
 
       {!truck && (
         <div className="field">
@@ -135,8 +148,8 @@ export function TruckForm({ truck, trucks = [], types = [], onSaved, onCancel }:
         <button type="submit" className="button--primary" disabled={saving}>
           {saving ? 'Čuvanje…' : 'Sačuvaj'}
         </button>
-        <button type="button" onClick={onCancel} disabled={saving}>
-          Otkaži
+        <button type="button" className="button--primary edit-card__close" onClick={onCancel} disabled={saving}>
+          Zatvori
         </button>
       </div>
     </form>

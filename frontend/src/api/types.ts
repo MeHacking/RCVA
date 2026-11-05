@@ -14,6 +14,11 @@ export interface Location {
   lat: number | null
   lon: number | null
   geocodeStatus: GeocodeStatus
+  /**
+   * NOT IN SPEC v2: where the place was before it was moved to the nearest road for lorries
+   * (moveToRoadPoint), so it can go back (restoreRoadPoint); missing or null otherwise
+   */
+  movedFrom?: { lat: number; lon: number; geocodeStatus: GeocodeStatus } | null
 }
 
 export interface Shipment {
@@ -468,4 +473,24 @@ export interface ProblemDetails {
   missingTrucks?: number
   /** field name -> message, for 400 validation errors */
   errors?: Record<string, string>
+  /**
+   * NOT IN SPEC v2: with 409 "Nema puta" from POST /optimization-jobs, the places no road for the
+   * profile reaches (or, when every place has some road, the places of the pairs without one)
+   */
+  noRoadPlaceIds?: number[]
+}
+
+/**
+ * NOT IN SPEC v2: where a place without a road for lorries could go instead, the nearest point
+ * on a road they may use (ORS Snap); `to` is null when there is none within the radius.
+ */
+export interface RoadPointProposal {
+  locationId: number
+  name: string
+  from: { lat: number; lon: number }
+  to: { lat: number; lon: number } | null
+  /** from `from` to `to`; null with no `to` */
+  distanceMeters: number | null
+  /** the road's name, when OSM has one */
+  street: string | null
 }

@@ -12,6 +12,7 @@ import type {
   ImportRowPatch,
   LoadPlan,
   Location,
+  RoadPointProposal,
   OptimizationJob,
   OptimizationJobCreated,
   OptimizationJobRequest,
@@ -150,6 +151,30 @@ export interface ApiClient {
    * where there is no data on the device.
    */
   replaceDeviceData(content: string): Promise<DeviceDataSummary>
+  /**
+   * NOT IN SPEC v2: the factory reset, everything on the device gone (the ORS key and the
+   * settings too), as on the first start. 409 while a job waits or runs, 404 where there is no
+   * data on the device.
+   */
+  resetDevice(): Promise<void>
+  /**
+   * NOT IN SPEC v2: for places no road for lorries reaches (noRoadPlaceIds of a 409 "Nema puta"),
+   * the nearest point on a road the profile in the settings may use, within ROAD_POINT_RADIUS_M.
+   * Changes nothing. 400 without an ORS key, 502 when ORS fails, 404 over HTTP and in the mock.
+   */
+  proposeRoadPoints(locationIds: number[]): Promise<RoadPointProposal[]>
+  /**
+   * NOT IN SPEC v2: moves a place to the point the user confirmed (a proposal's `to`); its
+   * coordinates are then the user's (MANUAL), and where it was is kept in movedFrom (the first
+   * place, if it is moved again). 400 for coordinates out of range, 404, 409 while a
+   * job waits or runs; 404 over HTTP and in the mock.
+   */
+  moveToRoadPoint(locationId: number, to: { lat: number; lon: number }): Promise<Location>
+  /**
+   * NOT IN SPEC v2: puts a place moved to the nearest road back where it was (movedFrom). 409
+   * when it was not moved or while a job waits or runs, 404; 404 over HTTP and in the mock.
+   */
+  restoreRoadPoint(locationId: number): Promise<Location>
 }
 
 export class ApiError extends Error {

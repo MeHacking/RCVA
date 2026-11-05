@@ -270,8 +270,8 @@ function Steps() {
           „Dodaj kamion“): u njoj je obrazac za novi tip i spisak postojećih, koje menjate ili uklanjate. „Standardna
           cerada“ je ugrađena i ne menja se, jer po njoj aplikacija predlaže dodatne kamione kada postojeći nisu
           dovoljni. Tip ne sme imati isti naziv ni iste mere (kapacitet, nosivost i tovarni prostor) kao neki postojeći.
-          Ako odustanete („Otkaži“), uneto se pamti i „Nastavi dodavanje tipa“ nastavlja odatle. Izmena ili uklanjanje
-          tipa ne menja kamione koji su već dodati.
+          „Zatvori“ (gore desno) zatvara karticu bez čuvanja. Na ekranu je uvek otvorena samo jedna kartica za unos: kamiona ili tipova. Izmena ili
+          uklanjanje tipa ne menja kamione koji su već dodati.
         </p>
       )}
       {ON_DEVICE && (
@@ -357,6 +357,10 @@ function Steps() {
             <li>
               Za novu nedelju: „Ukloni sve pošiljke“ na ekranu Pošiljke, pa uvoz nove tabele. Kamioni, njihove
               lokacije, poslednji rezultati i zapamćene koordinate i kilometraže ostaju.
+            </li>
+            <li>
+              „Brisanje svih podataka“ (dno Podešavanja, uz administratorsku lozinku) briše sve na uređaju, i ključ i
+              podešavanja, pa je aplikacija kao pri prvom pokretanju. To se ne može poništiti: prvo izvezite podatke.
             </li>
           </ul>
         </>
@@ -515,6 +519,10 @@ function Messages() {
           [
             'Kilometraže nisu dostupne',
             'OpenRouteService nije odgovorio (nema interneta, pogrešan ključ ili potrošena kvota). Optimizacija se tada ne pokreće, da ne bi tiho računala vazdušnom linijom.',
+          ],
+          [
+            'Nema puta za kamione',
+            'Do nekog mesta OpenRouteService ne nalazi put za izabrana vozila, najčešće jer je centar grada zatvoren za kamione. „Pomeri na najbliži put za kamione“ predlaže najbliže mesto na putu kojim kamion sme (do 5 km), pokazuje koliko je to daleko i obe tačke na mapi; pomeraju se samo označena mesta, tek kada potvrdite. Izvorna tačka se pamti: u izmeni pošiljke „Vrati izvornu tačku“.',
           ],
         ] as Array<[string, ReactNode]>)
       : []),
