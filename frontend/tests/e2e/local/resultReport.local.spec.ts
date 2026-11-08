@@ -51,12 +51,15 @@ test("prints a driver's PDF with that truck alone, then the whole report again",
   const errors = collectPageErrors(page)
   // What the report holds at the moment of printing, since it goes back to the whole result after.
   await page.addInitScript(() => {
-    const seen: Array<{ title: string; text: string; trucks: number }> = []
+    const seen: Array<{ title: string; text: string; trucks: number; drawings: number; numbers: string[] }> = []
     ;(window as unknown as { printed: typeof seen }).printed = seen
     window.print = () => {
       const report = document.querySelector<HTMLElement>('[data-testid="result-report"]')!
       const trucks = report.querySelectorAll('.report__truck')
-      seen.push({ title: document.title, text: report.textContent ?? '', trucks: trucks.length })
+      // The drawing of the load, and the numbers on its blocks.
+      const drawings = report.querySelectorAll('svg.load-drawing')
+      const numbers = [...report.querySelectorAll('svg.load-drawing .load-drawing__number')].map((n) => n.textContent ?? '')
+      seen.push({ title: document.title, text: report.textContent ?? '', trucks: trucks.length, drawings: drawings.length, numbers })
     }
   })
   await page.goto('/trucks')
@@ -83,9 +86,13 @@ test("prints a driver's PDF with that truck alone, then the whole report again",
   const others = await shipmentsOf('Šleper 2')
 
   await page.getByRole('button', { name: 'PDF za vozača: Šleper 1' }).click()
-  const [printed] = await page.evaluate(() => (window as unknown as { printed: Array<{ title: string; text: string; trucks: number }> }).printed)
+  const [printed] = await page.evaluate(() => (window as unknown as { printed: Array<{ title: string; text: string; trucks: number; drawings: number; numbers: string[] }> }).printed)
   expect(printed.title).toBe('rcva-Šleper-1-posao-1')
   expect(printed.trucks).toBe(1)
+  // Its load in 3D, a block per shipment numbered from the doors.
+  expect(printed.drawings).toBe(1)
+  expect(printed.numbers.sort()).toEqual(own.map((_, i) => String(i + 1)))
+  expect(printed.text).toContain('Raspored tovara')
   expect(printed.text).toContain('Ruta i utovar')
   expect(printed.text).toContain('Vozač: Marko Marković, +381 64 123 4567')
   for (const label of own) expect(printed.text).toContain(label)

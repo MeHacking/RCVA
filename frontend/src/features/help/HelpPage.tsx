@@ -360,7 +360,9 @@ function Steps() {
         </li>
         <li>
           <strong>Izvezi ceo rezultat (PDF):</strong> izveštaj sa rezimeom na prvoj strani i svakim kamionom na svojoj
-          strani (vozač, stanice redom sa kilometrima, pošiljke na kamionu). U aplikaciji za PC birate gde se fajl čuva;
+          strani (vozač, stanice redom sa kilometrima, pošiljke na kamionu i raspored tovara: crtež u 3D, gde broj
+          na bloku kaže redosled od vrata, 1 se istovara prvi; za crtež kamion mora imati unete
+          dimenzije tovarnog prostora). U aplikaciji za PC birate gde se fajl čuva;
           u pregledaču se otvara štampa, gde izaberete „Sačuvaj kao PDF“.
         </li>
         <li>

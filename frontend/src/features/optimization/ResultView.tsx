@@ -17,6 +17,7 @@ import {
   type TruckRow,
 } from './resultRows'
 import { RouteTable } from './RouteTable'
+import { useLoadPlans } from './useLoadPlans'
 import { useReferenceData } from './useReferenceData'
 import { ExtraTruckNotice, ShortageActions } from './FleetActions'
 import type { StartOptions } from './lastJobContext'
@@ -36,11 +37,17 @@ export function ResultView({
   const [pdf, setPdf] = useState<{ tone: 'success' | 'error'; text: string; truckId: number | null } | null>(null)
   /** the truck whose driver's PDF is being made; null: the report is the whole result */
   const [reportTruckId, setReportTruckId] = useState<number | null>(null)
+  const loadPlans = useLoadPlans(
+    job.id,
+    result.routes.map((route) => route.truckId),
+  )
 
   /** `truck`: only its part, for its driver; null: the whole result */
   async function savePdf(truck: TruckRow | null) {
     setPdf(null)
     const truckId = truck?.truckId ?? null
+    // The drawings of the load need the plans; they are asked for when the result opens.
+    await loadPlans.ready()
     // The report must show the right part before it is printed, not on the next render.
     flushSync(() => setReportTruckId(truckId))
     try {
@@ -67,7 +74,7 @@ export function ResultView({
         Posao #{job.id} · završen {formatTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
       </p>
       {reference.status === 'success' && (
-        <ResultReport job={job} result={result} reference={reference.data} truckId={reportTruckId} />
+        <ResultReport job={job} result={result} reference={reference.data} truckId={reportTruckId} loadPlans={loadPlans.plans} />
       )}
 
       <Summary result={result} onExport={reference.status === 'success' ? () => void savePdf(null) : null} />

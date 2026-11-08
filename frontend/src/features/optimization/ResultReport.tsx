@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import type { OptimizationJob, OptimizationResult } from '../../api/types'
+import type { OptimizationJob, OptimizationResult, Truck } from '../../api/types'
 import { formatDateTime } from '../../format/time'
 import { formatKg, formatKm, formatLdm, formatUtilization } from '../../format/units'
 import {
@@ -10,6 +10,9 @@ import {
   type ReferenceData,
   type TruckRow,
 } from './resultRows'
+import { blockColor, blockNumbers } from './loadDrawing'
+import { LoadDrawings } from './LoadDrawings'
+import type { LoadPlanEntry } from './useLoadPlans'
 
 /**
  * The results as a report to print or save as PDF (exportPdf): the summary on the first page,
@@ -24,12 +27,15 @@ export function ResultReport({
   result,
   reference,
   truckId = null,
+  loadPlans = new Map(),
 }: {
   job: OptimizationJob
   result: OptimizationResult
   reference: ReferenceData
   /** the driver's PDF of this truck; null: the whole result */
   truckId?: number | null
+  /** for the drawings of the load; a truck without one gets none */
+  loadPlans?: ReadonlyMap<number, LoadPlanEntry>
 }) {
   const rows = buildTruckRows(result, reference)
   const truck = truckId === null ? null : rows.find((row) => row.truckId === truckId)
@@ -45,7 +51,7 @@ export function ResultReport({
             </p>
           </div>
         </header>
-        <TruckPage row={truck} jobId={job.id} />
+        <TruckPage row={truck} jobId={job.id} plan={loadPlans.get(truck.truckId)} truck={truckOf(reference, truck.truckId)} />
         {result.distanceSource && <p className="report__note">Kilometraže: {DISTANCE_SOURCES[result.distanceSource]}.</p>}
       </article>,
       document.body,
@@ -152,16 +158,37 @@ export function ResultReport({
       {result.distanceSource && <p className="report__note">Kilometraže: {DISTANCE_SOURCES[result.distanceSource]}.</p>}
 
       {rows.map((row) => (
-        <TruckPage key={row.truckId} row={row} jobId={job.id} />
+        <TruckPage
+          key={row.truckId}
+          row={row}
+          jobId={job.id}
+          plan={loadPlans.get(row.truckId)}
+          truck={truckOf(reference, row.truckId)}
+        />
       ))}
     </article>,
     document.body,
   )
 }
 
+const truckOf = (reference: ReferenceData, truckId: number) => reference.trucks.find((t) => t.id === truckId)
+
 /** A truck's page, the same in the whole report and in its driver's PDF. */
-function TruckPage({ row, jobId }: { row: TruckRow; jobId: number }) {
+function TruckPage({
+  row,
+  jobId,
+  plan: entry,
+  truck,
+}: {
+  row: TruckRow
+  jobId: number
+  /** undefined: still being asked for */
+  plan: LoadPlanEntry | undefined
+  truck: Truck | undefined
+}) {
   const driver = [row.driverName, row.driverPhone].filter(Boolean).join(', ')
+  const plan = entry && 'plan' in entry ? entry.plan : null
+  const numbers = plan ? blockNumbers(plan) : null
   return (
     <section className="report__truck" aria-label={row.truckName}>
       <h2>{row.truckName}</h2>
@@ -175,6 +202,7 @@ function TruckPage({ row, jobId }: { row: TruckRow; jobId: number }) {
       <table className="report__table">
         <thead>
           <tr>
+            {numbers && <th className="num">U rasporedu</th>}
             <th>Pošiljka</th>
             <th>Opis</th>
             <th className="num">LDM</th>
@@ -186,6 +214,12 @@ function TruckPage({ row, jobId }: { row: TruckRow; jobId: number }) {
         <tbody>
           {row.shipments.map((shipment) => (
             <tr key={shipment.shipmentId}>
+              {plan && numbers && (
+                <td className="num">
+                  <span className="report__swatch" style={{ background: blockColor(plan, shipment.shipmentId) }} />
+                  {numbers.get(shipment.shipmentId) ?? '–'}
+                </td>
+              )}
               <td>{shipment.label}</td>
               <td>{shipment.description ?? '–'}</td>
               <td className="num">{shipment.ldmTenths === null ? '–' : formatLdm(shipment.ldmTenths)}</td>
@@ -196,6 +230,28 @@ function TruckPage({ row, jobId }: { row: TruckRow; jobId: number }) {
           ))}
         </tbody>
       </table>
+      <div className="report__load">
+        <h3>Raspored tovara</h3>
+        {plan ? (
+          <>
+            <LoadDrawings
+              plan={plan}
+              space={{
+                innerLengthMm: truck?.innerLengthMm ?? 0,
+                innerWidthMm: truck?.innerWidthMm ?? 0,
+                innerHeightMm: truck?.innerHeightMm ?? 0,
+              }}
+            />
+            <p className="report__note">
+              Broj na bloku je redosled od vrata: 1 stoji kod vrata i istovara se prvi. Raspored je ilustrativan.
+            </p>
+          </>
+        ) : (
+          <p className="report__note">
+            {entry && 'error' in entry ? `Raspored nije dostupan: ${entry.error}` : 'Raspored se učitava.'}
+          </p>
+        )}
+      </div>
     </section>
   )
 }

@@ -54,6 +54,17 @@ za vozača“ i „Pošalji na Viber“. 3D u PDF-u: snimak 3D prikaza i pogled 
   (`shipmentImport`, `editShipment`, `geocoding`), nov `shortenIds.local.spec.ts`, prozor u
   `optimization.spec.ts`. Pun e2e 88: posle ispravke svi prolaze (`fleet.local` jednom pao u punom
   prolazu, sam prolazi).
+- **3D raspored u PDF-u (urađeno 08.11.2026)**: umesto snimka TeGo prikaza (deljeno WebGL
+  platno, krhko za snimak po kamionu) crtež u SVG-u iz istog rasporeda (`loadDrawing.ts` model,
+  `LoadDrawings.tsx`): kosa projekcija sa strane (dubina pola razmere pod 30°, vrata desno,
+  crta se od prednjeg zida ka vratima pa blok pokriva kraj prethodnog); viewBox u mm. Pogled
+  odozgo je napravljen pa uklonjen (korisnik: dovoljan je 3D). Broj na bloku = redosled od vrata (`blockNumbers`, 1 se
+  istovara prvi), boja kao u spisku na 3D ekranu (`placementColor`); u tabeli „Pošiljke na
+  kamionu“ kolona „U rasporedu“ (boja i broj). Rasporedi se traže kad se rezultat otvori
+  (`useLoadPlans`), a izvoz PDF-a ih sačeka; kamion bez dimenzija dobija „Raspored nije
+  dostupan: …“. Boje crteža su tokeni `--drawing-*`. PDF za vozača sa 3 pošiljke i dalje staje
+  na jednu stranu (crteži idu celi na sledeću kada ne staju, `break-inside: avoid`). Testovi:
+  `loadDrawing.test.ts` (6), e2e u `resultReport.local.spec.ts` (crtež, brojevi 1..n).
 - **Zamka**: u `String.replace` zamena sa `` $` `` (npr. kraj regex-a pre backtick-a) ubacuje
   ceo tekst pre poklapanja; skripte za izmene sada koriste funkciju kao zamenu (`() => to`).
 

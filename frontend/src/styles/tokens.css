@@ -67,6 +67,11 @@
   --card-dark-surface: rgba(43, 42, 44, 0.93);
   /* behind a modal window */
   --backdrop: rgba(43, 42, 44, 0.45);
+  /* the drawings of the load in the PDF: the cargo space, its edges, and light and shade on the blocks */
+  --drawing-room: #f3eee6;
+  --drawing-line: var(--gray-700);
+  --drawing-light: rgba(255, 255, 255, 0.4);
+  --drawing-shade: rgba(0, 0, 0, 0.22);
   /* A bar on the dark: a light rose instead of cherry (cherry on dark grey is barely seen) */
   --on-dark-accent: #e6a6b7;
   --on-dark-track: rgba(255, 255, 255, 0.14);

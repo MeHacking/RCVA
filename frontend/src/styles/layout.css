@@ -629,6 +629,77 @@ button.stat.stat-action:hover:not(:disabled) {
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
+
+  /* The drawings of the load stay together, on the next page when they do not fit. */
+  .report__load {
+    break-inside: avoid;
+  }
+
+  .report__swatch {
+    display: inline-block;
+    width: 8pt;
+    height: 8pt;
+    margin-right: 4pt;
+    vertical-align: -1pt;
+    border-radius: 2pt;
+    print-color-adjust: exact;
+  }
+}
+
+/* The drawings of the load (LoadDrawings), in the report only. */
+.load-drawings {
+  display: grid;
+  gap: 6pt;
+}
+
+.load-drawing {
+  display: block;
+  width: 100%;
+  height: auto;
+  print-color-adjust: exact;
+}
+
+.load-drawing__room {
+  fill: var(--drawing-room);
+  stroke: var(--drawing-line);
+  stroke-width: 18;
+  stroke-linejoin: round;
+}
+
+.load-drawing__block {
+  stroke: var(--drawing-line);
+  stroke-width: 14;
+  stroke-linejoin: round;
+}
+
+.load-drawing__light {
+  fill: var(--drawing-light);
+}
+
+.load-drawing__shade {
+  fill: var(--drawing-shade);
+}
+
+.load-drawing__edge {
+  fill: none;
+  stroke: var(--drawing-line);
+  stroke-width: 18;
+  stroke-dasharray: 60 40;
+  stroke-linejoin: round;
+}
+
+.load-drawing__number {
+  fill: var(--white);
+  stroke: var(--drawing-line);
+  stroke-width: 40;
+  paint-order: stroke;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.load-drawing__caption {
+  fill: var(--text-muted);
 }
 
 .route-table tbody th {
