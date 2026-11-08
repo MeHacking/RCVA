@@ -44,7 +44,6 @@ const PREVIEW_ROWS = 6
 
 interface ImportRecord {
   fileName: string
-  idPrefix: string
   sheets: { name: string; rows: string[][] }[]
   rows: RowState[] | null
   committed: boolean
@@ -172,7 +171,6 @@ export function createImportStore(deps: {
       const importId = nextImportId++
       imports.set(importId, {
         fileName: file.name,
-        idPrefix: file.name.replace(/\.xlsx$/i, '').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'uvoz',
         sheets,
         rows: null,
         committed: false,
@@ -192,7 +190,7 @@ export function createImportStore(deps: {
       if (!sheet || Object.keys(errors).length > 0) {
         throw new ApiError({ title: 'Neispravno mapiranje kolona', status: 400, errors: sheet ? errors : { sheetName: 'List ne postoji.' } })
       }
-      record.rows = readRows(sheet.rows, mapping, record.idPrefix)
+      record.rows = readRows(sheet.rows, mapping)
       record.committed = false
     },
 

@@ -9,6 +9,12 @@ export function reportFileName(jobId: number): string {
   return `rcva-rezultat-posao-${jobId}.pdf`
 }
 
+/** "rcva-Šleper-1-posao-12.pdf": the driver's PDF of one truck, without what a file name cannot hold. */
+export function truckReportFileName(jobId: number, truckName: string): string {
+  const name = truckName.trim().replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'kamion'
+  return `rcva-${name}-posao-${jobId}.pdf`
+}
+
 /**
  * The results report (ResultReport, its print styles) as a PDF. The desktop application
  * writes the file itself, where the user picks; a browser opens its print dialog, where

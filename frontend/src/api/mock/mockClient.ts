@@ -11,6 +11,7 @@ import {
 import { createImportStore, locateInGazetteer, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
 import { createShipmentEditor } from './shipmentEdit'
 import { buildLoadPlan } from './loadPlan'
+import { shortenIds } from '../../domain/shipmentIds'
 import { assertValidTruck, assertValidTruckType, cleanTruckInput, toTruckType } from '../truckValidation'
 
 export interface MockApiOptions {
@@ -144,6 +145,7 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         return { shipments: removed, locations: 0 }
       }),
     updateShipment: (id, patch) => respond(() => editor.update(id, patch)),
+    shortenShipmentIds: () => respond(() => ({ renamed: shortenIds(shipments, locations) })),
     listTrucks: () => respond(() => trucks),
     getBase: () => respond(() => scenario.base),
 

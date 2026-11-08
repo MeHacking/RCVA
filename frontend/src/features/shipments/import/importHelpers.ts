@@ -6,7 +6,7 @@ export const IMPORT_FIELDS: ReadonlyArray<{ field: ImportField; label: string; h
   { field: 'delivery', label: 'Isporuka', hint: 'Umesto relacije: posebna kolona sa mestom isporuke' },
   { field: 'ldm', label: 'LDM', hint: 'Obavezno; npr. „2,4m“ ili „2,4“' },
   { field: 'weight', label: 'Težina', hint: 'Opciono, informativno; npr. „4,200 kg“ ili „5,3t“' },
-  { field: 'externalId', label: 'ID pošiljke', hint: 'Opciono; bez njega ID se pravi od imena fajla i broja reda' },
+  { field: 'externalId', label: 'ID pošiljke', hint: 'Opciono; bez njega ID se pravi od mesta utovara i istovara (npr. KRA-STE-1)' },
   { field: 'description', label: 'Opis robe', hint: 'Opciono' },
 ]
 

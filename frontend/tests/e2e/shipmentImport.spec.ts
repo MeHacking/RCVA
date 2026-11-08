@@ -94,8 +94,8 @@ test('imports an Excel file: mapping, corrections, exclusion, commit', async ({ 
   await page.getByRole('link', { name: 'Pogledaj pošiljke' }).click()
   await expect(page.getByText(/Pošiljki: 10 · ukupno 35,7 LDM · sa greškom: 2/)).toBeVisible()
   const shipments = page.getByRole('table', { name: 'Pošiljke' })
-  await expect(shipments.getByRole('row', { name: /probni-uvoz-2/ })).toContainText('U redu')
-  await expect(shipments.getByRole('row', { name: /probni-uvoz-7/ })).toContainText('Nejasna lokacija')
+  await expect(shipments.getByRole('row', { name: /BEO-LJU-1/ })).toContainText('U redu')
+  await expect(shipments.getByRole('row', { name: /NIS-VAX-1/ })).toContainText('Nejasna lokacija')
   expect(errors).toEqual([])
 })
 

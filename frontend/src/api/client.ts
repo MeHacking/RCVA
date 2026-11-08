@@ -47,6 +47,12 @@ export interface ApiClient {
    */
   deleteAllShipments(): Promise<{ shipments: number; locations: number }>
   /**
+   * NOT IN SPEC v2: gives the shipments whose ID an earlier import made from the file name and
+   * the row ("Relacija-...-14") a short one by relation ("KRA-STE-1"; domain/shipmentIds).
+   * Results show the new names at once (they keep shipment ids, not names). 404 over HTTP.
+   */
+  shortenShipmentIds(): Promise<{ renamed: number }>
+  /**
    * NOT IN SPEC v2: corrects an imported shipment. Its places without coordinates are looked
    * up again (only these, and never a place whose answer is kept); a place keeps its name and
    * coordinates, so kept results do not change. 400 by field, 404 for an unknown shipment

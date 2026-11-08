@@ -1,13 +1,21 @@
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { OptimizationJob, OptimizationResult } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { ErrorState, LoadingState } from '../../components/states'
 import { formatTime } from '../../format/time'
 import { formatKm, formatLdm } from '../../format/units'
-import { exportPdf, reportFileName } from './exportPdf'
+import { exportPdf, reportFileName, truckReportFileName } from './exportPdf'
 import { ResultReport } from './ResultReport'
-import { buildTruckRows, buildUnassignedRows, DISTANCE_SOURCES, distanceScope, type ReferenceData } from './resultRows'
+import {
+  buildTruckRows,
+  buildUnassignedRows,
+  DISTANCE_SOURCES,
+  distanceScope,
+  type ReferenceData,
+  type TruckRow,
+} from './resultRows'
 import { RouteTable } from './RouteTable'
 import { useReferenceData } from './useReferenceData'
 import { ExtraTruckNotice, ShortageActions } from './FleetActions'
@@ -24,31 +32,46 @@ export function ResultView({
   options?: StartOptions | null
 }) {
   const [reference, reload] = useReferenceData()
-  const [pdf, setPdf] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  /** the last PDF made: of the whole result (truckId null) or of one truck */
+  const [pdf, setPdf] = useState<{ tone: 'success' | 'error'; text: string; truckId: number | null } | null>(null)
+  /** the truck whose driver's PDF is being made; null: the report is the whole result */
+  const [reportTruckId, setReportTruckId] = useState<number | null>(null)
 
-  async function savePdf() {
+  /** `truck`: only its part, for its driver; null: the whole result */
+  async function savePdf(truck: TruckRow | null) {
     setPdf(null)
+    const truckId = truck?.truckId ?? null
+    // The report must show the right part before it is printed, not on the next render.
+    flushSync(() => setReportTruckId(truckId))
     try {
-      const outcome = await exportPdf(reportFileName(job.id))
-      if (outcome.kind === 'saved') setPdf({ tone: 'success', text: `PDF je sačuvan: ${outcome.path}` })
+      const outcome = await exportPdf(truck ? truckReportFileName(job.id, truck.truckName) : reportFileName(job.id))
+      if (outcome.kind === 'saved') setPdf({ tone: 'success', text: `PDF je sačuvan: ${outcome.path}`, truckId })
     } catch (error) {
-      setPdf({ tone: 'error', text: `PDF nije napravljen: ${error instanceof Error ? error.message : String(error)}` })
+      setPdf({ tone: 'error', text: `PDF nije napravljen: ${error instanceof Error ? error.message : String(error)}`, truckId })
+    } finally {
+      setReportTruckId(null)
     }
   }
+
+  const pdfMessage = (truckId: number | null) =>
+    pdf &&
+    pdf.truckId === truckId && (
+      <p role={pdf.tone === 'error' ? 'alert' : 'status'} className={pdf.tone === 'error' ? 'text--error' : 'text--success'}>
+        {pdf.text}
+      </p>
+    )
 
   return (
     <div className="result">
       <p className="text--muted result__meta">
         Posao #{job.id} · završen {formatTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
       </p>
-      {reference.status === 'success' && <ResultReport job={job} result={result} reference={reference.data} />}
-
-      <Summary result={result} onExport={reference.status === 'success' ? () => void savePdf() : null} />
-      {pdf && (
-        <p role={pdf.tone === 'error' ? 'alert' : 'status'} className={pdf.tone === 'error' ? 'text--error' : 'text--success'}>
-          {pdf.text}
-        </p>
+      {reference.status === 'success' && (
+        <ResultReport job={job} result={result} reference={reference.data} truckId={reportTruckId} />
       )}
+
+      <Summary result={result} onExport={reference.status === 'success' ? () => void savePdf(null) : null} />
+      {pdfMessage(null)}
       <Validation result={result} />
       {options && <ExtraTruckNotice result={result} options={options} />}
       {options && result.unassignedShipmentIds.length > 0 && (
@@ -65,7 +88,8 @@ export function ResultView({
       {reference.status === 'success' && (
         <>
           <h2 className="section-title">Kamioni i rute</h2>
-          <RouteTable jobId={job.id} rows={buildTruckRows(result, reference.data)} />
+          {pdf && pdf.truckId !== null && pdfMessage(pdf.truckId)}
+          <RouteTable jobId={job.id} rows={buildTruckRows(result, reference.data)} onDriverPdf={(row) => void savePdf(row)} />
           <Unassigned result={result} reference={reference.data} />
         </>
       )}
@@ -73,7 +97,7 @@ export function ResultView({
   )
 }
 
-/** Three cards of the result, then "Izvezi PDF" as a fourth, dark one (once the names are loaded). */
+/** Three cards of the result, then "Izvezi ceo rezultat (PDF)" as a fourth, dark one (once the names are loaded). */
 function Summary({ result, onExport }: { result: OptimizationResult; onExport: (() => void) | null }) {
   const atLowerBound = result.trucksUsed === result.trucksLowerBound
   return (
@@ -110,7 +134,7 @@ function Summary({ result, onExport }: { result: OptimizationResult; onExport: (
         <button type="button" className="stat stat-action" onClick={onExport}>
           <span className="stat-action__title">
             <Icon name="download" size={22} />
-            Izvezi PDF
+            Izvezi ceo rezultat (PDF)
           </span>
           <span className="stat-action__hint">rezime i strana po kamionu</span>
         </button>

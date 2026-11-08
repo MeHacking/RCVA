@@ -21,6 +21,7 @@ import { createShipmentEditor } from '../mock/shipmentEdit'
 import { assertValidTruck, assertValidTruckType, cleanTruckInput, toTruckType } from '../truckValidation'
 import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from './deviceFile'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
+import { shortenIds } from '../../domain/shipmentIds'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
 import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError } from './openRouteService'
 import {
@@ -926,6 +927,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     updateShipment: (id, patch) => change(() => editor.update(id, patch)),
+
+    shortenShipmentIds: () => change(() => ({ renamed: shortenIds(shipments, locations) })),
 
     getDeviceSettings: () => respond(() => settings),
 

@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 import type { OptimizationJob, OptimizationResult } from '../../api/types'
 import { formatDateTime } from '../../format/time'
-import { formatKm, formatLdm, formatUtilization } from '../../format/units'
+import { formatKg, formatKm, formatLdm, formatUtilization } from '../../format/units'
 import {
   buildTruckRows,
   buildUnassignedRows,
@@ -13,20 +13,45 @@ import {
 
 /**
  * The results as a report to print or save as PDF (exportPdf): the summary on the first page,
- * then every truck on a page of its own with its stops, to hand to its driver. Rendered next
- * to the application (a portal into <body>) and shown only in print, where the application is
+ * then every truck on a page of its own with its stops and shipments. With `truckId`, only that
+ * truck's page (the driver's PDF): nothing of the other trucks, the totals or the unassigned
+ * shipments, since drivers are not to know what the others carry. Rendered next to the
+ * application (a portal into <body>) and shown only in print, where the application is
  * hidden (see .report in layout.css).
  */
 export function ResultReport({
   job,
   result,
   reference,
+  truckId = null,
 }: {
   job: OptimizationJob
   result: OptimizationResult
   reference: ReferenceData
+  /** the driver's PDF of this truck; null: the whole result */
+  truckId?: number | null
 }) {
   const rows = buildTruckRows(result, reference)
+  const truck = truckId === null ? null : rows.find((row) => row.truckId === truckId)
+  if (truck) {
+    return createPortal(
+      <article className="report report--truck" data-testid="result-report">
+        <header className="report__header">
+          <img className="report__logo" src="/logo.png" alt="" width={36} height={36} />
+          <div>
+            <h1>Ruta i utovar</h1>
+            <p className="report__meta">
+              Posao #{job.id} · završen {formatDateTime(job.finishedAt)}
+            </p>
+          </div>
+        </header>
+        <TruckPage row={truck} jobId={job.id} />
+        {result.distanceSource && <p className="report__note">Kilometraže: {DISTANCE_SOURCES[result.distanceSource]}.</p>}
+      </article>,
+      document.body,
+    )
+  }
+
   const unassigned = buildUnassignedRows(result, reference)
   const { passed, violations } = result.validation
 
@@ -79,6 +104,7 @@ export function ResultReport({
         <thead>
           <tr>
             <th>Kamion</th>
+            <th>Vozač</th>
             <th>Pošiljke</th>
             <th className="num">Popunjenost</th>
             <th className="num">Kilometraža</th>
@@ -88,6 +114,7 @@ export function ResultReport({
           {rows.map((row) => (
             <tr key={row.truckId}>
               <td>{row.truckName}</td>
+              <td>{row.driverName ?? '–'}</td>
               <td>{row.shipmentLabels.join(', ')}</td>
               <td className="num">{fill(row)}</td>
               <td className="num">{formatKm(row.totalMeters)}</td>
@@ -125,16 +152,51 @@ export function ResultReport({
       {result.distanceSource && <p className="report__note">Kilometraže: {DISTANCE_SOURCES[result.distanceSource]}.</p>}
 
       {rows.map((row) => (
-        <section key={row.truckId} className="report__truck" aria-label={row.truckName}>
-          <h2>{row.truckName}</h2>
-          <p className="report__meta">
-            Posao #{job.id} · {formatKm(row.totalMeters)} · {fill(row)}
-          </p>
-          <Stops row={row} />
-        </section>
+        <TruckPage key={row.truckId} row={row} jobId={job.id} />
       ))}
     </article>,
     document.body,
+  )
+}
+
+/** A truck's page, the same in the whole report and in its driver's PDF. */
+function TruckPage({ row, jobId }: { row: TruckRow; jobId: number }) {
+  const driver = [row.driverName, row.driverPhone].filter(Boolean).join(', ')
+  return (
+    <section className="report__truck" aria-label={row.truckName}>
+      <h2>{row.truckName}</h2>
+      <p className="report__meta">
+        Posao #{jobId} · {formatKm(row.totalMeters)} · {fill(row)}
+      </p>
+      {driver && <p className="report__driver">Vozač: {driver}</p>}
+      <h3>Stanice redom</h3>
+      <Stops row={row} />
+      <h3>Pošiljke na kamionu</h3>
+      <table className="report__table">
+        <thead>
+          <tr>
+            <th>Pošiljka</th>
+            <th>Opis</th>
+            <th className="num">LDM</th>
+            <th className="num">Težina</th>
+            <th>Utovar</th>
+            <th>Istovar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {row.shipments.map((shipment) => (
+            <tr key={shipment.shipmentId}>
+              <td>{shipment.label}</td>
+              <td>{shipment.description ?? '–'}</td>
+              <td className="num">{shipment.ldmTenths === null ? '–' : formatLdm(shipment.ldmTenths)}</td>
+              <td className="num">{shipment.weightKg === null ? '–' : `${formatKg(shipment.weightKg)} kg`}</td>
+              <td>{shipment.pickupName}</td>
+              <td>{shipment.deliveryName}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   )
 }
 

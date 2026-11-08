@@ -73,7 +73,7 @@ describe('mock Excel import', () => {
 
     expect(rows.map((r) => r.rowNumber)).toEqual([2, 3, 4, 5, 7])
     expect(rows[0]).toMatchObject({
-      externalId: 'Relacije-oktobar-2',
+      externalId: 'BEO-LJU-1',
       pickup: { name: 'Beograd', postalCode: null, country: null },
       delivery: { name: 'Ljungby', postalCode: '34131', country: null },
       ldmTenths: 24,
@@ -113,7 +113,7 @@ describe('mock Excel import', () => {
     const shipments = await api.listShipments()
     const locations = await api.listLocations()
     expect(shipments).toHaveLength(5 + 4)
-    const imported = shipments.find((s) => s.externalId === 'Relacije-oktobar-5')
+    const imported = shipments.find((s) => s.externalId === 'SUB-SOD-1')
     const pickup = locations.find((l) => l.id === imported?.pickupLocationId)
     expect(pickup).toMatchObject({ id: 2, name: 'Subotica', postalCode: '24000', geocodeStatus: 'OK' })
     const vaxjo = locations.find((l) => l.name === 'Vaxjo')

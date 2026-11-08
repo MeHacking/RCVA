@@ -82,8 +82,8 @@ test('looks up new places one per second while committing, and keeps the answers
   // The places Nominatim found are routed; the one it did not find is not.
   await page.getByRole('link', { name: 'Pogledaj pošiljke' }).click()
   const shipments = page.getByRole('table', { name: 'Pošiljke' })
-  await expect(shipments.getByRole('row', { name: /prvi-2/ })).toContainText('U redu')
-  await expect(shipments.getByRole('row', { name: /prvi-4/ })).toContainText('Nejasna lokacija')
+  await expect(shipments.getByRole('row', { name: /PRI-TES-1/ })).toContainText('U redu')
+  await expect(shipments.getByRole('row', { name: /DRU-NEP-1/ })).toContainText('Nejasna lokacija')
   expect(errors).toEqual([])
 })
 

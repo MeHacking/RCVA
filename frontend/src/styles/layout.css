@@ -609,7 +609,25 @@ button.stat.stat-action:hover:not(:disabled) {
   }
 
   .report__truck .report__meta {
-    margin-bottom: 10pt;
+    margin-bottom: 4pt;
+  }
+
+  /* The driver's PDF: the one truck right under the heading, no page of its own. */
+  .report--truck .report__truck {
+    break-before: auto;
+    margin-top: 12pt;
+  }
+
+  .report__driver {
+    margin: 0 0 10pt;
+    font-weight: var(--weight-semibold);
+  }
+
+  .report h3 {
+    margin: 12pt 0 4pt;
+    font-size: 10pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 }
 
@@ -619,11 +637,69 @@ button.stat.stat-action:hover:not(:disabled) {
 }
 
 .route-table__shipments {
-  white-space: normal;
-  min-width: 8rem;
+  white-space: nowrap;
+}
+
+/* A window over the page (TruckShipmentsDialog): solid, so the table reads well. */
+.dialog {
+  width: min(48rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  padding: var(--space-5);
+  color: var(--text);
+  background: var(--card-surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-raised);
+}
+
+.dialog[open] {
+  animation: card-in 0.22s ease-out backwards;
+}
+
+.dialog::backdrop {
+  background: var(--backdrop);
+}
+
+.dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.dialog__header h2 {
+  margin: 0;
+}
+
+.dialog button.dialog__x {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+.dialog tbody th {
+  font-weight: var(--weight-semibold);
+  text-align: left;
+}
+
+.dialog__note {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open] {
+    animation: none;
+  }
 }
 
 .route-table__links a {
+  margin-left: var(--space-3);
+}
+
+.route-table__links .route-table__pdf {
   margin-left: var(--space-3);
 }
 

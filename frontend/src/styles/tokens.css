@@ -65,6 +65,8 @@
      glass, nearly solid, with light text, controls, icons and bars that keep their contrast */
   --card-cherry-surface: rgba(94, 26, 46, 0.93);
   --card-dark-surface: rgba(43, 42, 44, 0.93);
+  /* behind a modal window */
+  --backdrop: rgba(43, 42, 44, 0.45);
   /* A bar on the dark: a light rose instead of cherry (cherry on dark grey is barely seen) */
   --on-dark-accent: #e6a6b7;
   --on-dark-track: rgba(255, 255, 255, 0.14);

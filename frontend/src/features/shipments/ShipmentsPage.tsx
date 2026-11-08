@@ -7,6 +7,7 @@ import type { Location, Shipment, ShipmentUpdateResult } from '../../api/types'
 import { Badge, type BadgeTone } from '../../components/Badge'
 import { Notice } from '../../components/Notice'
 import { PageHeader } from '../../components/PageHeader'
+import { ShortenIdsNotice } from './ShortenIdsNotice'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { CSV_BOM } from '../../format/csv'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
@@ -48,6 +49,7 @@ export function ShipmentsPage() {
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [shortened, setShortened] = useState<number | null>(null)
 
   async function deleteAll() {
     setDeleting(true)
@@ -131,6 +133,21 @@ export function ShipmentsPage() {
           </EmptyState>
         ) : (
           <>
+            {CAN_EDIT && (
+              <ShortenIdsNotice
+                shipments={loaded.data.shipments}
+                locations={loaded.data.locations}
+                onRenamed={(renamed) => {
+                  setShortened(renamed)
+                  reload()
+                }}
+              />
+            )}
+            {shortened !== null && (
+              <Notice tone="success" title={`Skraćeno naziva: ${shortened}`} role="status">
+                <p>Rezultati i spiskovi sada prikazuju nove nazive.</p>
+              </Notice>
+            )}
             {saved && <SavedNotice result={saved} />}
             <ShipmentTable
               {...loaded.data}

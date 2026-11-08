@@ -35,7 +35,7 @@ const outside: { url: string; userAgent: string }[] = []
 async function launch(): Promise<{ app: ElectronApplication; page: Page }> {
   // VS Code sets ELECTRON_RUN_AS_NODE for its child processes; Electron would then run as plain Node.
   const env = Object.fromEntries(
-    // RCVA_PDF_PATH: where "Izvezi PDF" writes, instead of asking with a dialog.
+    // RCVA_PDF_PATH: where "Izvezi ceo rezultat (PDF)" writes, instead of asking with a dialog.
     Object.entries({ ...process.env, RCVA_USER_DATA: userData, RCVA_PDF_PATH: path.join(userData, 'rezultat.pdf') }).filter(
       (entry): entry is [string, string] => entry[0] !== 'ELECTRON_RUN_AS_NODE' && entry[1] !== undefined,
     ),
@@ -137,11 +137,20 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
 
   // The results as a PDF file, written by the application itself: the summary and one truck.
   const pdfPath = path.join(userData, 'rezultat.pdf')
-  await page.getByRole('button', { name: 'Izvezi PDF' }).click()
+  await page.getByRole('button', { name: 'Izvezi ceo rezultat (PDF)' }).click()
   await expect(page.getByText(`PDF je sačuvan: ${pdfPath}`)).toBeVisible({ timeout: 15_000 })
   const pdf = readFileSync(pdfPath)
   expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
   expect(pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)).toHaveLength(2)
+
+  // The driver's PDF: the one truck alone, on one page (the message is the one under the button).
+  const truckName = await page.getByRole('table', { name: 'Kamioni i rute' }).getByRole('rowheader').first().innerText()
+  await page.getByRole('button', { name: `PDF za vozača: ${truckName}` }).click()
+  await expect(page.getByText(`PDF je sačuvan: ${pdfPath}`)).toHaveCount(1)
+  await expect(page.getByText(`PDF je sačuvan: ${pdfPath}`)).toBeVisible({ timeout: 15_000 })
+  const driverPdf = readFileSync(pdfPath)
+  expect(driverPdf.subarray(0, 5).toString()).toBe('%PDF-')
+  expect(driverPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)).toHaveLength(1)
   await app.close()
 
   ;({ app, page } = await launch())

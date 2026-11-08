@@ -26,7 +26,7 @@ async function fakeNominatim(page: Page) {
   return asked
 }
 
-/** Imports the rows and opens the shipments; the ids are "uvoz-2", "uvoz-3"... */
+/** Imports the rows and opens the shipments; the ids are by relation ("PRI-LOS-1"...) */
 async function importRows(page: Page, rows: string[][]) {
   await page.goto('/shipments/import')
   await page.getByLabel('Fajl').setInputFiles({
@@ -60,13 +60,13 @@ test('corrects an unclear place once for all its shipments, asking only for the 
     ['PRIMEROVO - LOSESTAD 11111', '1,200 kg', '2,4m'],
     ['DRUGOVO - LOSESTAD 11111', '800 kg', '1,2m'],
   ])
-  await expect(row(page, 'uvoz-2')).toContainText('Nejasna lokacija')
-  await expect(row(page, 'uvoz-3')).toContainText('Nejasna lokacija')
+  await expect(row(page, 'PRI-LOS-1')).toContainText('Nejasna lokacija')
+  await expect(row(page, 'DRU-LOS-1')).toContainText('Nejasna lokacija')
   await expect(table(page).getByRole('columnheader', { name: 'Poštanski broj' })).toHaveCount(0)
   await expect(table(page)).not.toContainText('11111')
   asked.length = 0
 
-  const form = await edit(page, 'uvoz-2')
+  const form = await edit(page, 'PRI-LOS-1')
   await expect(form.getByLabel('Poštanski broj')).toHaveCount(0)
   const delivery = form.getByRole('group', { name: 'Isporuka' })
   await expect(delivery).toContainText('Nema koordinata (nejasna lokacija).')
@@ -79,18 +79,18 @@ test('corrects an unclear place once for all its shipments, asking only for the 
   await expect(form).toContainText('© OpenStreetMap contributors')
   await form.getByRole('button', { name: 'Sačuvaj izmenu' }).click()
 
-  const saved = page.getByRole('status').filter({ hasText: 'Pošiljka „uvoz-2“ je sačuvana.' })
+  const saved = page.getByRole('status').filter({ hasText: 'Pošiljka „PRI-LOS-1“ je sačuvana.' })
   await expect(saved).toContainText('„Novostad“: koordinate su pronađene.')
   await expect(saved).toContainText('Ispravljeno je i ostalih pošiljki sa istim mestom: 1.')
   await expect(form).toBeHidden()
-  for (const id of ['uvoz-2', 'uvoz-3']) {
+  for (const id of ['PRI-LOS-1', 'DRU-LOS-1']) {
     await expect(row(page, id)).toContainText('Novostad')
     await expect(row(page, id)).toContainText('Ručno uneta lokacija')
   }
   expect(asked).toEqual(['Novostad'])
 
   await page.reload()
-  await expect(row(page, 'uvoz-3')).toContainText('Ručno uneta lokacija')
+  await expect(row(page, 'DRU-LOS-1')).toContainText('Ručno uneta lokacija')
   expect(asked).toEqual(['Novostad'])
   expect(errors).toEqual([])
 })
@@ -102,16 +102,16 @@ test('takes coordinates by hand when the place is not found, and says when it is
   asked.length = 0
 
   // Another name Nominatim does not know: saved, but still unclear.
-  let form = await edit(page, 'uvoz-2')
+  let form = await edit(page, 'PRI-LOS-1')
   await form.getByRole('group', { name: 'Isporuka' }).getByLabel('Mesto').fill('Nigdeovo')
   await form.getByRole('button', { name: 'Sačuvaj izmenu' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'je sačuvana' })).toContainText(
     '„Nigdeovo“ nije pronađeno, pa lokacija ostaje nejasna.',
   )
-  await expect(row(page, 'uvoz-2')).toContainText('Nejasna lokacija')
+  await expect(row(page, 'PRI-LOS-1')).toContainText('Nejasna lokacija')
   expect(asked).toEqual(['Nigdeovo'])
 
-  form = await edit(page, 'uvoz-2')
+  form = await edit(page, 'PRI-LOS-1')
   const delivery = form.getByRole('group', { name: 'Isporuka' })
   const coordinates = delivery.getByLabel('Koordinate (ručno, neobavezno)')
   await coordinates.fill('Nigdeovo')
@@ -124,11 +124,11 @@ test('takes coordinates by hand when the place is not found, and says when it is
   await expect(page.getByRole('status').filter({ hasText: 'je sačuvana' })).toContainText(
     '„Nigdeovo“: koordinate su unete ručno.',
   )
-  await expect(row(page, 'uvoz-2')).toContainText('Ručno uneta lokacija')
+  await expect(row(page, 'PRI-LOS-1')).toContainText('Ručno uneta lokacija')
   expect(asked).toEqual(['Nigdeovo'])
 
   // A place with coordinates keeps them: no field for coordinates by hand.
-  form = await edit(page, 'uvoz-2')
+  form = await edit(page, 'PRI-LOS-1')
   await expect(form.getByRole('group', { name: 'Isporuka' })).toContainText('Koordinate: 59,10000° N, 15,20000° E (ručno uneta lokacija)')
   await expect(form.getByLabel('Koordinate (ručno, neobavezno)')).toHaveCount(0)
   expect(errors).toEqual([])
@@ -161,12 +161,12 @@ test('asks again for a name typed by hand, also one that differs from the file o
   await importRows(page, [['PRIMEROVO - LOSESTAD 11111', '1,200 kg', '2,4m']])
   expect(asked).toEqual(['Primerovo', 'Losestad'])
 
-  const form = await edit(page, 'uvoz-2')
+  const form = await edit(page, 'PRI-LOS-1')
   await form.getByRole('group', { name: 'Isporuka' }).getByLabel('Mesto').fill('Lösestad')
   await form.getByRole('button', { name: 'Sačuvaj izmenu' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'je sačuvana' })).toContainText('„Lösestad“: koordinate su pronađene.')
-  await expect(row(page, 'uvoz-2')).toContainText('Lösestad')
-  await expect(row(page, 'uvoz-2')).toContainText('Ručno uneta lokacija')
+  await expect(row(page, 'PRI-LOS-1')).toContainText('Lösestad')
+  await expect(row(page, 'PRI-LOS-1')).toContainText('Ručno uneta lokacija')
   expect(asked).toEqual(['Primerovo', 'Losestad', 'Lösestad'])
   expect(errors).toEqual([])
 })

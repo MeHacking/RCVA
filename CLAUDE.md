@@ -25,6 +25,37 @@ za vozača“ i „Pošalji na Viber“. 3D u PDF-u: snimak 3D prikaza i pogled 
   (opciono)“, „Ime vozača“, „Telefon (za Viber)“; tabela: kolona „Vozač“. U režimu `server`
   se ne prikazuje (`DRIVER_SUPPORTED`). U fajlu sa podacima. Testovi: `phone.test.ts`, dopune u
   `truckFormValidation`, `truckTemplates`, `localClient`, `deviceFile`, e2e `trucks.spec.ts`.
+- **PDF za vozača (urađeno 08.11.2026)**: `ResultReport` prima `truckId`; tada samo strana tog
+  kamiona (naslov „Ruta i utovar“, vozač, „Stanice redom“, „Pošiljke na kamionu“ sa opisom, LDM,
+  težinom, utovarom i istovarom), bez `break-before` (`.report--truck`). Ista strana kamiona je i
+  u celom izveštaju, koji dobija i kolonu „Vozač“. `TruckRow.driverName/driverPhone/shipments`
+  (vozač sa kamiona kakav je sada, ne iz posla). `ResultView`: `flushSync` postavi deo izveštaja
+  pre štampe, posle se vraća na ceo; poruka o čuvanju stoji iznad tabele ruta. Fajl
+  `rcva-<kamion>-posao-<id>.pdf` (`truckReportFileName`). Dugme „Izvezi PDF“ je sada „Izvezi
+  ceo rezultat (PDF)“; u redu kamiona „PDF za vozača“ (ime za čitač: „PDF za vozača: <kamion>“).
+  Testovi: `resultRows.test.ts` (3), e2e `resultReport.local.spec.ts` (sadržaj u trenutku
+  štampe: nema drugog kamiona ni njegovih pošiljki), desktop (PDF za vozača ima 1 stranu).
+- **Kratki nazivi pošiljki i prozor sa pošiljkama (urađeno 08.11.2026)**, umetnuto pre 3D u
+  PDF-u (korisnik: dugački nazivi šire tabelu Rezultata, pa se do dugmadi skroluje). Odluke
+  korisnika: naziv **po relaciji** (`KRA-STE-1`: prva tri slova mesta utovara i istovara bez
+  kvačica, `đ` → d, i prvi slobodan broj; bez mesta „X“) kada Excel nema kolonu ID (ID iz
+  Excel-a ostaje), i **preimenovanje postojećih** dugačkih („ime fajla + broj reda“). Logika u
+  `src/domain/shipmentIds.ts`. Uvoz: `RowState.externalId` je prazan za red bez ID-ja, a
+  `toImportRows` daje naziv svaki put (posle ID-jeva iz fajla i postojećih pošiljki, redom
+  redova), pa ispravka mesta menja i naziv. Postojeće: `looksLikeFileNameId` je **pretpostavka**
+  (oblik slova/cifre sa crticama, pa `-broj`, prefiks bar 6 znakova, nije već `ABC-DEF`), zato
+  ekran Pošiljke prvo pokaže primere (`ShortenIdsNotice`, „Skrati nazive“), pa tek onda
+  `ApiClient.shortenShipmentIds` (NOT IN SPEC v2; HTTP 404, u režimu `server` se ne nudi).
+  Rezultati: u koloni „Pošiljke“ samo „N pošiljki“ (`src/format/count.ts`, srpska množina),
+  klik otvara `<dialog>` (`TruckShipmentsDialog`: naziv, relacija, opis, LDM, težina; Escape i
+  klik pored zatvaraju, fokus se vraća). Boja pozadine prozora je `--backdrop`. U PDF-u nazivi
+  ostaju. **Java uvoz (režim `server`) i dalje pravi naziv od imena fajla.** Testovi:
+  `shipmentIds.test.ts`, `count.test.ts`, izmenjeni nazivi u `mockImport`, `shipmentEdit` i e2e
+  (`shipmentImport`, `editShipment`, `geocoding`), nov `shortenIds.local.spec.ts`, prozor u
+  `optimization.spec.ts`. Pun e2e 88: posle ispravke svi prolaze (`fleet.local` jednom pao u punom
+  prolazu, sam prolazi).
+- **Zamka**: u `String.replace` zamena sa `` $` `` (npr. kraj regex-a pre backtick-a) ubacuje
+  ceo tekst pre poklapanja; skripte za izmene sada koriste funkciju kao zamenu (`() => to`).
 
 **Dorade 05.11.2026**, na zahtev korisnika:
 - **Najbliži put za kamione** (Oslo: „nema puta za teretna vozila“, centar zatvoren za kamione).

@@ -67,6 +67,8 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema vraćanje kamiona.' })),
     deleteAllShipments: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema uklanjanje svih pošiljki.' })),
+    shortenShipmentIds: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema skraćivanje naziva pošiljki.' })),
     // Nor where trucks are: the backend plans from the base.
     getTruckStarts: async () => null,
     setTruckStart: () =>

@@ -34,9 +34,23 @@ export interface StopRow {
   legMeters: number
 }
 
+/** A shipment a truck carries, for its driver. */
+export interface TruckShipmentRow {
+  shipmentId: number
+  label: string
+  description: string | null
+  ldmTenths: number | null
+  weightKg: number | null
+  pickupName: string
+  deliveryName: string
+}
+
 export interface TruckRow {
   truckId: number
   truckName: string
+  /** NOT IN SPEC v2: the driver as entered on the truck now (on the device); null: not entered */
+  driverName: string | null
+  driverPhone: string | null
   /** null when the truck is no longer in the master data */
   capacityLdmTenths: number | null
   usedLdmTenths: number
@@ -51,6 +65,8 @@ export interface TruckRow {
   openRoute: boolean
   /** NOT IN SPEC v2: where the truck was when the job started (the first leg is from there); null: not known */
   startName: string | null
+  /** what the truck carries, in pickup order */
+  shipments: TruckShipmentRow[]
 }
 
 export interface UnassignedRow {
@@ -72,6 +88,8 @@ export function buildTruckRows(result: OptimizationResult, ref: ReferenceData): 
     return {
       truckId: route.truckId,
       truckName: truck?.name ?? `Kamion #${route.truckId}`,
+      driverName: truck?.driverName ?? null,
+      driverPhone: truck?.driverPhone ?? null,
       capacityLdmTenths: truck?.capacityLdmTenths ?? null,
       usedLdmTenths: route.usedLdmTenths,
       shipmentLabels: route.stops.filter((s) => s.type === 'PICKUP').map((s) => names.shipment(s.shipmentId)),
@@ -88,6 +106,20 @@ export function buildTruckRows(result: OptimizationResult, ref: ReferenceData): 
       baseName: names.location(ref.base.baseLocationId),
       openRoute: result.openRoute ?? false,
       startName: route.startLocationId === undefined ? null : names.location(route.startLocationId),
+      shipments: route.stops
+        .filter((s) => s.type === 'PICKUP')
+        .map((s): TruckShipmentRow => {
+          const shipment = ref.shipments.find((x) => x.id === s.shipmentId)
+          return {
+            shipmentId: s.shipmentId,
+            label: names.shipment(s.shipmentId),
+            description: shipment?.description ?? null,
+            ldmTenths: shipment?.ldmTenths ?? null,
+            weightKg: shipment?.weightKg ?? null,
+            pickupName: shipment ? names.location(shipment.pickupLocationId) : '–',
+            deliveryName: shipment ? names.location(shipment.deliveryLocationId) : '–',
+          }
+        }),
     }
   })
 }

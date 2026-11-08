@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { OptimizationResult } from '../../src/api/types'
+import { truckReportFileName } from '../../src/features/optimization/exportPdf'
 import { buildTruckRows, buildUnassignedRows, type ReferenceData } from '../../src/features/optimization/resultRows'
 import { SCENARIOS } from '../../src/fixtures'
 
@@ -40,6 +41,36 @@ describe('buildTruckRows (test 7)', () => {
       '3 DELIVERY Tačka (100, 0) S1',
       '4 DELIVERY Tačka (-100, 0) S3',
     ])
+  })
+})
+
+describe('a truck for its driver', () => {
+  const { result, ref } = completed('small')
+
+  it('names the driver entered on the truck now, and nothing without one', () => {
+    const trucks = ref.trucks.map((t, i) => (i === 0 ? { ...t, driverName: 'Marko', driverPhone: '+381 64 123 4567' } : t))
+    const rows = buildTruckRows(result, { ...ref, trucks })
+    const first = rows.find((r) => r.truckId === ref.trucks[0].id)
+    expect([first?.driverName, first?.driverPhone]).toEqual(['Marko', '+381 64 123 4567'])
+    expect(rows.filter((r) => r !== first).map((r) => r.driverName)).toEqual(rows.slice(1).map(() => null))
+  })
+
+  it('lists what the truck carries, in pickup order, with the places', () => {
+    for (const row of buildTruckRows(result, ref)) {
+      expect(row.shipments.map((s) => s.label)).toEqual(row.shipmentLabels)
+      for (const s of row.shipments) {
+        const shipment = ref.shipments.find((x) => x.id === s.shipmentId)!
+        expect(s).toMatchObject({ ldmTenths: shipment.ldmTenths, weightKg: shipment.weightKg, description: shipment.description })
+        expect(s.pickupName).toBe(ref.locations.find((l) => l.id === shipment.pickupLocationId)!.name)
+        expect(s.deliveryName).toBe(ref.locations.find((l) => l.id === shipment.deliveryLocationId)!.name)
+      }
+    }
+  })
+
+  it('names the PDF after the truck, without what a file name cannot hold', () => {
+    expect(truckReportFileName(12, 'Šleper 1')).toBe('rcva-Šleper-1-posao-12.pdf')
+    expect(truckReportFileName(3, ' Cerada 2/A: "nova" ')).toBe('rcva-Cerada-2-A-nova-posao-3.pdf')
+    expect(truckReportFileName(3, '///')).toBe('rcva-kamion-posao-3.pdf')
   })
 })
 

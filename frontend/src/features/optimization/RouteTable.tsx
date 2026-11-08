@@ -2,14 +2,27 @@ import { Fragment, useState } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { LdmBar } from '../../components/LdmBar'
+import { formatShipmentCount } from '../../format/count'
 import { formatKm } from '../../format/units'
 import type { TruckRow } from './resultRows'
 import { StopList } from './StopList'
+import { TruckShipmentsDialog } from './TruckShipmentsDialog'
 
 const COLUMNS = 6
 
-export function RouteTable({ jobId, rows }: { jobId: number; rows: TruckRow[] }) {
+/** `onDriverPdf`: makes the PDF of one truck's part, for its driver. */
+export function RouteTable({
+  jobId,
+  rows,
+  onDriverPdf,
+}: {
+  jobId: number
+  rows: TruckRow[]
+  onDriverPdf?: (row: TruckRow) => void
+}) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set())
+  /** the truck whose shipments are shown in a window */
+  const [shipmentsOf, setShipmentsOf] = useState<TruckRow | null>(null)
 
   const toggle = (truckId: number) =>
     setExpanded((previous) => {
@@ -45,7 +58,19 @@ export function RouteTable({ jobId, rows }: { jobId: number; rows: TruckRow[] })
               <Fragment key={row.truckId}>
                 <tr>
                   <th scope="row">{row.truckName}</th>
-                  <td className="route-table__shipments">{row.shipmentLabels.join(', ')}</td>
+                  <td className="route-table__shipments">
+                    {/* Only the count: names can be long; the list and the relations open in a window. */}
+                    <button
+                      type="button"
+                      className="button--small button--ghost"
+                      aria-haspopup="dialog"
+                      aria-label={`${formatShipmentCount(row.shipments.length)}: ${row.truckName}`}
+                      onClick={() => setShipmentsOf(row)}
+                    >
+                      <Icon name="shipments" size={14} />
+                      {formatShipmentCount(row.shipments.length)}
+                    </button>
+                  </td>
                   <td>
                     <LdmBar usedLdmTenths={row.usedLdmTenths} capacityLdmTenths={row.capacityLdmTenths} />
                   </td>
@@ -65,6 +90,17 @@ export function RouteTable({ jobId, rows }: { jobId: number; rows: TruckRow[] })
                   <td className="actions route-table__links">
                     <Link to={`/truck-3d${query}`}>3D prikaz</Link>
                     <Link to={`/route-map${query}`}>Mapa</Link>
+                    {onDriverPdf && (
+                      <button
+                        type="button"
+                        className="button--small route-table__pdf"
+                        onClick={() => onDriverPdf(row)}
+                        aria-label={`PDF za vozača: ${row.truckName}`}
+                      >
+                        <Icon name="download" size={14} />
+                        PDF za vozača
+                      </button>
+                    )}
                   </td>
                 </tr>
                 {open && (
@@ -79,6 +115,7 @@ export function RouteTable({ jobId, rows }: { jobId: number; rows: TruckRow[] })
           })}
         </tbody>
       </table>
+      {shipmentsOf && <TruckShipmentsDialog row={shipmentsOf} onClose={() => setShipmentsOf(null)} />}
     </div>
   )
 }

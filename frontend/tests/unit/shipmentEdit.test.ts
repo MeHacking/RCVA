@@ -57,7 +57,7 @@ function device(
   })
 }
 
-/** The device after the import of ROWS: Nedelja-2 and Nedelja-3 are delivered to Losestad, which has no coordinates. */
+/** The device after the import of ROWS: PRI-LOS-1 and DRU-LOS-1 are delivered to Losestad, which has no coordinates. */
 async function imported(store?: DeviceStore<LocalData>) {
   const fake = nominatim()
   const api = device(fake, store)
@@ -68,7 +68,7 @@ async function imported(store?: DeviceStore<LocalData>) {
   fake.asked.length = 0
   const shipments = await api.listShipments()
   const byId = (externalId: string) => shipments.find((s) => s.externalId === externalId) as Shipment
-  return { api, fake, first: byId('Nedelja-2'), second: byId('Nedelja-3'), third: byId('Nedelja-4') }
+  return { api, fake, first: byId('PRI-LOS-1'), second: byId('DRU-LOS-1'), third: byId('PRI-TES-1') }
 }
 
 async function placeOf(api: ApiClient, externalId: string, role: 'pickup' | 'delivery') {
@@ -98,8 +98,8 @@ describe('correcting a shipment on the device', () => {
     expect(result.places[1]).toEqual({ role: 'delivery', name: 'Lösestad', outcome: 'found', message: null })
     // The place had no coordinates, so it may take the name as typed; both shipments are there.
     const losestad = { name: 'Lösestad', lat: 59.4, lon: 16.5, geocodeStatus: 'MANUAL' }
-    expect(await placeOf(api, 'Nedelja-2', 'delivery')).toMatchObject(losestad)
-    expect(await placeOf(api, 'Nedelja-3', 'delivery')).toMatchObject(losestad)
+    expect(await placeOf(api, 'PRI-LOS-1', 'delivery')).toMatchObject(losestad)
+    expect(await placeOf(api, 'DRU-LOS-1', 'delivery')).toMatchObject(losestad)
   })
 
   it('asks again for a name typed by hand that was not found before, but not on a save without it', async () => {
@@ -127,8 +127,8 @@ describe('correcting a shipment on the device', () => {
       { role: 'delivery', name: 'Novostad', outcome: 'found', message: null },
     ])
     const novostad = { name: 'Novostad', postalCode: '11111', lat: 58.2, lon: 13.3, geocodeStatus: 'MANUAL' }
-    expect(await placeOf(api, 'Nedelja-2', 'delivery')).toMatchObject(novostad)
-    expect(await placeOf(api, 'Nedelja-3', 'delivery')).toMatchObject(novostad)
+    expect(await placeOf(api, 'PRI-LOS-1', 'delivery')).toMatchObject(novostad)
+    expect(await placeOf(api, 'DRU-LOS-1', 'delivery')).toMatchObject(novostad)
     // Losestad is used by nothing any more, and it is stored that way.
     expect((await api.listLocations()).map((l) => l.name).sort()).toEqual(['Drugovo', 'Novostad', 'Primerovo', 'Teststad'])
     expect(storedData(store).locations.map((l) => l.name)).not.toContain('Losestad')
@@ -139,8 +139,8 @@ describe('correcting a shipment on the device', () => {
     const { api, first } = await imported()
     const result = await api.updateShipment(first.id, { delivery: { name: 'Novostad', postalCode: '11111', country: null } })
     expect(result.movedShipments).toBe(0)
-    expect(await placeOf(api, 'Nedelja-2', 'delivery')).toMatchObject({ name: 'Novostad' })
-    expect(await placeOf(api, 'Nedelja-3', 'delivery')).toMatchObject({ name: 'Losestad', lat: null, geocodeStatus: 'FAILED' })
+    expect(await placeOf(api, 'PRI-LOS-1', 'delivery')).toMatchObject({ name: 'Novostad' })
+    expect(await placeOf(api, 'DRU-LOS-1', 'delivery')).toMatchObject({ name: 'Losestad', lat: null, geocodeStatus: 'FAILED' })
   })
 
   it('never moves the other shipments away from a place with coordinates', async () => {
@@ -149,8 +149,8 @@ describe('correcting a shipment on the device', () => {
       pickup: { name: 'Drugovo', postalCode: null, country: null, moveOtherShipments: true },
     })
     expect(result.movedShipments).toBe(0)
-    expect(await placeOf(api, 'Nedelja-2', 'pickup')).toMatchObject({ name: 'Primerovo' })
-    expect(await placeOf(api, 'Nedelja-4', 'pickup')).toMatchObject({ name: 'Drugovo' })
+    expect(await placeOf(api, 'PRI-LOS-1', 'pickup')).toMatchObject({ name: 'Primerovo' })
+    expect(await placeOf(api, 'PRI-TES-1', 'pickup')).toMatchObject({ name: 'Drugovo' })
   })
 
   it('asks nothing for a known place, nor for an answer kept from before', async () => {
@@ -158,7 +158,7 @@ describe('correcting a shipment on the device', () => {
     // Known by its name alone: the number next to a place is not compared.
     const known = await api.updateShipment(second.id, { delivery: { name: 'teststad', postalCode: null, country: null } })
     expect(known.places[1]).toEqual({ role: 'delivery', name: 'teststad', outcome: 'known', message: null })
-    expect(await placeOf(api, 'Nedelja-3', 'delivery')).toMatchObject({ name: 'Teststad', postalCode: '22222' })
+    expect(await placeOf(api, 'DRU-LOS-1', 'delivery')).toMatchObject({ name: 'Teststad', postalCode: '22222' })
 
     // An unchanged shipment looks up its unclear place again, but Nominatim's "not found" is kept.
     const again = await api.updateShipment(first.id, {})
@@ -171,13 +171,13 @@ describe('correcting a shipment on the device', () => {
     fake.down = true
     const failed = await api.updateShipment(first.id, { delivery: { name: 'Novostad', postalCode: '11111', country: null } })
     expect(failed.places[1]).toMatchObject({ outcome: 'failed', message: expect.stringContaining('Nominatim nije dostupan') })
-    expect(await placeOf(api, 'Nedelja-2', 'delivery')).toMatchObject({ name: 'Novostad', lat: null, geocodeStatus: 'FAILED' })
+    expect(await placeOf(api, 'PRI-LOS-1', 'delivery')).toMatchObject({ name: 'Novostad', lat: null, geocodeStatus: 'FAILED' })
 
     fake.down = false
     const found = await api.updateShipment(first.id, {})
     expect(found.places[1].outcome).toBe('found')
     expect(fake.asked).toEqual(['Novostad', 'Novostad'])
-    expect(await placeOf(api, 'Nedelja-2', 'delivery')).toMatchObject({ name: 'Novostad', lat: 58.2, lon: 13.3 })
+    expect(await placeOf(api, 'PRI-LOS-1', 'delivery')).toMatchObject({ name: 'Novostad', lat: 58.2, lon: 13.3 })
   })
 
   it('asks nothing when the lookup is switched off in the settings', async () => {
@@ -191,19 +191,19 @@ describe('correcting a shipment on the device', () => {
   it('takes coordinates by hand for a place without them, for every shipment there, without a lookup', async () => {
     const store = createMemoryStore<LocalData>()
     const { api, fake, first } = await imported(store)
-    const before = await placeOf(api, 'Nedelja-2', 'delivery')
+    const before = await placeOf(api, 'PRI-LOS-1', 'delivery')
     const result = await api.updateShipment(first.id, {
       delivery: { name: 'Losestad', postalCode: '11111', country: 'SE', coordinates: { lat: 59.1, lon: 15.2 } },
     })
     expect(fake.asked).toEqual([])
     expect(result.places[1]).toEqual({ role: 'delivery', name: 'Losestad', outcome: 'manual', message: null })
     const losestad = { id: before?.id, country: 'SE', lat: 59.1, lon: 15.2, geocodeStatus: 'MANUAL' }
-    expect(await placeOf(api, 'Nedelja-2', 'delivery')).toMatchObject(losestad)
-    expect(await placeOf(api, 'Nedelja-3', 'delivery')).toMatchObject(losestad)
+    expect(await placeOf(api, 'PRI-LOS-1', 'delivery')).toMatchObject(losestad)
+    expect(await placeOf(api, 'DRU-LOS-1', 'delivery')).toMatchObject(losestad)
 
     // After a restart the device still has them.
     const restarted = device(nominatim(), store)
-    expect(await placeOf(restarted, 'Nedelja-3', 'delivery')).toMatchObject(losestad)
+    expect(await placeOf(restarted, 'DRU-LOS-1', 'delivery')).toMatchObject(losestad)
   })
 
   it('answers 400 by field and changes nothing, asking nothing', async () => {
@@ -212,7 +212,7 @@ describe('correcting a shipment on the device', () => {
     const before = structuredClone(storedData(store))
     const cases: [Parameters<ApiClient['updateShipment']>[1], Record<string, string>][] = [
       [{ externalId: ' ' }, { externalId: 'Unesite ID pošiljke.' }],
-      [{ externalId: second.externalId }, { externalId: 'ID „Nedelja-3“ već postoji među pošiljkama.' }],
+      [{ externalId: second.externalId }, { externalId: 'ID „DRU-LOS-1“ već postoji među pošiljkama.' }],
       [{ ldmTenths: 0 }, { ldmTenths: 'LDM mora biti veći od 0, sa najviše jednom decimalom.' }],
       [{ ldmTenths: 2.5 }, { ldmTenths: 'LDM mora biti veći od 0, sa najviše jednom decimalom.' }],
       [{ weightKg: -1 }, { weightKg: 'Težina mora biti veća od 0 ili prazna.' }],

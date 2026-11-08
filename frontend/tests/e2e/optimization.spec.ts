@@ -37,13 +37,27 @@ test('runs a job and shows summary, validator, routes and unassigned shipments',
   const stats = page.locator('.stats')
   await expect(stats).toContainText('Kamioni2')
   await expect(stats).toContainText('jednako donjoj granici po kapacitetu')
-  // The score is no card any more: its place is "Izvezi PDF", the last card of the row.
+  // The score is no card any more: its place is "Izvezi ceo rezultat (PDF)", the last card of the row.
   await expect(stats).not.toContainText(/hard|medium|soft/)
-  await expect(stats.locator(':scope > *').last()).toHaveText(/^Izvezi PDF/)
+  await expect(stats.locator(':scope > *').last()).toHaveText(/^Izvezi ceo rezultat \(PDF\)/)
   await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
 
   const firstTruck = routes.getByRole('row', { name: /Šleper 1/ })
-  await expect(firstTruck).toContainText('S-105, S-103, S-104')
+  // Only the count in the row (names can be long); the names and relations open in a window.
+  await expect(firstTruck).not.toContainText('S-105')
+  const count = firstTruck.getByRole('button', { name: '3 pošiljke: Šleper 1' })
+  await count.click()
+  const dialog = page.getByRole('dialog', { name: 'Šleper 1: 3 pošiljke' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('rowheader')).toHaveText(['S-105', 'S-103', 'S-104'])
+  await expect(dialog.getByRole('row', { name: /S-105/ })).toContainText('→')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(count).toBeFocused()
+  // A click beside the window closes it too.
+  await count.click()
+  await page.mouse.click(5, 5)
+  await expect(dialog).toHaveCount(0)
   await expect(firstTruck.getByRole('meter', { name: 'Popunjenost' })).toHaveAttribute(
     'aria-valuetext',
     '13,4 / 13,6 LDM · 99 %',

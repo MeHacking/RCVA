@@ -1,4 +1,5 @@
 import type { ImportMapping, ImportRow, ImportRowPatch, PlaceGuess } from '../../types'
+import { relationId } from '../../../domain/shipmentIds'
 import { geocode } from './gazetteer'
 import { parseRelation, parsePlace } from './parseRelation'
 import { parseLdmCell, parseWeight } from './parseQuantities'
@@ -7,6 +8,7 @@ import { parseLdmCell, parseWeight } from './parseQuantities'
 export interface RowState {
   rowNumber: number
   sourceText: string
+  /** as in the file or typed in the preview; empty: none, one by relation is given (toImportRows) */
   externalId: string
   pickup: PlaceGuess | null
   delivery: PlaceGuess | null
@@ -23,7 +25,7 @@ export interface RowState {
 }
 
 /** Reads data rows below the header row. Fully empty rows are skipped. */
-export function readRows(sheetRows: string[][], mapping: ImportMapping, idPrefix: string): RowState[] {
+export function readRows(sheetRows: string[][], mapping: ImportMapping): RowState[] {
   const result: RowState[] = []
   sheetRows.forEach((cells, index) => {
     const rowNumber = index + 1
@@ -59,7 +61,7 @@ export function readRows(sheetRows: string[][], mapping: ImportMapping, idPrefix
     result.push({
       rowNumber,
       sourceText,
-      externalId: cell('externalId') || `${idPrefix}-${rowNumber}`,
+      externalId: cell('externalId') ?? '',
       pickup,
       delivery,
       ldmTenths: parseLdmCell(ldmRaw),
@@ -90,12 +92,18 @@ export function toImportRows(
   existingIds: ReadonlySet<string>,
   placeWarning: PlaceWarning = gazetteerWarning,
 ): ImportRow[] {
-  const rowsById = new Map<string, number[]>()
-  for (const row of rows.filter((r) => !r.excluded)) {
-    rowsById.set(row.externalId, [...(rowsById.get(row.externalId) ?? []), row.rowNumber])
-  }
+  // Rows without an ID get the first free one by relation, in row order, after the IDs given.
+  const taken = new Set([...existingIds, ...rows.map((r) => r.externalId).filter((id) => id !== '')])
+  const ids = rows.map((r) => r.externalId || relationId(r.pickup?.name, r.delivery?.name, taken))
 
-  return rows.map((row) => {
+  const rowsById = new Map<string, number[]>()
+  rows.forEach((row, index) => {
+    if (row.excluded) return
+    rowsById.set(ids[index], [...(rowsById.get(ids[index]) ?? []), row.rowNumber])
+  })
+
+  return rows.map((row, index) => {
+    const externalId = ids[index]
     const errors = [...row.placeIssues]
     const warnings: string[] = []
 
@@ -107,11 +115,11 @@ export function toImportRows(
       errors.push('LDM mora biti veći od 0.')
     }
 
-    const sameId = rowsById.get(row.externalId) ?? []
+    const sameId = rowsById.get(externalId) ?? []
     if (!row.excluded && sameId.length > 1) {
-      errors.push(`ID „${row.externalId}“ se ponavlja u redovima ${sameId.join(', ')}.`)
+      errors.push(`ID „${externalId}“ se ponavlja u redovima ${sameId.join(', ')}.`)
     }
-    if (existingIds.has(row.externalId)) errors.push(`ID „${row.externalId}“ već postoji među pošiljkama.`)
+    if (existingIds.has(externalId)) errors.push(`ID „${externalId}“ već postoji među pošiljkama.`)
 
     if (row.weightWarning) warnings.push(row.weightWarning)
     for (const place of [row.pickup, row.delivery]) {
@@ -122,7 +130,7 @@ export function toImportRows(
     return {
       rowNumber: row.rowNumber,
       sourceText: row.sourceText,
-      externalId: row.externalId,
+      externalId,
       pickup: row.pickup,
       delivery: row.delivery,
       ldmTenths: row.ldmTenths,

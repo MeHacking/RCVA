@@ -12,6 +12,8 @@ import { NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../optimization/jobStatus'
 const ON_DEVICE = apiMode() === 'local'
 // The backend keeps no truck types: there a new truck is filled only from the standard curtain-sider.
 const TRUCK_TYPES = apiMode() !== 'server'
+// Renaming shipments is not on the backend.
+const CAN_SHORTEN = apiMode() !== 'server'
 
 interface Chapter {
   id: string
@@ -227,6 +229,17 @@ function Steps() {
           neobavezna (npr. „4,200 kg“ ili „5,3t“). Aplikacija sama predlaže kolone po njihovim nazivima.
         </li>
         <li>
+          <strong>ID pošiljke:</strong> ako fajl nema svoju kolonu sa ID-jem, pošiljka dobija kratak naziv po relaciji:
+          prva tri slova mesta utovara i istovara i redni broj (npr. „KRA-STE-1“ za Kragujevac → Stenkullen).
+          {CAN_SHORTEN && (
+            <>
+              {' '}
+              Pošiljke koje su ranije dobile naziv od imena fajla i broja reda mogu se skratiti na isti način: ekran
+              Pošiljke tada nudi „Skrati nazive“.
+            </>
+          )}
+        </li>
+        <li>
           <strong>Pregled i ispravke:</strong> redovi sa greškom (nema mesta, LDM nije prepoznat, isti ID dva puta,
           više odredišta u jednom redu) se ne upisuju dok ih ne ispravite („Ispravi“) ili isključite („Isključi“).
         </li>
@@ -330,6 +343,10 @@ function Steps() {
           teretom posle svake stanice.
         </li>
         <li>
+          <strong>Pošiljke kamiona:</strong> u redu kamiona piše samo njihov broj (npr. „3 pošiljke“); klik otvara
+          prozor sa spiskom pošiljki, relacijom, LDM i težinom.
+        </li>
+        <li>
           <strong>Validator:</strong> nezavisna provera rešenja (kapacitet, nosivost, redosled, utovar pozadi,
           kilometraža). Ako ne prođe, rezultat ne treba koristiti.
         </li>
@@ -342,9 +359,13 @@ function Steps() {
           <strong>3D prikaz:</strong> ilustrativni raspored robe u kamionu; ono što se prvo istovara stoji kod vrata.
         </li>
         <li>
-          <strong>Izvezi PDF:</strong> izveštaj sa rezimeom na prvoj strani i svakim kamionom na svojoj strani (stanice
-          redom, sa kilometrima), da se može dati vozaču. U aplikaciji za PC birate gde se fajl čuva; u pregledaču se
-          otvara štampa, gde izaberete „Sačuvaj kao PDF“.
+          <strong>Izvezi ceo rezultat (PDF):</strong> izveštaj sa rezimeom na prvoj strani i svakim kamionom na svojoj
+          strani (vozač, stanice redom sa kilometrima, pošiljke na kamionu). U aplikaciji za PC birate gde se fajl čuva;
+          u pregledaču se otvara štampa, gde izaberete „Sačuvaj kao PDF“.
+        </li>
+        <li>
+          <strong>PDF za vozača</strong> (u redu kamiona): samo strana tog kamiona, bez ostalih kamiona, ukupne
+          kilometraže i nedodeljenih pošiljki, da vozači ne znaju šta voze ostali.
         </li>
       </ul>
 
