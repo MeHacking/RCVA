@@ -369,6 +369,15 @@ function Steps() {
           <strong>PDF za vozača</strong> (u redu kamiona): samo strana tog kamiona, bez ostalih kamiona, ukupne
           kilometraže i nedodeljenih pošiljki, da vozači ne znaju šta voze ostali.
         </li>
+        {TRUCK_TYPES && (
+          <li>
+            <strong>Viber</strong> (u redu kamiona): isti PDF za vozača, za slanje na Viber. Viber ne dozvoljava drugoj
+            aplikaciji da sama pošalje fajl, pa aplikacija za PC sačuva PDF u folder „Dokumenti\RCVA za Viber“, otvori
+            taj folder i otvori Viber razgovor sa vozačem; fajl samo prevucite u razgovor. U pregledaču se PDF čuva kroz
+            štampu. Ako kamion nema broj telefona vozača, aplikacija ga traži i pamti uz kamion. Za ovo Viber mora biti
+            instaliran na računaru.
+          </li>
+        )}
       </ul>
 
       {ON_DEVICE && (

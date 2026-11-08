@@ -36,7 +36,13 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page }> {
   // VS Code sets ELECTRON_RUN_AS_NODE for its child processes; Electron would then run as plain Node.
   const env = Object.fromEntries(
     // RCVA_PDF_PATH: where "Izvezi ceo rezultat (PDF)" writes, instead of asking with a dialog.
-    Object.entries({ ...process.env, RCVA_USER_DATA: userData, RCVA_PDF_PATH: path.join(userData, 'rezultat.pdf') }).filter(
+    Object.entries({
+      ...process.env,
+      RCVA_USER_DATA: userData,
+      RCVA_PDF_PATH: path.join(userData, 'rezultat.pdf'),
+      // RCVA_VIBER_DIR: where "Pošalji na Viber" writes, instead of Documents.
+      RCVA_VIBER_DIR: path.join(userData, 'viber'),
+    }).filter(
       (entry): entry is [string, string] => entry[0] !== 'ELECTRON_RUN_AS_NODE' && entry[1] !== undefined,
     ),
   )
@@ -151,6 +157,25 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
   const driverPdf = readFileSync(pdfPath)
   expect(driverPdf.subarray(0, 5).toString()).toBe('%PDF-')
   expect(driverPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)).toHaveLength(1)
+
+  // To Viber: the number asked for (the truck has none), the file written into the Viber folder
+  // without a dialog, shown in its folder, and the chat with the driver opened (all faked here).
+  await app.evaluate(({ shell }) => {
+    const calls: string[] = []
+    Object.assign(globalThis, { calls })
+    shell.showItemInFolder = (file: string) => void calls.push(`folder ${file}`)
+    shell.openExternal = async (url: string) => void calls.push(`open ${url}`)
+  })
+  await page.getByRole('button', { name: `Pošalji na Viber: ${truckName}` }).click()
+  await page.getByLabel('Telefon vozača (za Viber)').fill('+381 64 123 4567')
+  await page.getByRole('button', { name: 'Sačuvaj i pošalji' }).click()
+  const viberPdf = path.join(userData, 'viber', `rcva-${truckName.replace(/\s+/g, '-')}-posao-1.pdf`)
+  await expect(page.getByText(`PDF je sačuvan: ${viberPdf}. Otvoren je Viber razgovor sa +381 64 123 4567`)).toBeVisible({ timeout: 15_000 })
+  expect(readFileSync(viberPdf).toString('latin1').match(/\/Type\s*\/Page[^s]/g)).toHaveLength(1)
+  expect(await app.evaluate(() => (globalThis as unknown as { calls: string[] }).calls)).toEqual([
+    `folder ${viberPdf}`,
+    'open viber://chat?number=%2B381641234567',
+  ])
   await app.close()
 
   ;({ app, page } = await launch())

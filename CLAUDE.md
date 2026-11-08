@@ -65,6 +65,19 @@ za vozača“ i „Pošalji na Viber“. 3D u PDF-u: snimak 3D prikaza i pogled 
   dostupan: …“. Boje crteža su tokeni `--drawing-*`. PDF za vozača sa 3 pošiljke i dalje staje
   na jednu stranu (crteži idu celi na sledeću kada ne staju, `break-inside: avoid`). Testovi:
   `loadDrawing.test.ts` (6), e2e u `resultReport.local.spec.ts` (crtež, brojevi 1..n).
+- **Viber (urađeno 09.11.2026)**: dugme „Viber“ u redu kamiona (ime za čitač „Pošalji na Viber:
+  <kamion>“, ne u režimu `server`). Bez broja vozača otvara se `ViberPhoneDialog` („Broj telefona
+  vozača“, provera `parsePhone`, „Sačuvaj i pošalji“ upisuje broj na kamion preko `updateTruck`,
+  pa slanje ide dalje; „Otkaži“ ništa ne menja). PC: `rcvaDesktop.sendToViber(name, phone)` →
+  `rcva:send-viber` u `main.mjs`: broj mora biti `+` i 8–15 cifara, PDF bez pitanja u
+  `Dokumenti\RCVA za Viber` (`RCVA_VIBER_DIR` za testove), `shell.showItemInFolder`, pa
+  `shell.openExternal('viber://chat?number=%2B…')`; ako to ne uspe, poruka „Viber se nije
+  otvorio. Da li je Viber instaliran…“. Pregledač: štampa, pa klik na `viber://` link
+  (`viberChatUrl`). **Nije probano sa pravim Viber-om** (na ovom računaru nije instaliran, nema
+  `viber` protokola); nije provereno ni da li Windows bez Viber-a odbija link ili nudi „izaberite
+  aplikaciju“ (tada bi poruka bila „otvoren je razgovor“ iako nije). Testovi: e2e
+  `viber.local.spec.ts` (2: slanje sa brojem; traženje broja, loš broj, Otkaži, pamćenje),
+  desktop (fajl u Viber folderu, folder pa link, tim redom), `viberChatUrl` u `resultRows.test.ts`.
 - **Zamka**: u `String.replace` zamena sa `` $` `` (npr. kraj regex-a pre backtick-a) ubacuje
   ceo tekst pre poklapanja; skripte za izmene sada koriste funkciju kao zamenu (`() => to`).
 

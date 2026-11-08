@@ -10,15 +10,17 @@ import { TruckShipmentsDialog } from './TruckShipmentsDialog'
 
 const COLUMNS = 6
 
-/** `onDriverPdf`: makes the PDF of one truck's part, for its driver. */
+/** `onDriverPdf`: makes the PDF of one truck's part, for its driver; `onViber`: the same, sent on Viber. */
 export function RouteTable({
   jobId,
   rows,
   onDriverPdf,
+  onViber,
 }: {
   jobId: number
   rows: TruckRow[]
   onDriverPdf?: (row: TruckRow) => void
+  onViber?: (row: TruckRow) => void
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set())
   /** the truck whose shipments are shown in a window */
@@ -99,6 +101,18 @@ export function RouteTable({
                       >
                         <Icon name="download" size={14} />
                         PDF za vozača
+                      </button>
+                    )}
+                    {onViber && (
+                      <button
+                        type="button"
+                        className="button--small route-table__pdf"
+                        onClick={() => onViber(row)}
+                        aria-label={`Pošalji na Viber: ${row.truckName}`}
+                        title={row.driverPhone ? `Vozaču na broj ${row.driverPhone}` : 'Vozač nema broj telefona; biće zatražen'}
+                      >
+                        <Icon name="send" size={14} />
+                        Viber
                       </button>
                     )}
                   </td>

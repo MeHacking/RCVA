@@ -711,7 +711,7 @@ button.stat.stat-action:hover:not(:disabled) {
   white-space: nowrap;
 }
 
-/* A window over the page (TruckShipmentsDialog): solid, so the table reads well. */
+/* A window over the page (TruckShipmentsDialog, ViberPhoneDialog): solid, so it reads well. */
 .dialog {
   width: min(48rem, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
@@ -721,6 +721,10 @@ button.stat.stat-action:hover:not(:disabled) {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card-raised);
+}
+
+.dialog--narrow {
+  width: min(30rem, calc(100vw - 2rem));
 }
 
 .dialog[open] {

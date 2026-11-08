@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { OptimizationResult } from '../../src/api/types'
-import { truckReportFileName } from '../../src/features/optimization/exportPdf'
+import { truckReportFileName, viberChatUrl } from '../../src/features/optimization/exportPdf'
 import { buildTruckRows, buildUnassignedRows, type ReferenceData } from '../../src/features/optimization/resultRows'
 import { SCENARIOS } from '../../src/fixtures'
 
@@ -109,5 +109,12 @@ describe('where a route starts (on the device)', () => {
     const rows = buildTruckRows(open, ref)
     expect(rows[0].startName).toBe('Subotica')
     expect(rows[1].startName).toBeNull()
+  })
+})
+
+describe('viberChatUrl', () => {
+  it('opens the chat with the number in the international form', () => {
+    expect(viberChatUrl('+381 64 123 4567')).toBe('viber://chat?number=%2B381641234567')
+    expect(viberChatUrl('00381 64/123-4567')).toBe('viber://chat?number=%2B381641234567')
   })
 })

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
-import type { OptimizationJob, OptimizationResult } from '../../api/types'
+import type { OptimizationJob, OptimizationResult, Truck } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { ErrorState, LoadingState } from '../../components/states'
 import { formatTime } from '../../format/time'
 import { formatKm, formatLdm } from '../../format/units'
-import { exportPdf, reportFileName, truckReportFileName } from './exportPdf'
+import { exportPdf, reportFileName, sendPdfToViber, truckReportFileName } from './exportPdf'
 import { ResultReport } from './ResultReport'
 import {
   buildTruckRows,
@@ -19,8 +19,10 @@ import {
 import { RouteTable } from './RouteTable'
 import { useLoadPlans } from './useLoadPlans'
 import { useReferenceData } from './useReferenceData'
+import { ViberPhoneDialog } from './ViberPhoneDialog'
 import { ExtraTruckNotice, ShortageActions } from './FleetActions'
 import type { StartOptions } from './lastJobContext'
+import { DRIVER_SUPPORTED } from '../trucks/truckFormValidation'
 
 /** `options`: how the job was started, on the device; there the result offers trucks to add. */
 export function ResultView({
@@ -42,22 +44,60 @@ export function ResultView({
     result.routes.map((route) => route.truckId),
   )
 
-  /** `truck`: only its part, for its driver; null: the whole result */
-  async function savePdf(truck: TruckRow | null) {
+  /** the truck whose driver has no phone, asked for before its PDF goes to Viber */
+  const [askPhone, setAskPhone] = useState<{ truck: Truck; row: TruckRow } | null>(null)
+
+  /**
+   * Prints the report, of one truck (its driver's part) or of the whole result (truckId null),
+   * and says how it went under the button.
+   */
+  async function printReport(truckId: number | null, print: () => Promise<{ tone: 'success' | 'error'; text: string } | null>) {
     setPdf(null)
-    const truckId = truck?.truckId ?? null
     // The drawings of the load need the plans; they are asked for when the result opens.
     await loadPlans.ready()
     // The report must show the right part before it is printed, not on the next render.
     flushSync(() => setReportTruckId(truckId))
     try {
-      const outcome = await exportPdf(truck ? truckReportFileName(job.id, truck.truckName) : reportFileName(job.id))
-      if (outcome.kind === 'saved') setPdf({ tone: 'success', text: `PDF je sačuvan: ${outcome.path}`, truckId })
+      const message = await print()
+      if (message) setPdf({ ...message, truckId })
     } catch (error) {
       setPdf({ tone: 'error', text: `PDF nije napravljen: ${error instanceof Error ? error.message : String(error)}`, truckId })
     } finally {
       setReportTruckId(null)
     }
+  }
+
+  /** `truck`: only its part, for its driver; null: the whole result */
+  function savePdf(truck: TruckRow | null) {
+    void printReport(truck?.truckId ?? null, async () => {
+      const outcome = await exportPdf(truck ? truckReportFileName(job.id, truck.truckName) : reportFileName(job.id))
+      return outcome.kind === 'saved' ? { tone: 'success', text: `PDF je sačuvan: ${outcome.path}` } : null
+    })
+  }
+
+  /** The driver's PDF made and the Viber chat with the driver opened; without a number, it is asked for first. */
+  function sendToViber(row: TruckRow, phone: string | null = row.driverPhone) {
+    if (phone === null) {
+      const truck = reference.status === 'success' ? reference.data.trucks.find((t) => t.id === row.truckId) : undefined
+      if (truck) setAskPhone({ truck, row })
+      else setPdf({ tone: 'error', text: `Kamion ${row.truckName} više ne postoji, pa mu se ne može upisati broj.`, truckId: row.truckId })
+      return
+    }
+    void printReport(row.truckId, async () => {
+      const outcome = await sendPdfToViber(truckReportFileName(job.id, row.truckName), phone)
+      if (outcome.kind === 'printed') {
+        return { tone: 'success', text: `Sačuvajte PDF u prozoru za štampu, pa ga priložite u Viber razgovoru sa ${phone}.` }
+      }
+      return outcome.viber
+        ? {
+            tone: 'success',
+            text: `PDF je sačuvan: ${outcome.path}. Otvoren je Viber razgovor sa ${phone}: prevucite fajl iz otvorenog foldera u razgovor.`,
+          }
+        : {
+            tone: 'error',
+            text: `PDF je sačuvan: ${outcome.path}, ali Viber se nije otvorio. Da li je Viber instaliran na ovom računaru? Fajl možete priložiti i ručno.`,
+          }
+    })
   }
 
   const pdfMessage = (truckId: number | null) =>
@@ -77,7 +117,7 @@ export function ResultView({
         <ResultReport job={job} result={result} reference={reference.data} truckId={reportTruckId} loadPlans={loadPlans.plans} />
       )}
 
-      <Summary result={result} onExport={reference.status === 'success' ? () => void savePdf(null) : null} />
+      <Summary result={result} onExport={reference.status === 'success' ? () => savePdf(null) : null} />
       {pdfMessage(null)}
       <Validation result={result} />
       {options && <ExtraTruckNotice result={result} options={options} />}
@@ -96,7 +136,24 @@ export function ResultView({
         <>
           <h2 className="section-title">Kamioni i rute</h2>
           {pdf && pdf.truckId !== null && pdfMessage(pdf.truckId)}
-          <RouteTable jobId={job.id} rows={buildTruckRows(result, reference.data)} onDriverPdf={(row) => void savePdf(row)} />
+          <RouteTable
+            jobId={job.id}
+            rows={buildTruckRows(result, reference.data)}
+            onDriverPdf={savePdf}
+            onViber={DRIVER_SUPPORTED ? (row) => sendToViber(row) : undefined}
+          />
+          {askPhone && (
+            <ViberPhoneDialog
+              truck={askPhone.truck}
+              onSaved={(phone) => {
+                const { row } = askPhone
+                setAskPhone(null)
+                reload()
+                sendToViber(row, phone)
+              }}
+              onClose={() => setAskPhone(null)}
+            />
+          )}
           <Unassigned result={result} reference={reference.data} />
         </>
       )}

@@ -1,7 +1,7 @@
 // @ts-check
 import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell } from 'electron'
 import { existsSync, statSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -42,6 +42,7 @@ if (!app.requestSingleInstanceLock()) {
     protocol.handle('app', (request) => net.fetch(pathToFileURL(fileFor(request.url)).toString()))
     Menu.setApplicationMenu(null)
     ipcMain.handle('rcva:save-pdf', savePdf)
+    ipcMain.handle('rcva:send-viber', sendViber)
     createWindow()
   })
 }
@@ -56,7 +57,7 @@ if (!app.requestSingleInstanceLock()) {
 async function savePdf(event, name) {
   const window = BrowserWindow.fromWebContents(event.sender)
   if (!window || !event.senderFrame?.url.startsWith(`${ORIGIN}/`)) return null
-  const fileName = `${String(name).replace(/\.pdf$/i, '').replace(/[^\p{L}\p{N}._-]+/gu, '-') || 'rcva'}.pdf`
+  const fileName = fileNameOf(name)
   const target =
     process.env.RCVA_PDF_PATH ??
     (
@@ -70,6 +71,41 @@ async function savePdf(event, name) {
   const pdf = await event.sender.printToPDF({ preferCSSPageSize: true, printBackground: true })
   await writeFile(target, pdf)
   return target
+}
+
+/**
+ * A driver's PDF for Viber (08.11.2026): Viber has no way for an application to send a file
+ * into a chat (only bots, which need the file on the internet), so the page is printed into
+ * Documents\RCVA za Viber without asking, the folder opens with the file selected, and Viber
+ * opens the chat with the driver, where the user drags the file in. RCVA_VIBER_DIR (tests
+ * only) is the folder.
+ * @param {Electron.IpcMainInvokeEvent} event
+ * @param {unknown} name the file name
+ * @param {unknown} phone the driver's number in the international form ("+381641234567")
+ * @returns {Promise<{ path: string; viber: boolean } | null>} the file, and whether Viber opened; null for a bad call
+ */
+async function sendViber(event, name, phone) {
+  if (!BrowserWindow.fromWebContents(event.sender) || !event.senderFrame?.url.startsWith(`${ORIGIN}/`)) return null
+  if (typeof phone !== 'string' || !/^\+[1-9]\d{7,14}$/.test(phone)) return null
+  const folder = process.env.RCVA_VIBER_DIR ?? path.join(app.getPath('documents'), 'RCVA za Viber')
+  await mkdir(folder, { recursive: true })
+  const target = path.join(folder, fileNameOf(name))
+  await writeFile(target, await event.sender.printToPDF({ preferCSSPageSize: true, printBackground: true }))
+  shell.showItemInFolder(target)
+  // Without Viber, Windows has nothing to open the link with: the page then says to install it.
+  const viber = await shell.openExternal(`viber://chat?number=${encodeURIComponent(phone)}`).then(
+    () => true,
+    () => false,
+  )
+  return { path: target, viber }
+}
+
+/**
+ * A file name from the page, without what Windows does not allow.
+ * @param {unknown} name
+ */
+function fileNameOf(name) {
+  return `${String(name).replace(/\.pdf$/i, '').replace(/[^\p{L}\p{N}._-]+/gu, '-') || 'rcva'}.pdf`
 }
 
 /**

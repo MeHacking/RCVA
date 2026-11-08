@@ -107,6 +107,12 @@ const PATHS = {
       <path d="M5 19.5h14" />
     </>
   ),
+  send: (
+    <>
+      <path d="M21 3 10 14" />
+      <path d="M21 3l-6.5 18-4.5-7-7-4.5z" />
+    </>
+  ),
   upload: (
     <>
       <path d="M12 15V4" />
