@@ -4,9 +4,9 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 04.11.2026 (ekran Kamioni: id-jevi, kartica tipova, ukloni sve; pre toga
-tipovi kamiona, „Popuni prema“, izgled i izvoz PDF-a); videti „Gde smo stali“. Kod je
-push-ovan na `origin/main` 04.11.2026 (`f99e877`).
+Poslednje ažuriranje: 09.11.2026 (vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u,
+Viber); videti „Gde smo stali“. Na `origin/main` je `34a054e` (05.11.2026); 4 commit-a posle
+toga (do `ff6acf6`) nisu push-ovana.
 
 ## Gde smo stali (03.11.2026)
 
