@@ -11,7 +11,7 @@ import {
 import { createImportStore, locateInGazetteer, readWorkbookInBrowser, type WorkbookReader } from './import/importStore'
 import { createShipmentEditor } from './shipmentEdit'
 import { buildLoadPlan } from './loadPlan'
-import { assertValidTruck, assertValidTruckType, toTruckType } from '../truckValidation'
+import { assertValidTruck, assertValidTruckType, cleanTruckInput, toTruckType } from '../truckValidation'
 
 export interface MockApiOptions {
   scenario: Scenario
@@ -157,7 +157,7 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         ])
         let id = 1
         while (taken.has(id)) id++
-        const created: Truck = { ...input, id }
+        const created: Truck = { ...cleanTruckInput(input), id }
         trucks.push(created)
         return created
       }),
@@ -167,7 +167,7 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         const index = trucks.findIndex((t) => t.id === id)
         if (index < 0) throw notFound(`Kamion ${id} ne postoji.`)
         assertValidTruck(input)
-        trucks[index] = { ...input, id }
+        trucks[index] = { ...cleanTruckInput(input), id }
         return trucks[index]
       }),
 

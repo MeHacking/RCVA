@@ -336,6 +336,24 @@ describe('local storage on the device', () => {
     expect((await after.createTruck(TRUCK)).id).toBe(created.id + 1)
   })
 
+  it('keeps the driver of a truck as typed, refuses a phone without the country code, and drops an emptied one', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const created = await api.createTruck({ ...TRUCK, driverName: '  Marko  ', driverPhone: ' +381 64  123 4567' })
+    expect(created).toMatchObject({ driverName: 'Marko', driverPhone: '+381 64 123 4567' })
+    expect((await setup('small', steps, store).listTrucks()).find((t) => t.id === created.id)).toMatchObject({
+      driverName: 'Marko',
+      driverPhone: '+381 64 123 4567',
+    })
+
+    const bad = await rejection(api.updateTruck(created.id, { ...TRUCK, driverPhone: '064 123 4567' }))
+    expect(bad.status).toBe(400)
+    expect(bad.problem.errors).toEqual({ driverPhone: 'Broj telefona mora imati pozivni broj zemlje, npr. +381 64 123 4567.' })
+
+    const emptied = await api.updateTruck(created.id, { ...TRUCK, driverName: ' ', driverPhone: '' })
+    expect('driverName' in emptied || 'driverPhone' in emptied).toBe(false)
+  })
+
   it('removes every truck and puts them back as they were, ids and locations', async () => {
     const store = createMemoryStore<LocalData>()
     const api = setup('small', steps, store)
@@ -410,17 +428,17 @@ describe('local storage on the device', () => {
     const store = createMemoryStore<LocalData>()
     const api = setup('small', steps, store)
     const cold = await api.createTruckType({ ...measures, capacityKg: 18_000, name: ' Hladnjača ' })
-    const solo = await api.createTruckType({ ...measures, name: 'Solo', capacityLdmTenths: 70, capacityKg: null })
+    const solo = await api.createTruckType({ ...measures, name: 'Solo', capacityLdmTenths: 70, capacityKg: 9000 })
     expect(cold).toEqual({ id: 1, ...measures, capacityKg: 18_000, name: 'Hladnjača' })
     const trucksBefore = await api.listTrucks()
     const last = await api.createTruckType({ ...measures, capacityKg: 30_000, name: 'Mega' })
-    await api.updateTruckType(solo.id, { ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: null })
+    await api.updateTruckType(solo.id, { ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: 9000 })
     await api.deleteTruckType(cold.id)
     await api.deleteTruckType(last.id)
     expect(await api.listTrucks()).toEqual(trucksBefore)
 
     const after = setup('small', steps, store)
-    expect(await after.listTruckTypes()).toEqual([{ id: 2, ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: null }])
+    expect(await after.listTruckTypes()).toEqual([{ id: 2, ...measures, name: 'Solo 7 m', capacityLdmTenths: 75, capacityKg: 9000 }])
     // The id of a removed type is not given again.
     expect((await after.createTruckType({ ...measures, capacityKg: 19_000, name: 'Hladnjača' })).id).toBe(4)
   })
@@ -430,6 +448,8 @@ describe('local storage on the device', () => {
     await api.createTruckType({ ...measures, capacityKg: 18_000, name: 'Hladnjača' })
     const other = await api.createTruckType({ ...measures, capacityKg: 10_000, name: 'Solo' })
 
+    const missing = await rejection(api.createTruckType({ ...measures, name: 'Bez mera', capacityKg: null, innerLengthMm: null }))
+    expect(missing.problem.errors).toEqual({ capacityKg: 'Nosivost je obavezna.', innerLengthMm: 'Obavezno.' })
     const bad = await rejection(api.createTruckType({ ...measures, name: ' ', capacityLdmTenths: 0, innerWidthMm: -1 }))
     expect(bad.status).toBe(400)
     expect(bad.problem.errors).toEqual({

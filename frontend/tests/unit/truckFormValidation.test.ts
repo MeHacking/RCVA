@@ -16,6 +16,8 @@ const VALID: TruckFormValues = {
   innerWidthMm: '2480',
   innerHeightMm: '2700',
   available: true,
+  driverName: '',
+  driverPhone: '',
 }
 
 describe('validateTruckForm', () => {
@@ -88,6 +90,26 @@ describe('payload', () => {
   })
 })
 
+describe('driver', () => {
+  it('keeps the name and the phone as typed, without surrounding spaces', () => {
+    const result = validateTruckForm({ ...VALID, driverName: '  Petar Petrović ', driverPhone: ' +381 64  123 4567 ' })
+    expect(result).toMatchObject({ ok: true, input: { driverName: 'Petar Petrović', driverPhone: '+381 64 123 4567' } })
+  })
+
+  it('leaves out a driver not entered, as the API stores it', () => {
+    const result = validateTruckForm({ ...VALID, driverName: '   ', driverPhone: '' })
+    expect(result.ok && 'driverName' in result.input).toBe(false)
+    expect(result.ok && 'driverPhone' in result.input).toBe(false)
+  })
+
+  it('asks for a phone with the country code', () => {
+    expect(validateTruckForm({ ...VALID, driverPhone: '064 123 4567' })).toEqual({
+      ok: false,
+      errors: { driverPhone: 'Unesite broj sa pozivnim brojem zemlje, npr. +381 64 123 4567.' },
+    })
+  })
+})
+
 describe('truckToFormValues', () => {
   it('round-trips an existing truck through the form', () => {
     const truck = {
@@ -99,6 +121,8 @@ describe('truckToFormValues', () => {
       innerLengthMm: null,
       innerWidthMm: null,
       innerHeightMm: null,
+      driverName: 'Ana',
+      driverPhone: '+46 70 123 45 67',
     }
     const values = truckToFormValues(truck)
     expect(values.capacityLdm).toBe('7,0')
@@ -108,10 +132,13 @@ describe('truckToFormValues', () => {
 
 describe('apiErrorsToForm', () => {
   it('maps API field names onto form fields', () => {
-    expect(apiErrorsToForm({ capacityLdmTenths: 'x', capacityKg: 'w', innerLengthMm: 'y', unknown: 'z' })).toEqual({
+    expect(
+      apiErrorsToForm({ capacityLdmTenths: 'x', capacityKg: 'w', innerLengthMm: 'y', driverPhone: 'p', unknown: 'z' }),
+    ).toEqual({
       capacityLdm: 'x',
       capacityKg: 'w',
       innerLengthMm: 'y',
+      driverPhone: 'p',
     })
   })
 })
@@ -130,9 +157,26 @@ describe('validateTruckTypeForm', () => {
       errors: {
         name: 'Unesite naziv tipa.',
         capacityLdm: 'Kapacitet mora biti veći od 0.',
-        dimensions: 'Unesite sve tri dimenzije tovarnog prostora ili nijednu.',
+        innerWidthMm: 'Obavezno.',
+        dimensions: 'Unesite sve tri dimenzije tovarnog prostora.',
       },
     })
+  })
+
+  it('needs every value of a type: the payload and all three dimensions, unlike a truck', () => {
+    const empty = { ...VALID, capacityKg: '', innerLengthMm: '', innerWidthMm: '', innerHeightMm: '' }
+    expect(validateTruckTypeForm(empty)).toEqual({
+      ok: false,
+      errors: {
+        capacityKg: 'Unesite nosivost tipa.',
+        innerLengthMm: 'Obavezno.',
+        innerWidthMm: 'Obavezno.',
+        innerHeightMm: 'Obavezno.',
+        dimensions: 'Unesite sve tri dimenzije tovarnog prostora.',
+      },
+    })
+    // A truck may still leave them empty.
+    expect(validateTruckForm(empty).ok).toBe(true)
   })
 
   it('fills the form from a type', () => {
@@ -145,7 +189,7 @@ describe('validateTruckTypeForm', () => {
       innerHeightMm: null,
     })
     expect(available).toBe(true)
-    expect(values).toEqual({ name: 'Solo', capacityLdm: '7,0', capacityKg: '', innerLengthMm: '', innerWidthMm: '', innerHeightMm: '' })
+    expect(values).toEqual({ name: 'Solo', capacityLdm: '7,0', capacityKg: '', innerLengthMm: '', innerWidthMm: '', innerHeightMm: '', driverName: '', driverPhone: '' })
     expect(truckTypeToFormValues(null)).toEqual(truckToFormValues(null))
   })
 })

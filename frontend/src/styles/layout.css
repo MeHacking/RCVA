@@ -1043,6 +1043,13 @@ button.route-map__fullscreen:hover:not(:disabled) {
   margin-bottom: 0;
 }
 
+/* The driver in the list of trucks: the name, the phone below it. */
+.driver-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
 .truck-card .table-wrap {
   margin-top: var(--space-6);
 }

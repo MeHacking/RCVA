@@ -5,6 +5,7 @@ import type { Truck, TruckType } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import {
   apiErrorsToForm,
+  DRIVER_SUPPORTED,
   fieldPropsFor,
   PAYLOAD_SUPPORTED,
   truckToFormValues,
@@ -127,6 +128,37 @@ export function TruckForm({ truck, trucks = [], types = [], onSaved, onCancel }:
       </div>
 
       <TruckMeasureFields id={id} values={values} errors={errors} withPayload={PAYLOAD_SUPPORTED} onChange={set} />
+
+      {DRIVER_SUPPORTED && (
+        <fieldset className="field">
+          <legend>Vozač (opciono)</legend>
+          <div className="field-row field-row--2">
+            <div className="field">
+              <label htmlFor={`${id}-driverName`}>Ime vozača</label>
+              <input
+                {...fieldProps('driverName')}
+                autoComplete="off"
+                value={values.driverName}
+                onChange={(e) => set('driverName', e.target.value)}
+              />
+              <FieldError id={id} field="driverName" errors={errors} />
+            </div>
+            <div className="field">
+              <label htmlFor={`${id}-driverPhone`}>Telefon (za Viber)</label>
+              <input
+                {...fieldProps('driverPhone')}
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                placeholder="npr. +381 64 123 4567"
+                value={values.driverPhone}
+                onChange={(e) => set('driverPhone', e.target.value)}
+              />
+              <FieldError id={id} field="driverPhone" errors={errors} />
+            </div>
+          </div>
+        </fieldset>
+      )}
 
       <div className="field field--checkbox">
         <input

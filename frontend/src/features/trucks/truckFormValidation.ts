@@ -1,9 +1,12 @@
 import type { Truck, TruckInput, TruckType, TruckTypeInput } from '../../api/types'
 import { apiMode } from '../../api/apiMode'
+import { parsePhone } from '../../format/phone'
 import { formatLdm, parseKg, parseLdmTenths, parseMm } from '../../format/units'
 
 // The backend does not store a payload (B2 is only on the device), so the field would be lost there.
 export const PAYLOAD_SUPPORTED = apiMode() !== 'server'
+// Nor a driver (NOT IN SPEC v2, 08.11.2026).
+export const DRIVER_SUPPORTED = apiMode() !== 'server'
 
 /** Raw form state: text exactly as typed, converted to API units only on submit. */
 export interface TruckFormValues {
@@ -15,6 +18,10 @@ export interface TruckFormValues {
   innerWidthMm: string
   innerHeightMm: string
   available: boolean
+  /** empty: no driver entered */
+  driverName: string
+  /** with the country code; empty: not entered */
+  driverPhone: string
 }
 
 export type TruckFormField = keyof TruckFormValues | 'dimensions'
@@ -26,7 +33,17 @@ const DIMENSION_FIELDS = ['innerLengthMm', 'innerWidthMm', 'innerHeightMm'] as c
 
 export function truckToFormValues(truck: Truck | null): TruckFormValues {
   if (!truck) {
-    return { name: '', capacityLdm: '', capacityKg: '', innerLengthMm: '', innerWidthMm: '', innerHeightMm: '', available: true }
+    return {
+      name: '',
+      capacityLdm: '',
+      capacityKg: '',
+      innerLengthMm: '',
+      innerWidthMm: '',
+      innerHeightMm: '',
+      available: true,
+      driverName: '',
+      driverPhone: '',
+    }
   }
   return {
     name: truck.name,
@@ -36,6 +53,8 @@ export function truckToFormValues(truck: Truck | null): TruckFormValues {
     innerWidthMm: truck.innerWidthMm?.toString() ?? '',
     innerHeightMm: truck.innerHeightMm?.toString() ?? '',
     available: truck.available,
+    driverName: truck.driverName ?? '',
+    driverPhone: truck.driverPhone ?? '',
   }
 }
 
@@ -62,12 +81,27 @@ export function validateTruckForm(values: TruckFormValues): TruckFormValidation 
   // The 3D view needs all three; a partial set is almost certainly a typo.
   if (given > 0 && empty > 0) errors.dimensions = 'Unesite sve tri dimenzije tovarnog prostora ili nijednu.'
 
+  const driverName = values.driverName.trim()
+  const driverPhone = parsePhone(values.driverPhone)
+  if (driverPhone === 'invalid') errors.driverPhone = 'Unesite broj sa pozivnim brojem zemlje, npr. +381 64 123 4567.'
+
   if (Object.keys(errors).length > 0 || capacity === null || capacityKg === 'invalid') return { ok: false, errors }
 
   const [innerLengthMm, innerWidthMm, innerHeightMm] = dimensions as (number | null)[]
   return {
     ok: true,
-    input: { name, capacityLdmTenths: capacity, capacityKg, available: values.available, innerLengthMm, innerWidthMm, innerHeightMm },
+    input: {
+      name,
+      capacityLdmTenths: capacity,
+      capacityKg,
+      available: values.available,
+      innerLengthMm,
+      innerWidthMm,
+      innerHeightMm,
+      // Left out when empty, as the API stores it.
+      ...(driverName !== '' && { driverName }),
+      ...(driverPhone !== null && driverPhone !== 'invalid' && { driverPhone }),
+    },
   }
 }
 
@@ -81,10 +115,17 @@ export type TruckTypeFormValidation = { ok: true; input: TruckTypeInput } | { ok
 /** The checks of a truck, with the name asked for as the type's. */
 export function validateTruckTypeForm(values: TruckFormValues): TruckTypeFormValidation {
   const validation = validateTruckForm({ ...values, available: true })
-  if (!validation.ok) {
-    const { errors } = validation
-    return { ok: false, errors: errors.name ? { ...errors, name: 'Unesite naziv tipa.' } : errors }
+  const errors: TruckFormErrors = validation.ok ? {} : { ...validation.errors }
+  if (errors.name) errors.name = 'Unesite naziv tipa.'
+  // A type fills a new truck completely, so (unlike a truck) every value is needed.
+  if (PAYLOAD_SUPPORTED && values.capacityKg.trim() === '' && !errors.capacityKg) errors.capacityKg = 'Unesite nosivost tipa.'
+  for (const field of DIMENSION_FIELDS) {
+    if (values[field].trim() === '' && !errors[field]) errors[field] = 'Obavezno.'
   }
+  if (DIMENSION_FIELDS.some((field) => values[field].trim() === '')) {
+    errors.dimensions = 'Unesite sve tri dimenzije tovarnog prostora.'
+  }
+  if (!validation.ok || Object.keys(errors).length > 0) return { ok: false, errors }
   const { name, capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm } = validation.input
   return { ok: true, input: { name, capacityLdmTenths, capacityKg, innerLengthMm, innerWidthMm, innerHeightMm } }
 }
@@ -94,7 +135,13 @@ export function apiErrorsToForm(errors: Record<string, string>): TruckFormErrors
   const mapped: TruckFormErrors = {}
   for (const [field, message] of Object.entries(errors)) {
     if (field === 'capacityLdmTenths') mapped.capacityLdm = message
-    else if (field === 'name' || field === 'capacityKg' || (DIMENSION_FIELDS as readonly string[]).includes(field)) {
+    else if (
+      field === 'name' ||
+      field === 'capacityKg' ||
+      field === 'driverName' ||
+      field === 'driverPhone' ||
+      (DIMENSION_FIELDS as readonly string[]).includes(field)
+    ) {
       mapped[field as TruckFormField] = message
     }
   }

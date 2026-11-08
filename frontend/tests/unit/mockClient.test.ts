@@ -147,14 +147,18 @@ describe('mock trucks', () => {
 })
 
 describe('mock truck types', () => {
-  const TYPE = { name: 'Hladnjača', capacityLdmTenths: 136, capacityKg: 20_000, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null }
+  const TYPE = { name: 'Hladnjača', capacityLdmTenths: 136, capacityKg: 20_000, innerLengthMm: 13_600, innerWidthMm: 2480, innerHeightMm: 2600 }
 
   it('starts without types, keeps them while the page lives, and checks them as the device does', async () => {
     const { api } = setup('small')
     expect(await api.listTruckTypes()).toEqual([])
     const created = await api.createTruckType(TYPE)
-    await api.updateTruckType(created.id, { ...TYPE, capacityKg: null })
-    expect(await api.listTruckTypes()).toEqual([{ id: 1, ...TYPE, capacityKg: null }])
+    await api.updateTruckType(created.id, { ...TYPE, capacityKg: 18_000 })
+    expect(await api.listTruckTypes()).toEqual([{ id: 1, ...TYPE, capacityKg: 18_000 }])
+    // Every value of a type is needed, as on the device.
+    expect((await rejection(api.updateTruckType(created.id, { ...TYPE, capacityKg: null }))).problem.errors).toEqual({
+      capacityKg: 'Nosivost je obavezna.',
+    })
     expect((await rejection(api.createTruckType({ ...TYPE, name: 'hladnjača' }))).problem.errors).toEqual({
       name: 'Tip sa tim nazivom već postoji.',
     })

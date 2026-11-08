@@ -63,6 +63,13 @@ export interface Truck {
    * completed job is proposed as the new location, to be confirmed.
    */
   startSetAfterJobId?: number | null
+  /** NOT IN SPEC v2 (only on the device): who drives the truck; missing when not entered */
+  driverName?: string | null
+  /**
+   * NOT IN SPEC v2 (only on the device): the driver's phone number with the country code, as
+   * typed ("+381 64 123 4567"); the truck's part of a result is sent to it on Viber.
+   */
+  driverPhone?: string | null
 }
 
 /** Body of POST /trucks and PUT /trucks/{id}; the location is set with setTruckStart */

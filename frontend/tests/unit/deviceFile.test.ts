@@ -69,8 +69,10 @@ async function usedDevice(key = 'kljuc-uredjaja-a') {
     innerLengthMm: 13_600,
     innerWidthMm: 2480,
     innerHeightMm: 2700,
+    driverName: 'Marko Marković',
+    driverPhone: '+381 64 123 4567',
   })
-  const measures = { capacityLdmTenths: 70, capacityKg: null, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null }
+  const measures = { capacityLdmTenths: 70, capacityKg: 9000, innerLengthMm: 7000, innerWidthMm: 2480, innerHeightMm: 2600 }
   await api.createTruckType({ name: 'Solo', ...measures })
   await api.createTruckType({ name: 'Hladnjača', ...measures, capacityKg: 12_000 })
   // A place the device knows: no lookup.
@@ -134,7 +136,7 @@ describe('data file of the device', () => {
     expect((await api.checkDeviceData(older)).truckTypes).toBe(0)
     await api.replaceDeviceData(older)
     expect(await api.listTruckTypes()).toEqual([])
-    expect((await api.createTruckType({ name: 'Solo', capacityLdmTenths: 70, capacityKg: null, innerLengthMm: null, innerWidthMm: null, innerHeightMm: null })).id).toBe(1)
+    expect((await api.createTruckType({ name: 'Solo', capacityLdmTenths: 70, capacityKg: 9000, innerLengthMm: 7000, innerWidthMm: 2480, innerHeightMm: 2600 })).id).toBe(1)
   })
 
   it('is named after the local date', () => {
@@ -167,6 +169,7 @@ describe('data file of the device', () => {
       [changed((f) => (f.data.distanceCache.x = 'daleko')), `${broken}fajl.data.distanceCache["x"] nije broj.`],
       [changed((f) => (Object.values(f.data.routeLineCache)[0] as number[][]).push([45, 20, 0])), /^Fajl je oštećen ili izmenjen: fajl\.data\.routeLineCache\["driving-hgv\|.+"\]\[\d+\] nije tačka \[lat, lon\]\.$/],
       [changed((f) => (f.data.shipments[0].pickupLocationId = 999)), `${broken}pošiljka ${SCENARIOS.small.shipments[0].externalId} vodi do mesta 999, koje ne postoji.`],
+      [changed((f) => (f.data.trucks.at(-1).driverPhone = 381641234567)), /^Fajl je oštećen ili izmenjen: fajl\.data\.trucks\[\d+\]\.driverPhone nije /],
       [changed((f) => (f.data.trucks[1].id = f.data.trucks[0].id)), `${broken}kamion ${SCENARIOS.small.trucks[0].id} se ponavlja.`],
       [changed((f) => f.data.jobs[0].input.distance.pop()), `${broken}rastojanja posla 1 ne odgovaraju njegovim mestima.`],
       [changed((f) => (f.data.jobs[0].result = null)), `${broken}završeni posao 1 nema rezultat.`],

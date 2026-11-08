@@ -16,6 +16,7 @@ export function TruckMeasureFields({
   values,
   errors,
   withPayload,
+  required = false,
   onChange,
 }: {
   /** prefix of the input ids, as in the rest of the form */
@@ -24,6 +25,8 @@ export function TruckMeasureFields({
   errors: TruckFormErrors
   /** the backend does not store a payload, so the field is not offered there */
   withPayload: boolean
+  /** a truck type: every value is needed, none may stay empty */
+  required?: boolean
   onChange: (field: MeasureField, value: string) => void
 }) {
   const fieldProps = fieldPropsFor(id, errors)
@@ -47,7 +50,8 @@ export function TruckMeasureFields({
           <input
             {...fieldProps('capacityKg')}
             inputMode="numeric"
-            placeholder="prazno = bez ograničenja"
+            placeholder={required ? 'npr. 24000' : 'prazno = bez ograničenja'}
+            aria-required={required || undefined}
             value={values.capacityKg}
             onChange={(e) => onChange('capacityKg', e.target.value)}
           />
@@ -56,7 +60,7 @@ export function TruckMeasureFields({
       )}
 
       <fieldset className="field" aria-describedby={errors.dimensions ? `${id}-dimensions-error` : undefined}>
-        <legend>Tovarni prostor u mm (opciono, za 3D prikaz)</legend>
+        <legend>{required ? 'Tovarni prostor u mm' : 'Tovarni prostor u mm (opciono, za 3D prikaz)'}</legend>
         <div className="field-row">
           {(
             [
@@ -70,6 +74,7 @@ export function TruckMeasureFields({
               <input
                 {...fieldProps(field)}
                 inputMode="numeric"
+                aria-required={required || undefined}
                 value={values[field]}
                 onChange={(e) => onChange(field, e.target.value)}
               />

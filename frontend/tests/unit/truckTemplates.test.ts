@@ -65,9 +65,9 @@ describe('applyTemplate', () => {
   const [standard, sleper, solo] = truckTemplates([type({}), SOLO])
   const taken = ['Šleper 1', 'Šleper 2', 'Solo']
 
-  it('copies the measures, keeps availability and offers a free name', () => {
+  it('copies the measures, keeps availability and the driver, and offers a free name', () => {
     const empty = truckToFormValues(null)
-    const filled = applyTemplate({ ...empty, available: false }, sleper, taken, null)
+    const filled = applyTemplate({ ...empty, available: false, driverName: 'Ana', driverPhone: '+381 64 123 4567' }, sleper, taken, null)
     expect(filled.values).toEqual({
       name: 'Šleper 3',
       capacityLdm: '13,6',
@@ -76,6 +76,8 @@ describe('applyTemplate', () => {
       innerWidthMm: '2480',
       innerHeightMm: '2700',
       available: false,
+      driverName: 'Ana',
+      driverPhone: '+381 64 123 4567',
     })
     expect(filled.offeredName).toBe('Šleper 3')
   })

@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { TruckForm } from './TruckForm'
+import { DRIVER_SUPPORTED } from './truckFormValidation'
 import { TruckLocations } from './TruckLocations'
 import { TruckTypeForm } from './TruckTypeForm'
 import { TruckTypes } from './TruckTypes'
@@ -326,6 +327,7 @@ function TruckTable({
           <tr>
             <th scope="col">ID</th>
             <th scope="col">Naziv</th>
+            {DRIVER_SUPPORTED && <th scope="col">Vozač</th>}
             <th scope="col" className="num">
               Kapacitet (LDM)
             </th>
@@ -344,6 +346,18 @@ function TruckTable({
             <tr key={truck.id} aria-current={truck.id === editingId ? 'true' : undefined}>
               <td>{truck.id}</td>
               <td>{truck.name}</td>
+              {DRIVER_SUPPORTED && (
+                <td>
+                  {truck.driverName || truck.driverPhone ? (
+                    <span className="driver-cell">
+                      {truck.driverName && <span>{truck.driverName}</span>}
+                      {truck.driverPhone && <span className="text--muted">{truck.driverPhone}</span>}
+                    </span>
+                  ) : (
+                    <span className="text--muted">nije unet</span>
+                  )}
+                </td>
+              )}
               <td className="num">{formatLdm(truck.capacityLdmTenths)}</td>
               <td className="num">
                 {truck.capacityKg === null ? (

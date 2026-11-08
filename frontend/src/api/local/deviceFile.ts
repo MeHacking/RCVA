@@ -188,6 +188,9 @@ const TRUCK = object({
   // Added 03.11.2026; older files have no location of trucks.
   startLocationId: optional(nullable(INT)),
   startSetAfterJobId: optional(nullable(INT)),
+  // Added 08.11.2026.
+  driverName: optional(nullable(STR)),
+  driverPhone: optional(nullable(STR)),
 })
 const TRUCK_TYPE = object({
   id: INT,

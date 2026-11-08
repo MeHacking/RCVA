@@ -1,5 +1,6 @@
 import { ApiError } from './client'
 import { STANDARD_TRUCK } from '../domain/fleet'
+import { parsePhone } from '../format/phone'
 import type { TruckInput, TruckType, TruckTypeInput } from './types'
 
 /** The name of the built-in truck type (STANDARD_TRUCK); no type the user adds may take it. */
@@ -26,9 +27,20 @@ function measureErrors(input: Measures): Record<string, string> {
 export function assertValidTruck(input: TruckInput): void {
   const errors = measureErrors(input)
   if (input.name.trim() === '') errors.name = 'Naziv je obavezan.'
+  if (input.driverPhone != null && parsePhone(input.driverPhone) === 'invalid') {
+    errors.driverPhone = 'Broj telefona mora imati pozivni broj zemlje, npr. +381 64 123 4567.'
+  }
   if (Object.keys(errors).length > 0) {
     throw new ApiError({ title: 'Neispravni podaci o kamionu', status: 400, errors })
   }
+}
+
+/** The stored form of a checked truck: the driver without surrounding spaces, and left out when empty. */
+export function cleanTruckInput(input: TruckInput): TruckInput {
+  const { driverName, driverPhone, ...rest } = input
+  const name = driverName?.trim() ?? ''
+  const phone = driverPhone == null ? null : parsePhone(driverPhone)
+  return { ...rest, ...(name !== '' && { driverName: name }), ...(typeof phone === 'string' && { driverPhone: phone }) }
 }
 
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('sr') === b.trim().toLocaleLowerCase('sr')
@@ -40,6 +52,11 @@ const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('sr') === 
  */
 export function assertValidTruckType(input: TruckTypeInput, types: TruckType[], id: number | null): void {
   const errors = measureErrors(input)
+  // Unlike a truck, a type has every value: it fills a new truck completely.
+  if (input.capacityKg === null) errors.capacityKg = 'Nosivost je obavezna.'
+  for (const field of ['innerLengthMm', 'innerWidthMm', 'innerHeightMm'] as const) {
+    if (input[field] === null) errors[field] = 'Obavezno.'
+  }
   if (input.name.trim() === '') errors.name = 'Naziv je obavezan.'
   else if (sameName(input.name, STANDARD_TYPE_NAME)) errors.name = `„${STANDARD_TYPE_NAME}“ je ugrađen tip; izaberite drugi naziv.`
   else if (types.some((t) => t.id !== id && sameName(t.name, input.name))) errors.name = 'Tip sa tim nazivom već postoji.'

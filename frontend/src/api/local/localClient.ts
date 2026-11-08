@@ -18,7 +18,7 @@ import {
 } from '../mock/import/importStore'
 import type { PlaceWarning } from '../mock/import/importRows'
 import { createShipmentEditor } from '../mock/shipmentEdit'
-import { assertValidTruck, assertValidTruckType, toTruckType } from '../truckValidation'
+import { assertValidTruck, assertValidTruckType, cleanTruckInput, toTruckType } from '../truckValidation'
 import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from './deviceFile'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
@@ -753,7 +753,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         const id = freeTruckId()
         // Still kept (and in the data file) as "above every id", which the file check wants.
         nextTruckId = Math.max(nextTruckId, id + 1)
-        const created: Truck = { ...input, id, startLocationId: null, startSetAfterJobId: null }
+        const created: Truck = { ...cleanTruckInput(input), id, startLocationId: null, startSetAfterJobId: null }
         trucks.push(created)
         return created
       }),
@@ -764,7 +764,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         if (index < 0) throw notFound(`Kamion ${id} ne postoji.`)
         assertValidTruck(input)
         const { startLocationId = null, startSetAfterJobId = null } = trucks[index]
-        trucks[index] = { ...input, id, startLocationId, startSetAfterJobId }
+        trucks[index] = { ...cleanTruckInput(input), id, startLocationId, startSetAfterJobId }
         return trucks[index]
       }),
 

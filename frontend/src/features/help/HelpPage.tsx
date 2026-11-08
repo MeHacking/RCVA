@@ -258,6 +258,12 @@ function Steps() {
         ograničenja). Dimenzije tovarnog prostora su potrebne samo za 3D prikaz. Kamion koji nije označen kao
         dostupan ne ulazi u optimizaciju.
       </p>
+      {TRUCK_TYPES && (
+        <p>
+          Uz kamion možete upisati <strong>vozača</strong>: ime i broj telefona sa pozivnim brojem zemlje (npr. +381 64
+          123 4567). Broj je potreban za slanje rute i rasporeda tovara vozaču na Viber.
+        </p>
+      )}
       <p>
         Pri dodavanju kamiona u polju <strong>„Popuni prema“</strong> birate ručni unos ili <strong>tip kamiona</strong>:
         kapacitet, nosivost i dimenzije se prepišu iz tipa, a naziv dobija prvi slobodan broj (standardna cerada daje
@@ -269,7 +275,8 @@ function Steps() {
           Tipovi se vode u kartici <strong>„Tipovi kamiona“</strong>, koju otvara dugme „Dodaj tip kamiona“ (pored
           „Dodaj kamion“): u njoj je obrazac za novi tip i spisak postojećih, koje menjate ili uklanjate. „Standardna
           cerada“ je ugrađena i ne menja se, jer po njoj aplikacija predlaže dodatne kamione kada postojeći nisu
-          dovoljni. Tip ne sme imati isti naziv ni iste mere (kapacitet, nosivost i tovarni prostor) kao neki postojeći.
+          dovoljni. Za tip su obavezne sve vrednosti (naziv, kapacitet, nosivost i sve tri dimenzije tovarnog prostora),
+          jer tip popunjava nov kamion u celosti. Tip ne sme imati isti naziv ni iste mere (kapacitet, nosivost i tovarni prostor) kao neki postojeći.
           „Zatvori“ (gore desno) zatvara karticu bez čuvanja. Na ekranu je uvek otvorena samo jedna kartica za unos: kamiona ili tipova. Izmena ili
           uklanjanje tipa ne menja kamione koji su već dodati.
         </p>

@@ -10,6 +10,22 @@ push-ovan na `origin/main` 04.11.2026 (`f99e877`).
 
 ## Gde smo stali (03.11.2026)
 
+**Vozač, PDF po kamionu, 3D u PDF-u, Viber (od 08.11.2026)**, na zahtev korisnika; plan
+potvrđen: redom vozač → PDF za jednog kamiona → 3D u PDF-u → Viber. Viber nema način da
+aplikacija sama pošalje fajl (samo bot, uz hosting i naplatu), pa je dogovoreno: na PC-u
+„Pošalji na Viber“ sačuva PDF i otvori razgovor sa brojem vozača, a fajl se prevuče ručno; na
+telefonu sistemsko „Podeli“. Bez broja: poruka i unos broja za taj kamion. PDF kamiona sadrži
+samo njegov deo (naziv, vozač, stanice i km te rute, raspored tovara, njegove pošiljke); bez
+ukupnog, drugih kamiona i nedodeljenih. Dugmad: „Izvezi ceo rezultat (PDF)“, po kamionu „PDF
+za vozača“ i „Pošalji na Viber“. 3D u PDF-u: snimak 3D prikaza i pogled odozgo sa brojevima.
+- **Vozač (urađeno 08.11.2026)**: `Truck.driverName` i `driverPhone` (NOT IN SPEC v2,
+  neobavezni; prazni se ne čuvaju, `cleanTruckInput`). Broj sa pozivnim brojem zemlje, čuva se
+  kako je upisan (`src/format/phone.ts`: `parsePhone`, `internationalPhone` za Viber, „(0)“
+  se izbacuje); provera i u obrascu i u API-ju (400 `driverPhone`). Obrazac: „Vozač
+  (opciono)“, „Ime vozača“, „Telefon (za Viber)“; tabela: kolona „Vozač“. U režimu `server`
+  se ne prikazuje (`DRIVER_SUPPORTED`). U fajlu sa podacima. Testovi: `phone.test.ts`, dopune u
+  `truckFormValidation`, `truckTemplates`, `localClient`, `deviceFile`, e2e `trucks.spec.ts`.
+
 **Dorade 05.11.2026**, na zahtev korisnika:
 - **Najbliži put za kamione** (Oslo: „nema puta za teretna vozila“, centar zatvoren za kamione).
   409 „Nema puta“ nosi `noRoadPlaceIds` (NOT IN SPEC v2): mesta do kojih ne vodi nijedan put,
@@ -41,7 +57,12 @@ push-ovan na `origin/main` 04.11.2026 (`f99e877`).
   `getBoundingClientRect`, jer dok stavke ulaze `offsetTop` meri od stavke), ikonice u
   pločicama, ulazak stavki, čip izvora podataka sa ikonicom računara ili servera; bez
   prelaza boje u pozadini.
-- Testovi: 431 Vitest, e2e na uređaju i Kamioni prolaze; ceo e2e (84) i desktop (4) poslednji
+- **Tip kamiona traži sve vrednosti** (naziv, kapacitet, nosivost, dužina, širina, visina),
+  za razliku od kamiona: obrazac (`validateTruckTypeForm`: „Unesite nosivost tipa.“, „Unesite
+  sve tri dimenzije tovarnog prostora.“, polja `aria-required`) i provera podataka
+  (`assertValidTruckType`: „Nosivost je obavezna.“, „Obavezno.“). Ranije sačuvani tipovi bez
+  neke vrednosti ostaju, ali se ne mogu sačuvati dok se ne dopune. Uputstvo dopunjeno.
+- Testovi: 432 Vitest, e2e na uređaju i Kamioni prolaze; ceo e2e (84) i desktop (4) poslednji
   put posle bočne trake.
 
 **Ekran Kamioni, dorada (urađeno 04.11.2026)**, na zahtev korisnika:

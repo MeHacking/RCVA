@@ -83,7 +83,7 @@ export function TruckTypeForm({ type, onSaved, onClose }: TruckTypeFormProps) {
         <FieldError id={id} field="name" errors={errors} />
       </div>
 
-      <TruckMeasureFields id={id} values={values} errors={errors} withPayload={PAYLOAD_SUPPORTED} onChange={set} />
+      <TruckMeasureFields id={id} values={values} errors={errors} withPayload={PAYLOAD_SUPPORTED} required onChange={set} />
 
       {formError && (
         <p role="alert" className="text--error">

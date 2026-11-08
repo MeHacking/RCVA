@@ -16,7 +16,7 @@ export interface TruckTemplate {
   label: string
   /** the name the new truck is offered ("Hladnjača" -> "Hladnjača 3" when 1 and 2 are taken) */
   baseName: string
-  values: Omit<TruckFormValues, 'name' | 'available'>
+  values: Omit<TruckFormValues, 'name' | 'available' | 'driverName' | 'driverPhone'>
 }
 
 export const STANDARD_TEMPLATE_KEY = 'standard'
