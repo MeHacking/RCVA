@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { Location, Shipment, ShipmentUpdateResult } from '../../src/api/types'
 import {
   apiErrorsToForm,
+  buildShipmentInput,
   buildShipmentPatch,
   describeUpdate,
+  emptyFormValues,
   otherShipmentsAt,
   toFormValues,
+  type ShipmentFormValues,
 } from '../../src/features/shipments/shipmentEditModel'
 
 const LOCATIONS: Location[] = [
@@ -148,5 +151,92 @@ describe('message after saving', () => {
     const failed = describeUpdate(result([{ role: 'delivery', name: 'Losestad', outcome: 'failed', message: 'Nema mreže.' }]))
     expect(failed.tone).toBe('warning')
     expect(failed.lines).toEqual(['Koordinate za „Losestad“ nisu tražene: Nema mreže. Sačuvajte ponovo kasnije.'])
+  })
+
+  it('says a shipment entered by hand was added', () => {
+    const places: ShipmentUpdateResult['places'] = [{ role: 'delivery', name: 'Novostad', outcome: 'found', message: null }]
+    expect(describeUpdate(result(places), { created: true }).title).toBe('Pošiljka „N-7“ je dodata.')
+  })
+})
+
+describe('form of a shipment entered by hand', () => {
+  const filled = (change: (values: ShipmentFormValues) => void = () => {}) => {
+    const values = emptyFormValues()
+    values.pickup.name = ' Primerovo '
+    values.pickup.country = 'rs'
+    values.delivery.name = 'Losestad'
+    values.ldm = '2,4'
+    change(values)
+    return values
+  }
+
+  it('starts empty', () => {
+    const values = emptyFormValues()
+    expect([values.externalId, values.ldm, values.weight, values.description, values.pickup.name, values.delivery.name]).toEqual([
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ])
+  })
+
+  it('sends the shipment trimmed, without an ID when none is typed', () => {
+    expect(buildShipmentInput(filled())).toEqual({
+      ok: true,
+      input: {
+        externalId: null,
+        ldmTenths: 24,
+        weightKg: null,
+        description: null,
+        pickup: { name: 'Primerovo', postalCode: null, country: 'RS' },
+        delivery: { name: 'Losestad', postalCode: null, country: null },
+      },
+    })
+    const full = buildShipmentInput(
+      filled((v) => {
+        v.externalId = ' R-1 '
+        v.weight = ' 1200 '
+        v.description = ' Palete '
+        v.delivery.coordinates = '59.4, 16.5'
+      }),
+    )
+    expect(full).toMatchObject({
+      ok: true,
+      input: {
+        externalId: 'R-1',
+        weightKg: 1200,
+        description: 'Palete',
+        delivery: { name: 'Losestad', coordinates: { lat: 59.4, lon: 16.5 } },
+      },
+    })
+  })
+
+  it('says what is missing or wrong', () => {
+    expect(buildShipmentInput(emptyFormValues())).toEqual({
+      ok: false,
+      errors: {
+        ldm: 'Unesite LDM veći od 0, sa najviše jednom decimalom (npr. 2,4).',
+        pickup: 'Unesite mesto preuzimanja.',
+        delivery: 'Unesite mesto isporuke.',
+      },
+    })
+    expect(
+      buildShipmentInput(
+        filled((v) => {
+          v.ldm = '0'
+          v.weight = 'teško'
+          v.pickup.coordinates = 'negde'
+        }),
+      ),
+    ).toEqual({
+      ok: false,
+      errors: {
+        ldm: 'Unesite LDM veći od 0, sa najviše jednom decimalom (npr. 2,4).',
+        weight: 'Unesite težinu u celim kilogramima ili ostavite polje prazno.',
+        pickupCoordinates: 'Unesite širinu i dužinu, npr. 45.2671, 19.8335.',
+      },
+    })
   })
 })

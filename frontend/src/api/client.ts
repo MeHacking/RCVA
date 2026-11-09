@@ -20,6 +20,7 @@ import type {
   ProblemDetails,
   RouteLine,
   Shipment,
+  ShipmentInput,
   ShipmentPatch,
   ShipmentUpdateResult,
   Truck,
@@ -59,6 +60,18 @@ export interface ApiClient {
    * (and over HTTP), 409 while a job waits or runs.
    */
   updateShipment(id: number, patch: ShipmentPatch): Promise<ShipmentUpdateResult>
+  /**
+   * NOT IN SPEC v2: a shipment entered by hand. Its places are found among the known ones or
+   * looked up as at an import (or take coordinates given by hand); without an ID it gets a
+   * short one by relation. 400 by field, 409 while a job waits or runs, 404 over HTTP.
+   */
+  createShipment(input: ShipmentInput): Promise<ShipmentUpdateResult>
+  /**
+   * NOT IN SPEC v2: removes one shipment, and its places when nothing uses them any more
+   * (places of kept results stay). 404 for an unknown shipment (and over HTTP), 409 while a
+   * job waits or runs.
+   */
+  deleteShipment(id: number): Promise<void>
 
   listTrucks(): Promise<Truck[]>
   createTruck(input: TruckInput): Promise<Truck>

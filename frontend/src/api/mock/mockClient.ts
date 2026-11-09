@@ -145,6 +145,8 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         return { shipments: removed, locations: 0 }
       }),
     updateShipment: (id, patch) => respond(() => editor.update(id, patch)),
+    createShipment: (input) => respond(() => editor.create(input)),
+    deleteShipment: (id) => respond(() => editor.remove(id)),
     shortenShipmentIds: () => respond(() => ({ renamed: shortenIds(shipments, locations) })),
     listTrucks: () => respond(() => trucks),
     getBase: () => respond(() => scenario.base),

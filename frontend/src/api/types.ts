@@ -384,6 +384,17 @@ export interface ShipmentPatch {
   delivery?: PlaceInput
 }
 
+/** NOT IN SPEC v2: a shipment entered by hand (not from Excel) */
+export interface ShipmentInput {
+  /** empty or left out: a short name by relation ("KRA-STE-1", domain/shipmentIds) */
+  externalId?: string | null
+  ldmTenths: number
+  weightKg: number | null
+  description: string | null
+  pickup: PlaceInput
+  delivery: PlaceInput
+}
+
 /**
  * NOT IN SPEC v2: what happened to one place of an edited shipment. `known`: it already had
  * coordinates; `found` / `notFound` / `failed`: the lookup asked now (or its kept answer);

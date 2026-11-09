@@ -1,5 +1,15 @@
 import { ApiError } from '../client'
-import type { Location, PlaceGuess, PlaceInput, PlaceLookup, Shipment, ShipmentPatch, ShipmentUpdateResult } from '../types'
+import { relationId } from '../../domain/shipmentIds'
+import type {
+  Location,
+  PlaceGuess,
+  PlaceInput,
+  PlaceLookup,
+  Shipment,
+  ShipmentInput,
+  ShipmentPatch,
+  ShipmentUpdateResult,
+} from '../types'
 import { findPlace, type LocateResult, type PlaceLocator } from './import/importStore'
 
 type Role = PlaceLookup['role']
@@ -46,8 +56,17 @@ export function createShipmentEditor(deps: {
   assertCanChange?: () => void
   /** a place no shipment uses any more is removed unless this keeps it (kept results, the base) */
   keepsPlace?: (locationId: number) => boolean
+  /** the lowest id a new shipment may take (kept results name their shipments by id) */
+  firstFreeShipmentId?: () => number
 }) {
-  const { shipments, locations, locate, assertCanChange = () => {}, keepsPlace = () => true } = deps
+  const {
+    shipments,
+    locations,
+    locate,
+    assertCanChange = () => {},
+    keepsPlace = () => true,
+    firstFreeShipmentId = () => 1,
+  } = deps
 
   function find(id: number): Shipment {
     const shipment = shipments.find((s) => s.id === id)
@@ -55,13 +74,13 @@ export function createShipmentEditor(deps: {
     return shipment
   }
 
-  /** field -> message for everything the patch gets wrong */
-  function check(shipment: Shipment, patch: ShipmentPatch): Record<string, string> {
+  /** field -> message for everything the patch gets wrong; `selfId` is the shipment changed (null: a new one) */
+  function check(selfId: number | null, patch: ShipmentPatch): Record<string, string> {
     const errors: Record<string, string> = {}
     if (patch.externalId !== undefined) {
       const externalId = patch.externalId.trim()
       if (!externalId) errors.externalId = 'Unesite ID pošiljke.'
-      else if (shipments.some((s) => s.id !== shipment.id && s.externalId === externalId)) {
+      else if (shipments.some((s) => s.id !== selfId && s.externalId === externalId)) {
         errors.externalId = `ID „${externalId}“ već postoji među pošiljkama.`
       }
     }
@@ -154,6 +173,20 @@ export function createShipmentEditor(deps: {
     return created
   }
 
+  /** The errors of a shipment entered by hand: everything but the ID, the weight and the description is required. */
+  function checkNew(input: ShipmentInput): Record<string, string> {
+    const externalId = input.externalId?.trim()
+    const errors = check(null, {
+      ...(externalId ? { externalId } : {}),
+      ...(input.ldmTenths == null ? {} : { ldmTenths: input.ldmTenths }),
+      weightKg: input.weightKg,
+      pickup: input.pickup ?? { name: '' },
+      delivery: input.delivery ?? { name: '' },
+    })
+    if (input.ldmTenths == null) errors.ldmTenths = 'Unesite LDM pošiljke.'
+    return errors
+  }
+
   function dropUnusedPlaces(): void {
     const used = new Set(shipments.flatMap((s) => [s.pickupLocationId, s.deliveryLocationId]))
     const kept = locations.filter((l) => used.has(l.id) || keepsPlace(l.id))
@@ -179,16 +212,60 @@ export function createShipmentEditor(deps: {
       }
     },
 
+    /** A shipment entered by hand; nothing is made when it has an error (400). */
+    async create(input: ShipmentInput): Promise<ShipmentUpdateResult> {
+      assertCanChange()
+      const errors = checkNew(input)
+      if (Object.keys(errors).length > 0) throw new ApiError({ title: 'Neispravna pošiljka', status: 400, errors })
+      const asked = new Map<string, LocateResult>()
+      const plans: PlacePlan[] = []
+      for (const role of ROLES) plans.push({ role, ...(await answer(cleanPlace(input[role]), input[role], asked)) })
+
+      // The lookup took time: check again against the data as it is now.
+      assertCanChange()
+      const again = checkNew(input)
+      if (Object.keys(again).length > 0) throw new ApiError({ title: 'Neispravna pošiljka', status: 400, errors: again })
+
+      const [pickup, delivery] = plans
+      const taken = new Set(shipments.map((s) => s.externalId))
+      const shipment: Shipment = {
+        id: Math.max(firstFreeShipmentId(), ...shipments.map((s) => s.id + 1)),
+        externalId: input.externalId?.trim() || relationId(pickup.place.name, delivery.place.name, taken),
+        description: input.description?.trim() || null,
+        ldmTenths: input.ldmTenths,
+        pickupLocationId: placeFor(pickup).id,
+        deliveryLocationId: placeFor(delivery).id,
+        splittable: false,
+        weightKg: input.weightKg,
+        lengthMm: null,
+        widthMm: null,
+        heightMm: null,
+      }
+      shipments.push(shipment)
+      return {
+        shipment,
+        movedShipments: 0,
+        places: plans.map((p) => ({ role: p.role, name: p.place.name, outcome: p.outcome, message: p.message })),
+      }
+    },
+
+    /** Removes one shipment, and the places no shipment uses any more (unless kept). */
+    remove(id: number): void {
+      assertCanChange()
+      shipments.splice(shipments.indexOf(find(id)), 1)
+      dropUnusedPlaces()
+    },
+
     async update(id: number, patch: ShipmentPatch): Promise<ShipmentUpdateResult> {
       assertCanChange()
-      const errors = check(find(id), patch)
+      const errors = check(find(id).id, patch)
       if (Object.keys(errors).length > 0) throw new ApiError({ title: 'Neispravna pošiljka', status: 400, errors })
       const plans = await plan(find(id), patch)
 
       // The lookup took time: check again against the data as it is now.
       assertCanChange()
       const shipment = find(id)
-      const again = check(shipment, patch)
+      const again = check(shipment.id, patch)
       if (Object.keys(again).length > 0) throw new ApiError({ title: 'Neispravna pošiljka', status: 400, errors: again })
 
       if (patch.externalId !== undefined) shipment.externalId = patch.externalId.trim()

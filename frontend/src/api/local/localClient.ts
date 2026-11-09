@@ -235,8 +235,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     readWorkbook,
     locate,
     placeWarning,
-    // Kept jobs name their shipments by id, also after "Ukloni sve pošiljke".
-    firstFreeShipmentId: () => Math.max(0, ...[...jobs.values()].flatMap((j) => j.input.shipments.map((s) => s.id))) + 1,
+    firstFreeShipmentId,
   })
   const editor = createShipmentEditor({
     shipments,
@@ -244,7 +243,13 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     locate,
     assertCanChange: () => assertNoActiveJob('pošiljke se mogu menjati'),
     keepsPlace: (id) => keptPlaces().has(id),
+    firstFreeShipmentId,
   })
+
+  /** Kept jobs name their shipments by id, also after a shipment (or all) is removed. */
+  function firstFreeShipmentId(): number {
+    return Math.max(0, ...[...jobs.values()].flatMap((j) => j.input.shipments.map((s) => s.id))) + 1
+  }
   // Jobs run one at a time, in the order they were created (as on the backend).
   let queue: Promise<void> = Promise.resolve()
   // Writes go one after another; each writes the state as it is when its turn comes.
@@ -927,6 +932,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     updateShipment: (id, patch) => change(() => editor.update(id, patch)),
+    createShipment: (input) => change(() => editor.create(input)),
+    deleteShipment: (id) => change(() => editor.remove(id)),
 
     shortenShipmentIds: () => change(() => ({ renamed: shortenIds(shipments, locations) })),
 

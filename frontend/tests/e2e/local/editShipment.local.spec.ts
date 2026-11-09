@@ -148,7 +148,16 @@ test('changes the other fields, and shows the reason when a field is refused', a
   await form.getByLabel('Težina (kg)').fill('')
   await form.getByRole('button', { name: 'Sačuvaj izmenu' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Pošiljka „S-101a“ je sačuvana.' })).toBeVisible()
-  await expect(row(page, 'S-101a').getByRole('cell')).toHaveText(['S-101a', 'Subotica', 'Ljungby', '3,5', '–', 'nije uneto', 'U redu', 'Izmeni'])
+  await expect(row(page, 'S-101a').getByRole('cell')).toHaveText([
+    'S-101a',
+    'Subotica',
+    'Ljungby',
+    '3,5',
+    '–',
+    'nije uneto',
+    'U redu',
+    'IzmeniUkloni',
+  ])
 
   await page.reload()
   await expect(row(page, 'S-101a')).toContainText('3,5')
@@ -168,5 +177,98 @@ test('asks again for a name typed by hand, also one that differs from the file o
   await expect(row(page, 'PRI-LOS-1')).toContainText('Lösestad')
   await expect(row(page, 'PRI-LOS-1')).toContainText('Ručno uneta lokacija')
   expect(asked).toEqual(['Primerovo', 'Losestad', 'Lösestad'])
+  expect(errors).toEqual([])
+})
+
+test('corrects a shipment in a window that Escape closes, leaving the shipment as it was', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/shipments')
+  const button = page.getByRole('button', { name: 'Izmeni pošiljku S-101' })
+  await button.click()
+  const dialog = page.getByRole('dialog', { name: 'Izmena pošiljke S-101' })
+  await expect(dialog).toBeVisible()
+  // Modal: the page under it cannot be reached.
+  expect(await dialog.evaluate((d) => (d as HTMLDialogElement).matches(':modal'))).toBe(true)
+  await expect(dialog.getByRole('group', { name: 'Preuzimanje' }).getByLabel('Mesto')).toBeFocused()
+  await dialog.getByLabel('LDM').fill('9,9')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(button).toBeFocused()
+  await expect(row(page, 'S-101')).toContainText('4,0')
+
+  // Opened again, it starts from the shipment, not from what was typed.
+  await button.click()
+  await expect(dialog.getByLabel('LDM')).toHaveValue('4,0')
+  await dialog.getByRole('button', { name: 'Otkaži' }).click()
+  await expect(dialog).toBeHidden()
+  expect(errors).toEqual([])
+})
+
+test('adds a shipment by hand: says what is missing, names it by relation, and keeps it', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const asked = await fakeNominatim(page)
+  await page.goto('/shipments')
+  await page.getByRole('button', { name: 'Dodaj pošiljku' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Nova pošiljka' })
+  const pickup = dialog.getByRole('group', { name: 'Preuzimanje' })
+  const delivery = dialog.getByRole('group', { name: 'Isporuka' })
+  await expect(pickup.getByLabel('Mesto')).toBeFocused()
+
+  await dialog.getByRole('button', { name: 'Dodaj pošiljku' }).click()
+  await expect(pickup).toContainText('Unesite mesto preuzimanja.')
+  await expect(delivery).toContainText('Unesite mesto isporuke.')
+  await expect(dialog.getByText('Unesite LDM veći od 0')).toBeVisible()
+  expect(asked).toEqual([])
+
+  await pickup.getByLabel('Mesto').fill('Subotica')
+  await delivery.getByLabel('Mesto').fill('Novostad')
+  await delivery.getByLabel('Zemlja (neobavezno)').fill('se')
+  await dialog.getByLabel('LDM').fill('2,4')
+  await dialog.getByLabel('Težina (kg)').fill('900')
+  await dialog.getByLabel('Opis').fill('Palete')
+  await expect(dialog).toContainText('© OpenStreetMap contributors')
+  await dialog.getByRole('button', { name: 'Dodaj pošiljku' }).click()
+
+  const added = page.getByRole('status').filter({ hasText: 'Pošiljka „SUB-NOV-1“ je dodata.' })
+  await expect(added).toContainText('„Novostad“: koordinate su pronađene.')
+  await expect(dialog).toBeHidden()
+  await expect(row(page, 'SUB-NOV-1').getByRole('cell')).toHaveText([
+    'SUB-NOV-1',
+    'Subotica',
+    'Novostad',
+    '2,4',
+    '900',
+    'nije uneto',
+    'Ručno uneta lokacija',
+    'IzmeniUkloni',
+  ])
+  // Subotica is known (with its coordinates): only the new place is looked up.
+  expect(asked).toEqual(['Novostad'])
+
+  await page.reload()
+  await expect(row(page, 'SUB-NOV-1')).toContainText('Novostad')
+  expect(errors).toEqual([])
+})
+
+test('removes one shipment after asking, and keeps it removed', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/shipments')
+  await expect(table(page).getByRole('row')).toHaveCount(6)
+
+  await row(page, 'S-102').getByRole('button', { name: 'Ukloni pošiljku S-102' }).click()
+  const confirm = page.getByRole('group', { name: 'Potvrda uklanjanja: pošiljka S-102' })
+  await confirm.getByRole('button', { name: 'Otkaži' }).click()
+  await expect(confirm).toBeHidden()
+  await expect(row(page, 'S-102')).toHaveCount(1)
+
+  await row(page, 'S-102').getByRole('button', { name: 'Ukloni pošiljku S-102' }).click()
+  await confirm.getByRole('button', { name: 'Da, ukloni' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Pošiljka „S-102“ je uklonjena.' })).toBeVisible()
+  await expect(row(page, 'S-102')).toHaveCount(0)
+  await expect(table(page).getByRole('row')).toHaveCount(5)
+
+  await page.reload()
+  await expect(row(page, 'S-101')).toHaveCount(1)
+  await expect(row(page, 'S-102')).toHaveCount(0)
   expect(errors).toEqual([])
 })

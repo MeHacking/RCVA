@@ -1,15 +1,18 @@
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode, type Ref } from 'react'
 import { useApi } from '../../api/apiContext'
 import { apiMode } from '../../api/apiMode'
 import { ApiError, describeError } from '../../api/client'
 import type { Location, Shipment, ShipmentUpdateResult } from '../../api/types'
+import { Icon } from '../../components/Icon'
 import { OsmAttribution } from '../../components/OsmAttribution'
 import { haversineMeters } from '../../domain/optimization/distance'
 import { formatCoordinates } from '../../format/coordinates'
 import { formatKm } from '../../format/units'
 import {
   apiErrorsToForm,
+  buildShipmentInput,
   buildShipmentPatch,
+  emptyFormValues,
   otherShipmentsAt,
   placeReplaced,
   toFormValues,
@@ -20,46 +23,67 @@ import {
   type ShipmentFormValues,
 } from './shipmentEditModel'
 
-/** Correction of an imported shipment, in a row below it; only changed fields are sent. */
-export function ShipmentEditor({
+/**
+ * A shipment entered by hand (`shipment` null) or the correction of one, in a modal window
+ * (a native <dialog>: Escape closes it, focus stays inside and goes back to the button
+ * after). A correction sends only the changed fields. A click beside the window does not
+ * close it, so what was typed is not lost by accident.
+ */
+export function ShipmentDialog({
   shipment,
   shipments,
   locations,
   onSaved,
-  onCancel,
+  onClose,
   onPlaceRestored,
 }: {
-  shipment: Shipment
+  /** null: a new shipment */
+  shipment: Shipment | null
   shipments: Shipment[]
   locations: Location[]
   onSaved: (result: ShipmentUpdateResult) => void
-  onCancel: () => void
+  onClose: () => void
   /** a place moved to the nearest road for lorries was put back where it was */
   onPlaceRestored: (place: Location) => void
 }) {
   const api = useApi()
   const id = useId()
-  const [initial] = useState(() => toFormValues(shipment, locations))
+  const ref = useRef<HTMLDialogElement>(null)
+  const first = useRef<HTMLInputElement>(null)
+  const [initial] = useState(() => (shipment ? toFormValues(shipment, locations) : emptyFormValues()))
   const [values, setValues] = useState<ShipmentFormValues>(initial)
   const [errors, setErrors] = useState<ShipmentFormErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const isNew = shipment === null
+
+  useEffect(() => {
+    const dialog = ref.current
+    if (dialog && !dialog.open) dialog.showModal()
+    // showModal focuses the first button (the X); the first place is where typing starts.
+    first.current?.focus()
+  }, [])
 
   const set = <K extends keyof ShipmentFormValues>(field: K, value: ShipmentFormValues[K]) =>
     setValues((previous) => ({ ...previous, [field]: value }))
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const built = buildShipmentPatch(values, initial)
+    const built = shipment ? buildShipmentPatch(values, initial) : buildShipmentInput(values)
     if (!built.ok) {
       setErrors(built.errors)
+      setFormError(null)
       return
     }
     setErrors({})
     setFormError(null)
     setSaving(true)
     try {
-      onSaved(await api.updateShipment(shipment.id, built.patch))
+      const result =
+        'patch' in built ? await api.updateShipment(shipment!.id, built.patch) : await api.createShipment(built.input)
+      // Closed first, so focus goes back to the button that opened the window.
+      ref.current?.close()
+      onSaved(result)
     } catch (error) {
       if (error instanceof ApiError && error.status === 400 && error.problem.errors) {
         setErrors(apiErrorsToForm(error.problem.errors))
@@ -82,82 +106,112 @@ export function ShipmentEditor({
     )
 
   const place = (role: PlaceRole) => {
-    const locationId = role === 'pickup' ? shipment.pickupLocationId : shipment.deliveryLocationId
+    const locationId = shipment ? (role === 'pickup' ? shipment.pickupLocationId : shipment.deliveryLocationId) : null
     return (
       <PlaceEditor
         role={role}
         idPrefix={id}
+        isNew={isNew}
+        inputRef={role === 'pickup' ? first : undefined}
         location={locations.find((l) => l.id === locationId)}
-        others={otherShipmentsAt(locationId, shipments, shipment.id)}
+        others={shipment && locationId !== null ? otherShipmentsAt(locationId, shipments, shipment.id) : 0}
         value={values[role]}
         initial={initial[role]}
         onChange={(value) => set(role, value)}
         fieldProps={fieldProps}
         fieldError={fieldError}
-        onRestored={onPlaceRestored}
+        onRestored={(restored) => {
+          ref.current?.close()
+          onPlaceRestored(restored)
+        }}
       />
     )
   }
 
+  const title = shipment ? `Izmena pošiljke ${shipment.externalId}` : 'Nova pošiljka'
   return (
-    <form className="row-editor" onSubmit={handleSubmit} noValidate aria-label={`Izmena pošiljke ${shipment.externalId}`}>
-      <div className="row-editor__grid">
-        {place('pickup')}
-        {place('delivery')}
-        <fieldset className="field">
-          <legend>Pošiljka</legend>
-          <div className="field">
-            <label htmlFor={`${id}-externalId`}>ID</label>
-            <input {...fieldProps('externalId')} value={values.externalId} onChange={(e) => set('externalId', e.target.value)} />
-            {fieldError('externalId')}
-          </div>
-          <div className="field-row field-row--2">
+    <dialog
+      ref={ref}
+      className="dialog dialog--wide"
+      aria-labelledby={`${id}-title`}
+      onClose={onClose}
+      // Not while saving: the answer would come to a window that is gone.
+      onCancel={(event) => saving && event.preventDefault()}
+    >
+      <form className="shipment-form" onSubmit={handleSubmit} noValidate aria-label={title}>
+        <div className="dialog__header">
+          <h2 id={`${id}-title`}>{title}</h2>
+          <button
+            type="button"
+            className="button--ghost dialog__x"
+            onClick={() => ref.current?.close()}
+            disabled={saving}
+            aria-label="Zatvori"
+            title="Zatvori"
+          >
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <div className="shipment-form__grid">
+          {place('pickup')}
+          {place('delivery')}
+          <fieldset className="field">
+            <legend>Pošiljka</legend>
             <div className="field">
-              <label htmlFor={`${id}-ldm`}>LDM</label>
-              <input {...fieldProps('ldm')} inputMode="decimal" value={values.ldm} onChange={(e) => set('ldm', e.target.value)} />
-              {fieldError('ldm')}
+              <label htmlFor={`${id}-externalId`}>{isNew ? 'ID (neobavezno)' : 'ID'}</label>
+              <input {...fieldProps('externalId')} value={values.externalId} onChange={(e) => set('externalId', e.target.value)} />
+              {fieldError('externalId') ??
+                (isNew && <span className="field__hint">Prazno: naziv po relaciji, npr. KRA-STE-1.</span>)}
+            </div>
+            <div className="field-row field-row--2">
+              <div className="field">
+                <label htmlFor={`${id}-ldm`}>LDM</label>
+                <input {...fieldProps('ldm')} inputMode="decimal" value={values.ldm} onChange={(e) => set('ldm', e.target.value)} />
+                {fieldError('ldm')}
+              </div>
+              <div className="field">
+                <label htmlFor={`${id}-weight`}>Težina (kg)</label>
+                <input
+                  {...fieldProps('weight')}
+                  inputMode="numeric"
+                  value={values.weight}
+                  onChange={(e) => set('weight', e.target.value)}
+                />
+                {fieldError('weight')}
+              </div>
             </div>
             <div className="field">
-              <label htmlFor={`${id}-weight`}>Težina (kg)</label>
-              <input
-                {...fieldProps('weight')}
-                inputMode="numeric"
-                value={values.weight}
-                onChange={(e) => set('weight', e.target.value)}
-              />
-              {fieldError('weight')}
+              <label htmlFor={`${id}-description`}>Opis</label>
+              <input id={`${id}-description`} value={values.description} onChange={(e) => set('description', e.target.value)} />
             </div>
-          </div>
-          <div className="field">
-            <label htmlFor={`${id}-description`}>Opis</label>
-            <input id={`${id}-description`} value={values.description} onChange={(e) => set('description', e.target.value)} />
-          </div>
-        </fieldset>
-      </div>
-      <p className="text--muted row-editor__note">
-        Pri čuvanju se koordinate traže samo za mesta ove pošiljke koja ih nemaju. Upisan naziv se traži ponovo i ako
-        ranije nije pronađen; za mesto koje ovde nije menjano koristi se zapamćen odgovor.
-        {apiMode() === 'local' && (
-          <>
-            {' '}
-            <OsmAttribution />
-          </>
-        )}
-      </p>
-      {formError && (
-        <p role="alert" className="text--error">
-          Izmena nije sačuvana: {formError}
+          </fieldset>
+        </div>
+        <p className="text--muted shipment-form__note">
+          {isNew
+            ? 'Pri čuvanju se koordinate mesta traže po nazivu, kao pri uvozu Excel-a; poznato mesto zadržava svoje.'
+            : 'Pri čuvanju se koordinate traže samo za mesta ove pošiljke koja ih nemaju. Upisan naziv se traži ponovo i ako ranije nije pronađen; za mesto koje ovde nije menjano koristi se zapamćen odgovor.'}
+          {apiMode() === 'local' && (
+            <>
+              {' '}
+              <OsmAttribution />
+            </>
+          )}
         </p>
-      )}
-      <div className="form-actions">
-        <button type="submit" className="button--primary" disabled={saving}>
-          {saving ? 'Čuvanje…' : 'Sačuvaj izmenu'}
-        </button>
-        <button type="button" onClick={onCancel} disabled={saving}>
-          Otkaži
-        </button>
-      </div>
-    </form>
+        {formError && (
+          <p role="alert" className="text--error">
+            {isNew ? 'Pošiljka nije dodata' : 'Izmena nije sačuvana'}: {formError}
+          </p>
+        )}
+        <div className="form-actions">
+          <button type="submit" className="button--primary" disabled={saving}>
+            {saving ? 'Čuvanje…' : isNew ? 'Dodaj pošiljku' : 'Sačuvaj izmenu'}
+          </button>
+          <button type="button" onClick={() => ref.current?.close()} disabled={saving}>
+            Otkaži
+          </button>
+        </div>
+      </form>
+    </dialog>
   )
 }
 
@@ -166,6 +220,8 @@ const LEGENDS: Record<PlaceRole, string> = { pickup: 'Preuzimanje', delivery: 'I
 function PlaceEditor({
   role,
   idPrefix,
+  isNew,
+  inputRef,
   location,
   others,
   value,
@@ -177,6 +233,9 @@ function PlaceEditor({
 }: {
   role: PlaceRole
   idPrefix: string
+  /** the place of a shipment entered by hand: it has no place yet */
+  isNew: boolean
+  inputRef?: Ref<HTMLInputElement>
   /** the place the shipment has now */
   location: Location | undefined
   /** other shipments at that place */
@@ -210,7 +269,9 @@ function PlaceEditor({
     <fieldset className="field">
       <legend>{LEGENDS[role]}</legend>
       <p className="row-editor__place-status">
-        {located ? (
+        {isNew ? (
+          <span className="text--muted">Grad ili mesto, kao u Excel-u.</span>
+        ) : located ? (
           <>
             Koordinate: {formatCoordinates(located)}
             {location?.movedFrom ? (
@@ -242,12 +303,17 @@ function PlaceEditor({
       </p>
       <div className="field">
         <label htmlFor={`${idPrefix}-${role}`}>Mesto</label>
-        <input {...fieldProps(role)} value={value.name} onChange={(e) => set('name', e.target.value)} />
+        <input {...fieldProps(role)} ref={inputRef} value={value.name} onChange={(e) => set('name', e.target.value)} />
         {fieldError(role)}
       </div>
       <div className="field">
-        <label htmlFor={`${prefix}-country`}>Zemlja</label>
-        <input id={`${prefix}-country`} value={value.country} onChange={(e) => set('country', e.target.value)} />
+        <label htmlFor={`${prefix}-country`}>{isNew ? 'Zemlja (neobavezno)' : 'Zemlja'}</label>
+        <input
+          id={`${prefix}-country`}
+          value={value.country}
+          placeholder={isNew ? 'npr. RS' : undefined}
+          onChange={(e) => set('country', e.target.value)}
+        />
       </div>
       {/* A place with coordinates keeps them; coordinates by hand are only for a place without them. */}
       {(!located || replaced) && (
@@ -265,7 +331,7 @@ function PlaceEditor({
           )}
         </div>
       )}
-      {!located && replaced && others > 0 && (
+      {!isNew && !located && replaced && others > 0 && (
         <div className="field field--checkbox">
           <input
             id={`${prefix}-move`}

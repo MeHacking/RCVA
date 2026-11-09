@@ -262,8 +262,23 @@ function Steps() {
       </ul>
       <p>
         Ako isto pogrešno mesto imaju i druge pošiljke, ostavite uključeno „Ispravi i u ostalim pošiljkama sa
-        mestom…“, pa jedna ispravka popravlja sve. U istom obrascu menjate i ID, LDM, težinu i opis.
+        mestom…“, pa jedna ispravka popravlja sve. U istom prozoru menjate i ID, LDM, težinu i opis; „Otkaži“ ili
+        Escape zatvaraju prozor bez izmene.
       </p>
+      {CAN_SHORTEN && (
+        <>
+          <p>
+            <strong>Pošiljka bez Excel-a:</strong> „Dodaj pošiljku“ otvara isti prozor, prazan. Obavezni su mesto
+            preuzimanja, mesto isporuke i LDM; ID, težina, opis i zemlja nisu. Bez ID-ja pošiljka dobija kratak naziv
+            po relaciji (npr. „KRA-STE-1“). Koordinate se traže po nazivu mesta kao pri uvozu, a poznato mesto
+            zadržava svoje; ako se mesto ne pronađe, upišite koordinate ručno.
+          </p>
+          <p>
+            <strong>Uklanjanje jedne pošiljke:</strong> „Ukloni“ u njenom redu, pa „Da, ukloni“. Sačuvani rezultati
+            optimizacije se ne menjaju. Dok optimizacija radi, pošiljke se ne mogu dodavati, menjati ni uklanjati.
+          </p>
+        </>
+      )}
 
       <Subheading n={3}>Kamioni</Subheading>
       <p>

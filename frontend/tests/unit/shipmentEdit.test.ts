@@ -305,3 +305,213 @@ async function settled(api: ApiClient, id: number) {
   }
   throw new Error('job did not finish')
 }
+
+const place = (name: string, country: string | null = null) => ({ name, postalCode: null, country })
+
+describe('a shipment entered by hand on the device', () => {
+  it('finds a known place without asking, looks a new one up once, and names it by relation', async () => {
+    const store = createMemoryStore<LocalData>()
+    const { api, fake, first } = await imported(store)
+    const result = await api.createShipment({
+      externalId: null,
+      ldmTenths: 24,
+      weightKg: 900,
+      description: ' Palete ',
+      pickup: place(' Primerovo ', 'rs'),
+      delivery: place('Novostad', 'SE'),
+    })
+    expect(fake.asked).toEqual(['Novostad'])
+    expect(result.places.map((p) => [p.name, p.outcome])).toEqual([
+      ['Primerovo', 'known'],
+      ['Novostad', 'found'],
+    ])
+    expect(result.movedShipments).toBe(0)
+    expect(result.shipment).toMatchObject({
+      externalId: 'PRI-NOV-1',
+      ldmTenths: 24,
+      weightKg: 900,
+      description: 'Palete',
+      pickupLocationId: first.pickupLocationId,
+      splittable: false,
+    })
+    expect(await placeOf(api, 'PRI-NOV-1', 'delivery')).toMatchObject({ name: 'Novostad', lat: 58.2, geocodeStatus: 'MANUAL' })
+
+    // The same relation again: the next number, and the place is known now.
+    const again = await api.createShipment({
+      ldmTenths: 10,
+      weightKg: null,
+      description: null,
+      pickup: place('Primerovo'),
+      delivery: place('Novostad'),
+    })
+    expect(again.shipment.externalId).toBe('PRI-NOV-2')
+    expect(again.shipment.deliveryLocationId).toBe(result.shipment.deliveryLocationId)
+    expect(fake.asked).toEqual(['Novostad'])
+
+    const restarted = device(nominatim(), store)
+    expect((await restarted.listShipments()).map((s) => s.externalId)).toEqual([
+      'PRI-LOS-1',
+      'DRU-LOS-1',
+      'PRI-TES-1',
+      'PRI-NOV-1',
+      'PRI-NOV-2',
+    ])
+  })
+
+  it('takes an ID and coordinates typed by hand, and keeps a place that is not found as unclear', async () => {
+    const { api, fake } = await imported()
+    const unclear = await api.createShipment({
+      externalId: ' R-1 ',
+      ldmTenths: 5,
+      weightKg: null,
+      description: null,
+      pickup: place('Primerovo'),
+      delivery: place('Nigdeovo'),
+    })
+    expect(unclear.shipment.externalId).toBe('R-1')
+    expect(unclear.places[1]).toMatchObject({ name: 'Nigdeovo', outcome: 'notFound' })
+    expect(await placeOf(api, 'R-1', 'delivery')).toMatchObject({ lat: null, lon: null, geocodeStatus: 'FAILED' })
+
+    const manual = await api.createShipment({
+      ldmTenths: 5,
+      weightKg: null,
+      description: null,
+      pickup: place('Primerovo'),
+      delivery: { ...place('Daljevo'), coordinates: { lat: 60.1, lon: 11.2 } },
+    })
+    expect(manual.places[1]).toMatchObject({ name: 'Daljevo', outcome: 'manual' })
+    expect(await placeOf(api, manual.shipment.externalId, 'delivery')).toMatchObject({
+      lat: 60.1,
+      lon: 11.2,
+      geocodeStatus: 'MANUAL',
+    })
+    // Coordinates by hand are used instead of the lookup.
+    expect(fake.asked).toEqual(['Nigdeovo'])
+  })
+
+  it('answers 400 by field and makes nothing, asking nothing', async () => {
+    const { api, fake } = await imported()
+    const before = await api.listShipments()
+    const error = await rejection(
+      api.createShipment({
+        externalId: 'PRI-LOS-1',
+        ldmTenths: 0,
+        weightKg: -5,
+        description: null,
+        pickup: place(' '),
+        delivery: { ...place('Novostad'), coordinates: { lat: 91, lon: 0 } },
+      }),
+    )
+    expect(error.problem).toMatchObject({
+      status: 400,
+      errors: {
+        externalId: 'ID „PRI-LOS-1“ već postoji među pošiljkama.',
+        ldmTenths: 'LDM mora biti veći od 0, sa najviše jednom decimalom.',
+        weightKg: 'Težina mora biti veća od 0 ili prazna.',
+        pickup: 'Unesite mesto preuzimanja.',
+        deliveryCoordinates: 'Geografska širina mora biti između -90 i 90, a dužina između -180 i 180.',
+      },
+    })
+    const missing = await rejection(
+      api.createShipment({
+        ldmTenths: undefined as unknown as number,
+        weightKg: null,
+        description: null,
+        pickup: place('Primerovo'),
+        delivery: place(''),
+      }),
+    )
+    expect(missing.problem.errors).toEqual({ ldmTenths: 'Unesite LDM pošiljke.', delivery: 'Unesite mesto isporuke.' })
+    expect(await api.listShipments()).toEqual(before)
+    expect(fake.asked).toEqual([])
+  })
+
+  it('never gives a new shipment the id of a shipment in a kept result', async () => {
+    const api = device(nominatim(), createMemoryStore<LocalData>(), SCENARIOS.small)
+    const { id } = await api.createOptimizationJob(REQUEST)
+    await settled(api, id)
+    await api.deleteShipment(105)
+    const created = await api.createShipment({
+      ldmTenths: 5,
+      weightKg: null,
+      description: null,
+      pickup: place('Subotica'),
+      delivery: place('Ljungby'),
+    })
+    expect(created.shipment.id).toBe(106)
+  })
+})
+
+describe('removing one shipment on the device', () => {
+  it('removes the shipment and the places no shipment uses any more, and keeps that after a restart', async () => {
+    const store = createMemoryStore<LocalData>()
+    const { api, third } = await imported(store)
+    await api.deleteShipment(third.id)
+    expect((await api.listShipments()).map((s) => s.externalId)).toEqual(['PRI-LOS-1', 'DRU-LOS-1'])
+    // Teststad was only this shipment's; Primerovo is another's pickup too.
+    expect((await api.listLocations()).map((l) => l.name).sort()).toEqual(['Drugovo', 'Losestad', 'Primerovo'])
+    const restarted = device(nominatim(), store)
+    expect((await restarted.listShipments()).map((s) => s.externalId)).toEqual(['PRI-LOS-1', 'DRU-LOS-1'])
+    expect((await rejection(api.deleteShipment(third.id))).problem).toMatchObject({
+      status: 404,
+      detail: `Pošiljka ${third.id} ne postoji.`,
+    })
+  })
+
+  it('keeps the places of a kept result, and the result as it was', async () => {
+    const api = device(nominatim(), createMemoryStore<LocalData>(), SCENARIOS.small)
+    const { id } = await api.createOptimizationJob(REQUEST)
+    await settled(api, id)
+    const result = await api.getOptimizationResult(id)
+    const places = await api.listLocations()
+    await api.deleteShipment(101)
+    expect((await api.listShipments()).map((s) => s.id)).toEqual([102, 103, 104, 105])
+    expect(await api.listLocations()).toEqual(places)
+    expect(await api.getOptimizationResult(id)).toEqual(result)
+  })
+
+  it('answers 409 for a new or a removed shipment while a job runs, asking nothing', async () => {
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const fake = nominatim()
+    const api = device(fake, createMemoryStore<LocalData>(), SCENARIOS.small, (input, options) =>
+      held.then(() => steps(input, options)),
+    )
+    const { id } = await api.createOptimizationJob(REQUEST)
+    const detail = `Optimizacija #${id} je u toku; pošiljke se mogu menjati kada se završi.`
+    expect((await rejection(api.deleteShipment(101))).problem).toMatchObject({ status: 409, detail })
+    const created = api.createShipment({
+      ldmTenths: 5,
+      weightKg: null,
+      description: null,
+      pickup: place('Primerovo'),
+      delivery: place('Novostad'),
+    })
+    expect((await rejection(created)).problem).toMatchObject({ status: 409, detail })
+    expect((await api.listShipments()).map((s) => s.id)).toEqual([101, 102, 103, 104, 105])
+    expect(fake.asked).toEqual([])
+    release()
+    await settled(api, id)
+  })
+})
+
+describe('shipments by hand in the mock', () => {
+  it('adds from the probni spisak and removes, keeping every place', async () => {
+    const api = createMockApiClient({ scenario: SCENARIOS.small, latencyMs: 0 })
+    const places = (await api.listLocations()).length
+    const created = await api.createShipment({
+      ldmTenths: 12,
+      weightKg: 700,
+      description: null,
+      pickup: place('Subotica', 'RS'),
+      delivery: place('Malmö', 'SE'),
+    })
+    expect(created.shipment).toMatchObject({ id: 106, externalId: 'SUB-MAL-1', ldmTenths: 12 })
+    expect(created.places.map((p) => p.outcome)).toEqual(['known', 'found'])
+    await api.deleteShipment(106)
+    await api.deleteShipment(101)
+    expect((await api.listShipments()).map((s) => s.id)).toEqual([102, 103, 104, 105])
+    // Malmö stays too: the mock never removes a place.
+    expect((await api.listLocations()).length).toBe(places + 1)
+  })
+})

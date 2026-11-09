@@ -727,6 +727,24 @@ button.stat.stat-action:hover:not(:disabled) {
   width: min(30rem, calc(100vw - 2rem));
 }
 
+/* A shipment entered or corrected (ShipmentDialog): the two places and the shipment side by
+   side where there is room, one under another where there is not. */
+.dialog--wide {
+  width: min(60rem, calc(100vw - 2rem));
+}
+
+.shipment-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.shipment-form__note {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
 .dialog[open] {
   animation: card-in 0.22s ease-out backwards;
 }

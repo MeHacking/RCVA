@@ -84,6 +84,11 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     // Nor corrections of imported shipments.
     updateShipment: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema izmenu pošiljki.' })),
+    // Nor shipments entered by hand or removed one by one (the screen does not offer it in server mode).
+    createShipment: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema ručni unos pošiljki.' })),
+    deleteShipment: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema uklanjanje pošiljke.' })),
     checkDeviceData: () => Promise.reject(noDeviceData()),
     replaceDeviceData: () => Promise.reject(noDeviceData()),
     resetDevice: () => Promise.reject(noDeviceData()),

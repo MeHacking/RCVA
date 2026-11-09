@@ -1,4 +1,4 @@
-import type { Location, PlaceInput, Shipment, ShipmentPatch, ShipmentUpdateResult } from '../../api/types'
+import type { Location, PlaceInput, Shipment, ShipmentInput, ShipmentPatch, ShipmentUpdateResult } from '../../api/types'
 import { parseCoordinates } from '../../format/coordinates'
 import { formatKg, formatLdm, parseKg, parseLdmTenths } from '../../format/units'
 
@@ -56,6 +56,55 @@ export function toFormValues(shipment: Shipment, locations: Location[]): Shipmen
     description: shipment.description ?? '',
     pickup: place(shipment.pickupLocationId),
     delivery: place(shipment.deliveryLocationId),
+  }
+}
+
+/** The form of a shipment entered by hand. */
+export function emptyFormValues(): ShipmentFormValues {
+  const place = (): PlaceFormValues => ({ name: '', postalCode: '', country: '', coordinates: '', moveOthers: false })
+  return { externalId: '', ldm: '', weight: '', description: '', pickup: place(), delivery: place() }
+}
+
+/**
+ * A shipment entered by hand, or the errors of the form: the places and LDM are required,
+ * the ID (empty: a short one by relation), the weight and the description are not.
+ */
+export function buildShipmentInput(
+  values: ShipmentFormValues,
+): { ok: true; input: ShipmentInput } | { ok: false; errors: ShipmentFormErrors } {
+  const errors: ShipmentFormErrors = {}
+
+  const ldmTenths = parseLdmTenths(values.ldm)
+  if (ldmTenths === null || ldmTenths <= 0) errors.ldm = 'Unesite LDM veći od 0, sa najviše jednom decimalom (npr. 2,4).'
+
+  const weightKg = parseKg(values.weight)
+  if (weightKg === 'invalid') errors.weight = 'Unesite težinu u celim kilogramima ili ostavite polje prazno.'
+
+  const places: Partial<Record<PlaceRole, PlaceInput>> = {}
+  for (const role of ['pickup', 'delivery'] as const) {
+    const place = values[role]
+    const name = place.name.trim()
+    if (!name) errors[role] = role === 'pickup' ? 'Unesite mesto preuzimanja.' : 'Unesite mesto isporuke.'
+    const coordinates = parseCoordinates(place.coordinates)
+    if (coordinates === 'invalid') errors[`${role}Coordinates`] = 'Unesite širinu i dužinu, npr. 45.2671, 19.8335.'
+    const input: PlaceInput = { name, postalCode: null, country: place.country.trim().toUpperCase() || null }
+    if (coordinates && coordinates !== 'invalid') input.coordinates = coordinates
+    places[role] = input
+  }
+
+  if (Object.keys(errors).length > 0 || ldmTenths === null || weightKg === 'invalid' || !places.pickup || !places.delivery) {
+    return { ok: false, errors }
+  }
+  return {
+    ok: true,
+    input: {
+      externalId: values.externalId.trim() || null,
+      ldmTenths,
+      weightKg,
+      description: values.description.trim() || null,
+      pickup: places.pickup,
+      delivery: places.delivery,
+    },
   }
 }
 
@@ -146,7 +195,10 @@ export function apiErrorsToForm(errors: Record<string, string>): ShipmentFormErr
 }
 
 /** The message after a saved correction: what happened to the places, and to other shipments. */
-export function describeUpdate(result: ShipmentUpdateResult): { tone: 'success' | 'warning'; title: string; lines: string[] } {
+export function describeUpdate(
+  result: ShipmentUpdateResult,
+  { created = false }: { created?: boolean } = {},
+): { tone: 'success' | 'warning'; title: string; lines: string[] } {
   const lines: string[] = []
   for (const place of result.places) {
     const name = `„${place.name}“`
@@ -163,7 +215,7 @@ export function describeUpdate(result: ShipmentUpdateResult): { tone: 'success' 
   const unclear = result.places.some((p) => p.outcome === 'notFound' || p.outcome === 'failed')
   return {
     tone: unclear ? 'warning' : 'success',
-    title: `Pošiljka „${result.shipment.externalId}“ je sačuvana.`,
+    title: `Pošiljka „${result.shipment.externalId}“ je ${created ? 'dodata' : 'sačuvana'}.`,
     lines,
   }
 }
