@@ -4,11 +4,33 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 09.11.2026 (vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u,
-Viber); videti „Gde smo stali“. Na `origin/main` je `34a054e` (05.11.2026); 4 commit-a posle
-toga (do `ff6acf6`) nisu push-ovana.
+Poslednje ažuriranje: 09.11.2026 (pošiljke ručno: prozor za izmenu i dodavanje, brisanje jedne;
+pre toga vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
+Sve je push-ovano na `origin/main` 09.11.2026 (zajedno sa pošiljkama bez Excel-a).
 
 ## Gde smo stali (03.11.2026)
+
+**Pošiljke bez Excel-a (urađeno 09.11.2026)**, na zahtev korisnika („prozor
+kao na drugim ekranima; izmena, ručno dodavanje i brisanje pošiljki“). Plan nije posebno
+potvrđivan (zahtev je bio jasan); izbori: ista polja kao izmena, obavezni mesto preuzimanja,
+mesto isporuke i LDM; brisanje sa potvrdom u redu kao kod kamiona.
+- `ApiClient.createShipment(ShipmentInput)` i `deleteShipment(id)` (NOT IN SPEC v2; `httpClient`
+  404, u režimu `server` se ne nudi). Logika u `api/mock/shipmentEdit.ts` (`create`, `remove`,
+  zajednička provera `check(selfId, …)` i `checkNew`): mesta kao u izmeni (poznato mesto bez
+  pitanja, novo preko `locate`, ručne koordinate; nepronađeno ostaje bez koordinata), bez ID-ja
+  naziv po relaciji (`relationId`), id ne uzima id iz sačuvanih poslova (`firstFreeShipmentId`
+  sada i u editoru); brisanje briše i mesta koja niko ne koristi osim `keptPlaces`; 400 po
+  polju, 404, 409 dok posao radi (pre traženja). Mock ne briše mesta.
+- Ekran: `ShipmentEditor.tsx` → `ShipmentDialog.tsx` (`<dialog>` `.dialog--wide`, 60rem, kolone
+  `.shipment-form__grid` auto-fit; Escape i X zatvaraju, klik pored ne, dok se čuva ni Escape;
+  fokus na „Mesto“ preuzimanja). Isti prozor za izmenu („Izmena pošiljke X“) i novu („Nova
+  pošiljka“). Pošiljke: dugme „Dodaj pošiljku“ (`plus`), u redu „Izmeni“ i „Ukloni“ (kanta,
+  potvrda „Ukloniti pošiljku?“ / „Da, ukloni“), obaveštenje „…je dodata.“ / „…je uklonjena.“
+  (`describeUpdate(…, { created })`). Uputstvo dopunjeno.
+- Testovi: 8 novih u `shipmentEdit.test.ts`, 4 u `shipmentEditModel.test.ts`, 3 nova e2e u
+  `editShipment.local.spec.ts` (prozor i Escape, dodavanje, brisanje). Provereno na pokvarenom
+  kodu (3 izmene: mesta se ne brišu, bez 409, id iz sačuvanog posla): svaka obara testove.
+  Vitest 507, ceo e2e 93 prolaze; desktop nije pokretan. Izgled proveren snimkom (1400 i 390 px).
 
 **Vozač, PDF po kamionu, 3D u PDF-u, Viber (od 08.11.2026)**, na zahtev korisnika; plan
 potvrđen: redom vozač → PDF za jednog kamiona → 3D u PDF-u → Viber. Viber nema način da
