@@ -89,6 +89,7 @@ export function ShipmentsPage() {
         actions={
           <>
             <button type="button" onClick={exportCsv} disabled={!rows || rows.length === 0}>
+              <Icon name="download" size={16} />
               Izvezi CSV
             </button>
             {CAN_DELETE_ALL && (
@@ -97,6 +98,7 @@ export function ShipmentsPage() {
                 onClick={() => setConfirming(true)}
                 disabled={!rows || rows.length === 0 || confirming}
               >
+                <Icon name="trash" size={16} />
                 Ukloni sve pošiljke
               </button>
             )}
@@ -107,6 +109,7 @@ export function ShipmentsPage() {
               </button>
             )}
             <button type="button" className="button--primary" onClick={() => navigate('/shipments/import')}>
+              <Icon name="upload" size={16} />
               Uvezi Excel
             </button>
           </>
