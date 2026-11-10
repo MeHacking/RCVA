@@ -6,9 +6,21 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 10.11.2026 („Traži ponovo“ za mesto, zemlja iz padajućeg menija; pre toga pošiljke ručno,
 vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 10.11.2026, osim ispravke za Snap.
+Sve je push-ovano na `origin/main` 10.11.2026, osim ispravke za Snap i traženja dostupne tačke.
 
 ## Gde smo stali (03.11.2026)
+
+**Tačka do koje kamion stiže (urađeno 10.11.2026)**, na zahtev korisnika, jer je mesto bilo na
+dozvoljenom putu (Snap 0 m), a ruta do njega nije postojala (Snap gleda samo tu deonicu, ne da li se
+do nje stiže). `api/local/roadPointSearch.ts`: `pointsAround` (mesto + 8 krugova od 250 m do 5 km,
+po 6 tačaka, ukupno 49), Snap svih tačaka (`POINT_SNAP_RADIUS_M` 1000), pa jedna Matrix provera
+od drugog mesta i nazad; bira se najbliža dostupna. Dva ORS upita po mestu. Drugo mesto
+(`otherPlaceFor`): najbliže korišćeno mesto koje nije među odsečenim; ako su sva odsečena, bilo
+koje drugo. Rezultat 0 m znači da kamion ipak stiže do tačke (poruka: problem je verovatno u
+drugom mestu). `to: null`: „nema tačke do koje kamion stiže u krugu od 5 km“. Provereno sa lažnim
+ORS-om (uključujući odgovor bez `snapped_distance`), **nije probano sa pravim**. Testovi:
+`roadPointSearch.test.ts` (9), 1 nov i izmenjen u `localClient.test.ts`, 2 nova e2e umesto
+„tačka je već na putu“; provereno na pokvarenom kodu (10 izmena).
 
 **Snap bez `snapped_distance` (ispravljeno 10.11.2026)**, korisnik je dobio „neočekivan odgovor za
 najbliži put“ sa pravim ORS-om. U izvornom kodu ORS-a klasa `JSON2DSources` ima
