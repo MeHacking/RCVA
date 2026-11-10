@@ -6,9 +6,17 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 10.11.2026 („Traži ponovo“ za mesto, zemlja iz padajućeg menija; pre toga pošiljke ručno,
 vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 10.11.2026.
+Sve je push-ovano na `origin/main` 10.11.2026, osim ispravke za Snap.
 
 ## Gde smo stali (03.11.2026)
+
+**Snap bez `snapped_distance` (ispravljeno 10.11.2026)**, korisnik je dobio „neočekivan odgovor za
+najbliži put“ sa pravim ORS-om. U izvornom kodu ORS-a klasa `JSON2DSources` ima
+`@JsonInclude(NON_DEFAULT)`, pa se rastojanje 0 izostavlja iz odgovora (tačka je već na putu), a
+aplikacija ga je tražila kao obavezno. Sada izostavljeno znači 0 m; takvo mesto se ne nudi za
+pomeranje (`canMove` u `RoadPoints.tsx`), jer bi posao opet pao. **Zaključeno iz izvornog koda,
+nije probano sa pravim ORS-om** (nema ključa na ovom računaru). Pouka: lažni servis pisan po
+primeru iz dokumentacije ne pokriva polja koja server izostavlja.
 
 **„Traži ponovo“ za mesto (urađeno 10.11.2026)**, na zahtev korisnika (jedan švedski grad je i
 posle izbora države ostajao u Rusiji). Uzrok: `findPlace` poredi samo naziv, pa mesto sa
