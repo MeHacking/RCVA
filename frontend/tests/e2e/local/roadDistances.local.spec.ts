@@ -82,9 +82,13 @@ test('when ORS refuses, no job starts and the reason is shown', async ({ page })
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeHidden()
 })
 
-/** The northernmost place of the first matrix is closed to lorries; `snap` is ORS Snap's answer for a point. */
-async function fakeOrsWithClosedPlace(page: Page, snap: (point: number[]) => unknown) {
+/**
+ * The northernmost place of the first matrix is closed to lorries, unless `reopens` (only for the
+ * job); `snap` is ORS Snap's answer for a point.
+ */
+async function fakeOrsWithClosedPlace(page: Page, snap: (point: number[], closed: number[]) => unknown, reopens = false) {
   let closed: number[] | null = null
+  let matrices = 0
   const snaps: { url: string; body: unknown }[] = []
   await page.route('https://api.heigit.org/openrouteservice/**', async (route) => {
     const request = route.request()
@@ -92,11 +96,12 @@ async function fakeOrsWithClosedPlace(page: Page, snap: (point: number[]) => unk
     if (request.url().includes('/snap/')) {
       const body = request.postDataJSON() as { locations: number[][]; radius: number }
       snaps.push({ url: request.url(), body })
-      return route.fulfill({ json: { locations: body.locations.map(snap) }, headers: CORS })
+      return route.fulfill({ json: { locations: body.locations.map((p) => snap(p, closed!)) }, headers: CORS })
     }
     const body = request.postDataJSON() as { locations: number[][]; sources: number[]; destinations: number[] }
     closed ??= body.locations.reduce((north, p) => (p[1] > north[1] ? p : north))
-    const isClosed = (p: number[]) => p[0] === closed![0] && p[1] === closed![1]
+    const open = reopens && ++matrices > 1
+    const isClosed = (p: number[]) => !open && p[0] === closed![0] && p[1] === closed![1]
     const distances = body.sources.map((s) =>
       body.destinations.map((d) => {
         const [a, b] = [body.locations[s], body.locations[d]]
@@ -109,18 +114,36 @@ async function fakeOrsWithClosedPlace(page: Page, snap: (point: number[]) => unk
   return { snaps, closed: () => closed! }
 }
 
-test('says when a place is already on the road, so moving it would not help', async ({ page }) => {
+// As the real ORS answers a point on the road: no snapped_distance at all.
+const onTheSpot = (point: number[]) => ({ location: point, name: 'Lagerveien' })
+
+test('a place on a road no lorry reaches goes to the nearest point one does, and the job runs', async ({ page }) => {
   const errors = collectPageErrors(page)
-  // As the real ORS answers a point on the road: no snapped_distance at all.
-  await fakeOrsWithClosedPlace(page, (point) => ({ location: point, name: 'Lagerveien' }))
+  await fakeOrsWithClosedPlace(page, onTheSpot)
   await saveKey(page)
   await start(page)
   const offer = page.getByRole('status').filter({ hasText: 'Mesta do kojih nema puta za kamione' })
   await offer.getByRole('button', { name: 'Pomeri na najbliži put za kamione' }).click({ timeout: 20_000 })
 
   const row = offer.getByRole('table', { name: 'Predlog pomeranja mesta' }).getByRole('row').nth(1)
-  await expect(row).toContainText('Lagerveien')
-  await expect(row).toContainText('tačka je već na putu, pa pomeranje ne pomaže')
+  await expect(row).toContainText('0,3 km', { timeout: 20_000 })
+  await expect(row.getByRole('checkbox')).toBeChecked()
+  await offer.getByRole('button', { name: 'Primeni (1) i pokreni ponovo' }).click()
+  await expect(page.getByTestId('distance-source')).toHaveText(/^po putu za teretna vozila/, { timeout: 20_000 })
+  expect(errors).toEqual([])
+})
+
+test('does not offer to move a place lorries turn out to reach', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await fakeOrsWithClosedPlace(page, onTheSpot, true)
+  await saveKey(page)
+  await start(page)
+  const offer = page.getByRole('status').filter({ hasText: 'Mesta do kojih nema puta za kamione' })
+  await offer.getByRole('button', { name: 'Pomeri na najbliži put za kamione' }).click({ timeout: 20_000 })
+
+  const row = offer.getByRole('table', { name: 'Predlog pomeranja mesta' }).getByRole('row').nth(1)
+  await expect(row).toContainText('Lagerveien', { timeout: 20_000 })
+  await expect(row).toContainText('kamion stiže do ove tačke, pa pomeranje ne pomaže')
   await expect(row.getByRole('checkbox')).toBeDisabled()
   await expect(row.getByRole('checkbox')).not.toBeChecked()
   await expect(row.getByRole('link', { name: 'posle' })).toHaveCount(0)
@@ -130,8 +153,10 @@ test('says when a place is already on the road, so moving it would not help', as
 
 test('moves a place no road for lorries reaches to the nearest road, once confirmed, and starts again', async ({ page }) => {
   const errors = collectPageErrors(page)
-  // ORS Snap finds a road 0,02° north of the closed place, and from there every road is fine.
-  const ors = await fakeOrsWithClosedPlace(page, ([lon, lat]) => ({ location: [lon, lat + 0.02], name: 'Lagerveien', snapped_distance: 2224 }))
+  // ORS Snap finds a road 0,02° north of the closed place and none around it; from there every road is fine.
+  const ors = await fakeOrsWithClosedPlace(page, ([lon, lat], closed) =>
+    lon === closed[0] && lat === closed[1] ? { location: [lon, lat + 0.02], name: 'Lagerveien', snapped_distance: 2224 } : null,
+  )
   const { snaps } = ors
   await saveKey(page)
   await start(page)
@@ -143,11 +168,11 @@ test('moves a place no road for lorries reaches to the nearest road, once confir
   await offer.getByRole('button', { name: 'Pomeri na najbliži put za kamione' }).click()
   const proposal = offer.getByRole('table', { name: 'Predlog pomeranja mesta' })
   await expect(proposal.getByRole('row')).toHaveCount(2) // header + the one closed place
-  await expect(proposal.getByRole('row').nth(1)).toContainText('2,2 km')
+  await expect(proposal.getByRole('row').nth(1)).toContainText('2,2 km', { timeout: 20_000 })
   await expect(proposal.getByRole('row').nth(1)).toContainText('Lagerveien · daleko: proverite da li je to još mesto istovara')
-  expect(snaps).toEqual([
-    { url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json', body: { locations: [ors.closed()], radius: 5000 } },
-  ])
+  expect(snaps).toHaveLength(1)
+  expect(snaps[0].url).toBe('https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json')
+  expect((snaps[0].body as { locations: number[][] }).locations[0]).toEqual(ors.closed())
   // Ticked at first; untick it and there is nothing to apply. Both points open on the OSM map.
   const place = (await proposal.getByRole('row').nth(1).getByRole('cell').nth(1).textContent())!
   const tick = proposal.getByRole('checkbox', { name: `Pomeri ${place}` })

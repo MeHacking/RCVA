@@ -1,6 +1,6 @@
 import type { Scenario } from '../../fixtures'
 import { missingTrucks, standardJobTruck, toJobTruck } from '../../domain/fleet'
-import { haversineMatrix, type LatLon } from '../../domain/optimization/distance'
+import { haversineMatrix, haversineMeters, type LatLon } from '../../domain/optimization/distance'
 import { provenFindings } from '../../domain/optimization/feasibility'
 import type { JobInput, JobTruck } from '../../domain/optimization/job'
 import { toSolverInput } from '../../domain/optimization/job'
@@ -23,7 +23,8 @@ import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { shortenIds } from '../../domain/shipmentIds'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
-import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError } from './openRouteService'
+import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError, type RoadPoint } from './openRouteService'
+import { findReachablePoint } from './roadPointSearch'
 import {
   TERMINAL_JOB_STATUSES,
   type DeviceSettings,
@@ -116,7 +117,7 @@ export const KEPT_JOBS = 10
 export const KEPT_JOB_LOG = 5000
 /** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
 export const KEPT_ROUTE_LINES = 50
-/** How far a place may be moved to the nearest road for lorries (ORS Snap). */
+/** How far a place may be moved to the nearest point lorries reach. */
 export const ROAD_POINT_RADIUS_M = 5000
 
 export interface LocalJob {
@@ -405,6 +406,21 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       ...trucks.flatMap((t) => (t.startLocationId == null ? [] : [t.startLocationId])),
       ...[...jobs.values()].flatMap((j) => j.input.locationIds),
     ])
+  }
+
+  /** What a point near a place cut off is checked against: the nearest other place in use, one that is not cut off if any. */
+  function otherPlaceFor(place: Location & LatLon, cutOff: Set<number>): LatLon | null {
+    const used = new Set([
+      ...shipments.flatMap((s) => [s.pickupLocationId, s.deliveryLocationId]),
+      ...trucks.flatMap((t) => t.startLocationId ?? []),
+    ])
+    const others = locations.flatMap((l) =>
+      l.id !== place.id && used.has(l.id) && l.lat !== null && l.lon !== null ? [{ ...l, lat: l.lat, lon: l.lon }] : [],
+    )
+    const reached = others.filter((l) => !cutOff.has(l.id))
+    const pool = reached.length > 0 ? reached : others
+    const by = (l: LatLon) => haversineMeters(place, l)
+    return pool.reduce<LatLon | null>((nearest, l) => (nearest === null || by(l) < by(nearest) ? l : nearest), null)
   }
 
   function assertValidPoint({ lat, lon }: { lat: number; lon: number }): void {
@@ -997,12 +1013,14 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           }
           return { ...place, lat: place.lat, lon: place.lon }
         })
-        let answers
+        const request = { apiKey, profile: settings.orsProfile }
+        const answers: Array<RoadPoint | null> = []
         try {
-          answers = await roadSnap(
-            places.map((p) => ({ lat: p.lat, lon: p.lon })),
-            { apiKey, profile: settings.orsProfile, radiusMeters: ROAD_POINT_RADIUS_M },
-          )
+          for (const place of places) {
+            const other = otherPlaceFor(place, new Set(locationIds))
+            const search = { place, radiusMeters: ROAD_POINT_RADIUS_M, snap: roadSnap, distances: roadDistances, request }
+            answers.push(other && (await findReachablePoint({ ...search, other })))
+          }
         } catch (error) {
           if (!(error instanceof RoadDistanceError)) throw error
           throw new ApiError({ title: 'Najbliži put nije dostupan', status: 502, detail: error.message })

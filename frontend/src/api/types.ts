@@ -512,7 +512,7 @@ export interface PlaceSearchResult {
 
 /**
  * NOT IN SPEC v2: where a place without a road for lorries could go instead, the nearest point
- * on a road they may use (ORS Snap); `to` is null when there is none within the radius.
+ * they do reach; `to` is null when there is none within the radius.
  */
 export interface RoadPointProposal {
   locationId: number

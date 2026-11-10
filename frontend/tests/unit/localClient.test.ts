@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
 import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
+import { pointsAround, POINT_SNAP_RADIUS_M } from '../../src/api/local/roadPointSearch'
 import {
   createLocalApiClient,
   DEFAULT_SETTINGS,
@@ -1040,9 +1041,38 @@ describe('road distances from OpenRouteService on the device', () => {
     expect(fake.asked).toHaveLength(1)
   })
 
+  it('checks the points around a place against the nearest other place that is not cut off too', async () => {
+    const checkedAgainst: number[][] = []
+    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources: number[]; destinations: number[] }
+      if (String(input).includes('/snap/')) return new Response(JSON.stringify({ locations: body.locations.map((location) => ({ location })) }))
+      checkedAgainst.push(body.locations[0])
+      return new Response(JSON.stringify({ distances: body.sources.map(() => body.destinations.map(() => 1000)) }))
+    }) as typeof globalThis.fetch
+    const api = createLocalApiClient({ scenario: SCENARIOS.small, runSolver: steps, store: createMemoryStore<LocalData>(), ors: { fetch, minIntervalMs: 0 } })
+    await withKey(api)
+
+    const usedIds = new Set(SCENARIOS.small.shipments.flatMap((s) => [s.pickupLocationId, s.deliveryLocationId]))
+    const used = SCENARIOS.small.locations.filter((l) => usedIds.has(l.id))
+    const point = (l: Location) => ({ lat: l.lat!, lon: l.lon! })
+    const place = used[0]
+    const byDistance = used.slice(1).sort((a, b) => haversineMeters(point(place), point(a)) - haversineMeters(point(place), point(b)))
+    expect(byDistance.length).toBeGreaterThan(1)
+
+    await api.proposeRoadPoints([place.id])
+    await api.proposeRoadPoints([place.id, byDistance[0].id])
+    expect(checkedAgainst[0]).toEqual([byDistance[0].lon, byDistance[0].lat])
+    expect(checkedAgainst[1]).toEqual([byDistance[1].lon, byDistance[1].lat])
+
+    // All cut off: another of them, never the place itself.
+    checkedAgainst.length = 0
+    await api.proposeRoadPoints(used.map((l) => l.id))
+    expect(checkedAgainst[0]).toEqual([byDistance[0].lon, byDistance[0].lat])
+  })
+
   it('names the place no road reaches, proposes the nearest road for lorries, and moves it once asked', async () => {
-    // One place of the scenario is closed to lorries: no road to or from it; ORS Snap finds a
-    // road 0,01° north of it (in a radius of 5 km), and from there the roads are fine.
+    // One place of the scenario is closed to lorries: no road to or from it; for the place
+    // itself ORS Snap finds a road 0,01° north of it (no roads around), and there the roads are fine.
     const closedId = SCENARIOS.small.shipments[0].deliveryLocationId
     const closed = SCENARIOS.small.locations.find((l) => l.id === closedId)!
     const isClosed = (p: number[]) => Math.abs(p[0] - closed.lon!) < 1e-9 && Math.abs(p[1] - closed.lat!) < 1e-9
@@ -1051,11 +1081,9 @@ describe('road distances from OpenRouteService on the device', () => {
       const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources?: number[]; destinations?: number[]; radius?: number }
       if (String(input).includes('/snap/')) {
         snaps.push({ url: String(input), key: (init?.headers as Record<string, string>).Authorization, body: body as never })
-        const locations = body.locations.map(([lon, lat]) => ({
-          location: [lon, lat + 0.01],
-          name: 'Teretna ulica',
-          snapped_distance: 1112.3,
-        }))
+        const locations = body.locations.map(([lon, lat]) =>
+          isClosed([lon, lat]) ? { location: [lon, lat + 0.01], name: 'Teretna ulica', snapped_distance: 1112.3 } : null,
+        )
         return new Response(JSON.stringify({ locations }))
       }
       const at = (i: number) => body.locations[i]
@@ -1089,7 +1117,10 @@ describe('road distances from OpenRouteService on the device', () => {
       {
         url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json',
         key: 'test-kljuc',
-        body: { locations: [[closed.lon, closed.lat]], radius: 5000 },
+        body: {
+          locations: pointsAround({ lat: closed.lat!, lon: closed.lon! }).map((p) => [p.lon, p.lat]),
+          radius: POINT_SNAP_RADIUS_M,
+        },
       },
     ])
     expect((await api.listLocations()).find((l) => l.id === closedId)).toMatchObject({ lat: closed.lat, geocodeStatus: closed.geocodeStatus })

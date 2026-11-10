@@ -179,8 +179,9 @@ export interface ApiClient {
   resetDevice(): Promise<void>
   /**
    * NOT IN SPEC v2: for places no road for lorries reaches (noRoadPlaceIds of a 409 "Nema puta"),
-   * the nearest point on a road the profile in the settings may use, within ROAD_POINT_RADIUS_M.
-   * Changes nothing. 400 without an ORS key, 502 when ORS fails, 404 over HTTP and in the mock.
+   * the nearest point within ROAD_POINT_RADIUS_M that a lorry can reach from another place and
+   * leave for it, by the profile in the settings; `to` is the place itself (0 m) when it is
+   * reached after all. Changes nothing. 400 without an ORS key, 502 when ORS fails, 404 over HTTP and in the mock.
    */
   proposeRoadPoints(locationIds: number[]): Promise<RoadPointProposal[]>
   /**
