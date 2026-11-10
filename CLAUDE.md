@@ -4,11 +4,23 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 09.11.2026 (pošiljke ručno: prozor za izmenu i dodavanje, brisanje jedne;
-pre toga vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 09.11.2026 (zajedno sa pošiljkama bez Excel-a).
+Poslednje ažuriranje: 10.11.2026 (zemlja mesta iz padajućeg menija; pre toga pošiljke ručno,
+vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
+Do pošiljki bez Excel-a sve je push-ovano na `origin/main` 09.11.2026; zemlja iz menija još nije.
 
 ## Gde smo stali (03.11.2026)
+
+**Zemlja iz padajućeg menija (urađeno 10.11.2026)**, na zahtev korisnika: u prozoru pošiljke i
+u ispravci reda pri uvozu zemlja se bira po nazivu (`CountrySelect`, spisak Evrope u
+`domain/countries.ts`), a čuva se kod kao ranije, jer Nominatim filtrira po ISO kodu
+(`countrycodes`), a `BIH` iz fajlova se čita kao `BA` (`isoCountryCode`, deli ga i `nominatim.ts`).
+Zemlja ostaje neobavezna („Nije izabrana“: traži se bez filtera). Sačuvan kod van spiska ostaje
+kao dodatna opcija, da ga čuvanje ne izgubi. **Kosovo namerno nije na spisku**: OSM ga vodi pod
+`xk`, pa pod `rs` Nominatim ne nalazi Prištinu (provereno pravim upitom 10.11.2026); bez izabrane
+zemlje se traži svuda. Lokacije kamiona (`TruckLocations.tsx`) i dalje imaju polje za upis (nije
+traženo). Testovi: `countries.test.ts` (5), dopune u `editShipment.local.spec.ts` i
+`shipmentImport.spec.ts`; provereno na pokvarenom kodu (4 izmene). Vitest 512; od e2e samo ta dva
+fajla (12), ceo e2e i desktop nisu pokretani.
 
 **Pošiljke bez Excel-a (urađeno 09.11.2026)**, na zahtev korisnika („prozor
 kao na drugim ekranima; izmena, ručno dodavanje i brisanje pošiljki“). Plan nije posebno
