@@ -83,12 +83,20 @@ test('when ORS refuses, no job starts and the reason is shown', async ({ page })
 })
 
 /**
- * The northernmost place of the first matrix is closed to lorries, unless `reopens` (only for the
- * job); `snap` is ORS Snap's answer for a point.
+ * The northernmost place of the first matrix is closed to lorries, and everything within
+ * `zoneMeters` of it; with `reopens` only for the job. `snap` is ORS Snap's answer for a point
+ * around it; the other places of the job are on the roads.
  */
-async function fakeOrsWithClosedPlace(page: Page, snap: (point: number[], closed: number[]) => unknown, reopens = false) {
+async function fakeOrsWithClosedPlace(
+  page: Page,
+  snap: (point: number[], closed: number[]) => unknown,
+  { reopens = false, zoneMeters = 1 }: { reopens?: boolean; zoneMeters?: number } = {},
+) {
   let closed: number[] | null = null
+  let places: number[][] = []
   let matrices = 0
+  const same = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1]
+  const answerFor = (p: number[]) => (!same(p, closed!) && places.some((place) => same(place, p)) ? { location: p } : snap(p, closed!))
   const snaps: { url: string; body: unknown }[] = []
   await page.route('https://api.heigit.org/openrouteservice/**', async (route) => {
     const request = route.request()
@@ -96,12 +104,16 @@ async function fakeOrsWithClosedPlace(page: Page, snap: (point: number[], closed
     if (request.url().includes('/snap/')) {
       const body = request.postDataJSON() as { locations: number[][]; radius: number }
       snaps.push({ url: request.url(), body })
-      return route.fulfill({ json: { locations: body.locations.map((p) => snap(p, closed!)) }, headers: CORS })
+      return route.fulfill({ json: { locations: body.locations.map(answerFor) }, headers: CORS })
     }
     const body = request.postDataJSON() as { locations: number[][]; sources: number[]; destinations: number[] }
     closed ??= body.locations.reduce((north, p) => (p[1] > north[1] ? p : north))
+    if (places.length === 0) places = body.locations
     const open = reopens && ++matrices > 1
-    const isClosed = (p: number[]) => !open && p[0] === closed![0] && p[1] === closed![1]
+    const isClosed = (p: number[]) => {
+      const east = (p[0] - closed![0]) * Math.cos((closed![1] * Math.PI) / 180)
+      return !open && Math.hypot(east, p[1] - closed![1]) * 111_195 < zoneMeters
+    }
     const distances = body.sources.map((s) =>
       body.destinations.map((d) => {
         const [a, b] = [body.locations[s], body.locations[d]]
@@ -133,9 +145,36 @@ test('a place on a road no lorry reaches goes to the nearest point one does, and
   expect(errors).toEqual([])
 })
 
+test('widens the search kilometre by kilometre when nothing nearer is reached', async ({ page }) => {
+  test.setTimeout(60_000)
+  await fakeOrsWithClosedPlace(page, onTheSpot, { zoneMeters: 7500 })
+  await saveKey(page)
+  await start(page)
+  const offer = page.getByRole('status').filter({ hasText: 'Mesta do kojih nema puta za kamione' })
+  await offer.getByRole('button', { name: 'Pomeri na najbliži put za kamione' }).click({ timeout: 20_000 })
+  const row = offer.getByRole('table', { name: 'Predlog pomeranja mesta' }).getByRole('row').nth(1)
+  await expect(row).toContainText('8,0 km', { timeout: 30_000 })
+  await expect(row.getByRole('checkbox')).toBeChecked()
+})
+
+test('past 10 km it says so, and still shows where the place is on the map', async ({ page }) => {
+  test.setTimeout(90_000)
+  await fakeOrsWithClosedPlace(page, onTheSpot, { zoneMeters: 20_000 })
+  await saveKey(page)
+  await start(page)
+  const offer = page.getByRole('status').filter({ hasText: 'Mesta do kojih nema puta za kamione' })
+  await offer.getByRole('button', { name: 'Pomeri na najbliži put za kamione' }).click({ timeout: 20_000 })
+  const row = offer.getByRole('table', { name: 'Predlog pomeranja mesta' }).getByRole('row').nth(1)
+  await expect(row).toContainText('nema tačke do koje kamion stiže u krugu od 10,0 km', { timeout: 60_000 })
+  await expect(row.getByRole('link', { name: 'Gde je trenutna lokacija?' })).toHaveAttribute('href', /openstreetmap\.org/)
+  await expect(row.getByRole('link', { name: 'Gde bi bila nova lokacija?' })).toHaveCount(0)
+  await expect(row.getByRole('checkbox')).toBeDisabled()
+  await expect(offer.getByRole('button', { name: 'Primeni (0) i pokreni ponovo' })).toBeDisabled()
+})
+
 test('does not offer to move a place lorries turn out to reach', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await fakeOrsWithClosedPlace(page, onTheSpot, true)
+  await fakeOrsWithClosedPlace(page, onTheSpot, { reopens: true })
   await saveKey(page)
   await start(page)
   const offer = page.getByRole('status').filter({ hasText: 'Mesta do kojih nema puta za kamione' })
@@ -146,7 +185,7 @@ test('does not offer to move a place lorries turn out to reach', async ({ page }
   await expect(row).toContainText('kamion stiže do ove tačke, pa pomeranje ne pomaže')
   await expect(row.getByRole('checkbox')).toBeDisabled()
   await expect(row.getByRole('checkbox')).not.toBeChecked()
-  await expect(row.getByRole('link', { name: 'posle' })).toHaveCount(0)
+  await expect(row.getByRole('link', { name: 'Gde bi bila nova lokacija?' })).toHaveCount(0)
   await expect(offer.getByRole('button', { name: 'Primeni (0) i pokreni ponovo' })).toBeDisabled()
   expect(errors).toEqual([])
 })
@@ -181,8 +220,8 @@ test('moves a place no road for lorries reaches to the nearest road, once confir
   await expect(offer.getByRole('button', { name: 'Primeni (0) i pokreni ponovo' })).toBeDisabled()
   await tick.check()
   const [lon, lat] = ors.closed()
-  await expect(proposal.getByRole('link', { name: 'sada' })).toHaveAttribute('href', new RegExp(`mlat=${lat.toFixed(5)}&mlon=${lon.toFixed(5)}`))
-  await expect(proposal.getByRole('link', { name: 'posle' })).toHaveAttribute('href', new RegExp(`mlat=${(lat + 0.02).toFixed(5)}&`))
+  await expect(proposal.getByRole('link', { name: 'Gde je trenutna lokacija?' })).toHaveAttribute('href', new RegExp(`mlat=${lat.toFixed(5)}&mlon=${lon.toFixed(5)}`))
+  await expect(proposal.getByRole('link', { name: 'Gde bi bila nova lokacija?' })).toHaveAttribute('href', new RegExp(`mlat=${(lat + 0.02).toFixed(5)}&`))
 
   // Applied: the place moves and the job runs, by road.
   await offer.getByRole('button', { name: 'Primeni (1) i pokreni ponovo' }).click()

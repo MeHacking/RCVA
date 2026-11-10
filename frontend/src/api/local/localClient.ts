@@ -23,8 +23,8 @@ import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { shortenIds } from '../../domain/shipmentIds'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
-import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError, type RoadPoint } from './openRouteService'
-import { findReachablePoint } from './roadPointSearch'
+import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError } from './openRouteService'
+import { findReachablePoint, type ReachableSearch } from './roadPointSearch'
 import {
   TERMINAL_JOB_STATUSES,
   type DeviceSettings,
@@ -117,8 +117,8 @@ export const KEPT_JOBS = 10
 export const KEPT_JOB_LOG = 5000
 /** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
 export const KEPT_ROUTE_LINES = 50
-/** How far a place may be moved to the nearest point lorries reach. */
-export const ROAD_POINT_RADIUS_M = 5000
+/** A point near a place cut off counts as reached when one of this many other places reaches it. */
+const OTHER_PLACES_CHECKED = 3
 
 export interface LocalJob {
   id: number
@@ -408,8 +408,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     ])
   }
 
-  /** What a point near a place cut off is checked against: the nearest other place in use, one that is not cut off if any. */
-  function otherPlaceFor(place: Location & LatLon, cutOff: Set<number>): LatLon | null {
+  /** What points near a place cut off are checked against: the nearest other places in use, not cut off if there are such. */
+  function otherPlacesFor(place: Location & LatLon, cutOff: Set<number>): LatLon[] {
     const used = new Set([
       ...shipments.flatMap((s) => [s.pickupLocationId, s.deliveryLocationId]),
       ...trucks.flatMap((t) => t.startLocationId ?? []),
@@ -420,7 +420,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     const reached = others.filter((l) => !cutOff.has(l.id))
     const pool = reached.length > 0 ? reached : others
     const by = (l: LatLon) => haversineMeters(place, l)
-    return pool.reduce<LatLon | null>((nearest, l) => (nearest === null || by(l) < by(nearest) ? l : nearest), null)
+    return [...pool].sort((a, b) => by(a) - by(b)).slice(0, OTHER_PLACES_CHECKED)
   }
 
   function assertValidPoint({ lat, lon }: { lat: number; lon: number }): void {
@@ -995,7 +995,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
     checkDeviceData: (content) => respond(() => readFile(content).summary),
 
-    proposeRoadPoints: (locationIds) =>
+    proposeRoadPoints: (locationIds, proposeOptions) =>
       respond(async () => {
         const apiKey = settings.orsApiKey
         if (!apiKey) {
@@ -1014,20 +1014,21 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           return { ...place, lat: place.lat, lon: place.lon }
         })
         const request = { apiKey, profile: settings.orsProfile }
-        const answers: Array<RoadPoint | null> = []
+        const answers: ReachableSearch[] = []
         try {
           for (const place of places) {
-            const other = otherPlaceFor(place, new Set(locationIds))
-            const search = { place, radiusMeters: ROAD_POINT_RADIUS_M, snap: roadSnap, distances: roadDistances, request }
-            answers.push(other && (await findReachablePoint({ ...search, other })))
+            proposeOptions?.onProgress?.({ done: answers.length, total: places.length })
+            const others = otherPlacesFor(place, new Set(locationIds))
+            answers.push(await findReachablePoint({ place, others, snap: roadSnap, distances: roadDistances, request }))
           }
         } catch (error) {
           if (!(error instanceof RoadDistanceError)) throw error
           throw new ApiError({ title: 'Najbliži put nije dostupan', status: 502, detail: error.message })
         }
         return places.map((place, i): RoadPointProposal => {
-          const answer = answers[i]
+          const { road: answer, tried } = answers[i]
           return {
+            tried,
             locationId: place.id,
             name: place.name,
             from: { lat: place.lat, lon: place.lon },

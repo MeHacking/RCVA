@@ -523,4 +523,6 @@ export interface RoadPointProposal {
   distanceMeters: number | null
   /** the road's name, when OSM has one */
   street: string | null
+  /** how many different points on roads were checked */
+  tried: number
 }

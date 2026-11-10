@@ -179,11 +179,14 @@ export interface ApiClient {
   resetDevice(): Promise<void>
   /**
    * NOT IN SPEC v2: for places no road for lorries reaches (noRoadPlaceIds of a 409 "Nema puta"),
-   * the nearest point within ROAD_POINT_RADIUS_M that a lorry can reach from another place and
-   * leave for it, by the profile in the settings; `to` is the place itself (0 m) when it is
-   * reached after all. Changes nothing. 400 without an ORS key, 502 when ORS fails, 404 over HTTP and in the mock.
+   * the nearest point up to LAST_RADIUS_M (10 km, wider each time nothing is found) that a lorry
+   * can reach from another place and leave for it, by the profile in the settings; `to` is the
+   * place itself (0 m) when it is reached after all. Changes nothing. 400 without an ORS key, 502 when ORS fails, 404 over HTTP and in the mock.
    */
-  proposeRoadPoints(locationIds: number[]): Promise<RoadPointProposal[]>
+  proposeRoadPoints(
+    locationIds: number[],
+    options?: { onProgress?: (progress: { done: number; total: number }) => void },
+  ): Promise<RoadPointProposal[]>
   /**
    * NOT IN SPEC v2: moves a place to the point the user confirmed (a proposal's `to`); its
    * coordinates are then the user's (MANUAL), and where it was is kept in movedFrom (the first

@@ -8,6 +8,8 @@ import { useLastJob, type StartOptions } from './lastJobContext'
 
 /** A move longer than this is likely not the place of delivery any more: it gets a warning. */
 const FAR_MOVE_M = 2000
+/** As far as a place is searched around (roadPointSearch.ts). */
+const LAST_RADIUS_M = 10_000
 
 /** The point on the OpenStreetMap map (opens in the browser), to see where a place would go. */
 const osmLink = (p: { lat: number; lon: number }) =>
@@ -28,7 +30,7 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
   const { start } = useLastJob()
   const [state, setState] = useState<
     | { kind: 'idle' }
-    | { kind: 'asking' }
+    | { kind: 'asking'; done: number; total: number }
     | { kind: 'proposed'; proposals: RoadPointProposal[] }
     | { kind: 'moving'; proposals: RoadPointProposal[] }
     | { kind: 'error'; message: string }
@@ -37,9 +39,11 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
   const [chosen, setChosen] = useState<Set<number>>(new Set())
 
   async function ask() {
-    setState({ kind: 'asking' })
+    setState({ kind: 'asking', done: 0, total: placeIds.length })
     try {
-      const proposals = await api.proposeRoadPoints(placeIds)
+      const proposals = await api.proposeRoadPoints(placeIds, {
+        onProgress: (progress) => setState({ kind: 'asking', ...progress }),
+      })
       setChosen(new Set(proposals.filter(canMove).map((p) => p.locationId)))
       setState({ kind: 'proposed', proposals })
     } catch (error) {
@@ -71,15 +75,15 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
     <Notice tone="info" title="Mesta do kojih nema puta za kamione" role="status">
       <p>
         Do ovih mesta OpenRouteService ne nalazi put za izabrana vozila, najčešće jer je centar grada zatvoren za kamione
-        ili tačka nije na putu. Aplikacija može da proba tačke oko mesta i predloži najbližu do koje kamion zaista stiže, do{' '}
-        {formatKm(5000)}; pomeraju se samo označena mesta, tek kada potvrdite, a izvorna tačka se pamti (vraća se u izmeni
+        ili tačka nije na putu. Aplikacija može da proba tačke oko mesta i predloži najbližu do koje kamion zaista stiže: prvo
+        do {formatKm(5000)}, pa kilometar po kilometar do {formatKm(LAST_RADIUS_M)}. Pomeraju se samo označena mesta, tek kada potvrdite, a izvorna tačka se pamti (vraća se u izmeni
         pošiljke, „Vrati izvornu tačku“).
       </p>
 
       {!shown && (
         <div className="form-actions">
           <button type="button" className="button--primary" onClick={() => void ask()} disabled={state.kind === 'asking'}>
-            {state.kind === 'asking' ? 'Traženje…' : 'Pomeri na najbliži put za kamione'}
+            {state.kind === 'asking' ? `Traženje… (${state.done + 1} od ${state.total})` : 'Pomeri na najbliži put za kamione'}
           </button>
         </div>
       )}
@@ -122,7 +126,9 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
                     <td className="num">{p.distanceMeters === null ? '–' : formatKm(p.distanceMeters)}</td>
                     <td className="road-points__where">
                       {p.to === null ? (
-                        <span className="text--error">nema tačke do koje kamion stiže u krugu od {formatKm(5000)}</span>
+                        <span className="text--error">
+                          nema tačke do koje kamion stiže u krugu od {formatKm(LAST_RADIUS_M)} (proverenih tačaka na putu: {p.tried})
+                        </span>
                       ) : (
                         <>
                           {p.street ?? 'put bez naziva'}
@@ -143,15 +149,12 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
                     </td>
                     <td className="road-points__map">
                       <a href={osmLink(p.from)} target="_blank" rel="noreferrer">
-                        sada
+                        Gde je trenutna lokacija?
                       </a>
                       {p.to && canMove(p) && (
-                        <>
-                          {' · '}
-                          <a href={osmLink(p.to)} target="_blank" rel="noreferrer">
-                            posle
-                          </a>
-                        </>
+                        <a href={osmLink(p.to)} target="_blank" rel="noreferrer">
+                          Gde bi bila nova lokacija?
+                        </a>
                       )}
                     </td>
                   </tr>

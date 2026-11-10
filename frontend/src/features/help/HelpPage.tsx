@@ -583,7 +583,7 @@ function Messages() {
           ],
           [
             'Nema puta za kamione',
-            'Do nekog mesta OpenRouteService ne nalazi put za izabrana vozila, najčešće jer je centar grada zatvoren za kamione. „Pomeri na najbliži put za kamione“ proba tačke oko mesta (do 5 km), proverava do kojih kamion zaista stiže i predlaže najbližu; pokazuje koliko je to daleko i obe tačke na mapi. Pomeraju se samo označena mesta, tek kada potvrdite. Izvorna tačka se pamti: u izmeni pošiljke „Vrati izvornu tačku“.',
+            'Do nekog mesta OpenRouteService ne nalazi put za izabrana vozila, najčešće jer je centar grada zatvoren za kamione. „Pomeri na najbliži put za kamione“ proba tačke oko mesta (prvo do 5 km, pa kilometar po kilometar do 10 km), proverava do kojih kamion zaista stiže i predlaže najbližu; pokazuje koliko je to daleko i obe tačke na mapi. Pomeraju se samo označena mesta, tek kada potvrdite. Izvorna tačka se pamti: u izmeni pošiljke „Vrati izvornu tačku“.',
           ],
         ] as Array<[string, ReactNode]>)
       : []),

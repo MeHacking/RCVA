@@ -1081,8 +1081,13 @@ describe('road distances from OpenRouteService on the device', () => {
       const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources?: number[]; destinations?: number[]; radius?: number }
       if (String(input).includes('/snap/')) {
         snaps.push({ url: String(input), key: (init?.headers as Record<string, string>).Authorization, body: body as never })
+        const isPlace = ([lon, lat]: number[]) => SCENARIOS.small.locations.some((l) => l.lon === lon && l.lat === lat)
         const locations = body.locations.map(([lon, lat]) =>
-          isClosed([lon, lat]) ? { location: [lon, lat + 0.01], name: 'Teretna ulica', snapped_distance: 1112.3 } : null,
+          isClosed([lon, lat])
+            ? { location: [lon, lat + 0.01], name: 'Teretna ulica', snapped_distance: 1112.3 }
+            : isPlace([lon, lat])
+              ? { location: [lon, lat] }
+              : null,
         )
         return new Response(JSON.stringify({ locations }))
       }
@@ -1112,17 +1117,16 @@ describe('road distances from OpenRouteService on the device', () => {
       to: { lat: closed.lat! + 0.01, lon: closed.lon },
       distanceMeters: 1112,
       street: 'Teretna ulica',
+      tried: 1,
     })
-    expect(snaps).toEqual([
-      {
-        url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json',
-        key: 'test-kljuc',
-        body: {
-          locations: pointsAround({ lat: closed.lat!, lon: closed.lon! }).map((p) => [p.lon, p.lat]),
-          radius: POINT_SNAP_RADIUS_M,
-        },
-      },
-    ])
+    expect(snaps).toHaveLength(1)
+    expect(snaps[0]).toMatchObject({
+      url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json',
+      key: 'test-kljuc',
+      body: { radius: POINT_SNAP_RADIUS_M },
+    })
+    const around = pointsAround({ lat: closed.lat!, lon: closed.lon! }).map((p) => [p.lon, p.lat])
+    expect(snaps[0].body.locations.slice(0, around.length)).toEqual(around)
     expect((await api.listLocations()).find((l) => l.id === closedId)).toMatchObject({ lat: closed.lat, geocodeStatus: closed.geocodeStatus })
 
     // Moved once confirmed: the place's coordinates are the user's, and the job can run.

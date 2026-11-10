@@ -2673,6 +2673,10 @@ button.truck-3d__shipment[aria-pressed='true'] {
   white-space: nowrap;
 }
 
+.road-points__map a {
+  display: block;
+}
+
 /* The tick column only as wide as its box. */
 .road-points :is(th, td):first-child {
   width: 2.5rem;
