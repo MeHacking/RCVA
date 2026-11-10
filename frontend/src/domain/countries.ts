@@ -60,8 +60,25 @@ export function isoCountryCode(text: string): string {
   return code === 'BIH' ? 'BA' : code
 }
 
-/** The choices for a stored country: one that is not on the list stays, so saving does not lose it. */
-export function countryOptions(stored: string): readonly Country[] {
+export const RECENT_COUNTRIES = 8
+
+/** Fill the top of the list until enough countries have been chosen on this device. */
+const USUAL_COUNTRIES = ['RS', 'SE', 'NO', 'BA', 'HR', 'DE', 'HU', 'MK']
+
+const listed = (code: string) => COUNTRIES.find((c) => c.code === code)
+
+/**
+ * The choices for a stored country: the recently used ones on top, then the rest in order. A
+ * stored country that is not on the list stays, so saving does not lose it.
+ */
+export function countryGroups(stored: string, recent: readonly string[]): { recent: Country[]; others: Country[] } {
+  const top = [...new Set([...recent, ...USUAL_COUNTRIES])].flatMap((code) => listed(code) ?? []).slice(0, RECENT_COUNTRIES)
+  const others = COUNTRIES.filter((c) => !top.includes(c))
   const code = isoCountryCode(stored)
-  return !code || COUNTRIES.some((c) => c.code === code) ? COUNTRIES : [{ code, name: code }, ...COUNTRIES]
+  return { recent: top, others: !code || listed(code) ? others : [{ code, name: code }, ...others] }
+}
+
+/** The list after `code` was chosen: it comes first and appears once. */
+export function withRecentCountry(recent: readonly string[], code: string): string[] {
+  return [code, ...recent.filter((c) => c !== code)].slice(0, RECENT_COUNTRIES)
 }

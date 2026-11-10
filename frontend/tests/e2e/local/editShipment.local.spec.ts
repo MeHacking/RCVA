@@ -267,6 +267,49 @@ test('shows the country read from the file by its name, Bosnia written BIH too',
   expect(errors).toEqual([])
 })
 
+test('offers the recently used countries on top, in a list of limited height', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/shipments')
+  const open = page.getByRole('button', { name: 'Dodaj pošiljku' })
+  const dialog = page.getByRole('dialog', { name: 'Nova pošiljka' })
+  const country = dialog.getByRole('group', { name: 'Preuzimanje' }).getByLabel('Zemlja (neobavezno)')
+  const recent = country.locator('optgroup[label="Nedavno korišćene"] option')
+
+  await open.click()
+  await expect(recent).toHaveCount(8)
+  await expect(recent.first()).toHaveText('Srbija')
+  const height = await country.evaluate((select) => getComputedStyle(select, '::picker(select)').maxHeight)
+  expect(parseFloat(height)).toBeLessThanOrEqual(19 * 16)
+
+  await country.selectOption({ label: 'Finska' })
+  await expect(country).toHaveValue('FI')
+  await dialog.getByRole('button', { name: 'Otkaži' }).click()
+
+  // Remembered also after a reload, on top and only once.
+  await page.reload()
+  await open.click()
+  await expect(recent).toHaveCount(8)
+  await expect(recent.first()).toHaveText('Finska')
+  await expect(country.locator('option', { hasText: 'Finska' })).toHaveCount(1)
+  expect(errors).toEqual([])
+})
+
+test('animates the fields, unless the system asks for less motion', async ({ page }) => {
+  await page.goto('/shipments')
+  await page.getByRole('button', { name: 'Dodaj pošiljku' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Nova pošiljka' })
+  const durations = () =>
+    Promise.all(
+      [dialog.getByLabel('LDM'), dialog.getByRole('group', { name: 'Isporuka' }).getByLabel('Zemlja (neobavezno)')].map((field) =>
+        field.evaluate((element) => getComputedStyle(element).transitionDuration),
+      ),
+    )
+  for (const duration of await durations()) expect(duration).not.toBe('0s')
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  expect(await durations()).toEqual(['0s', '0s'])
+})
+
 test('removes one shipment after asking, and keeps it removed', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/shipments')
