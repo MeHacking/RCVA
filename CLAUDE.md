@@ -10,6 +10,14 @@ Sve je push-ovano na `origin/main` 10.11.2026, osim ispravke za Snap i traženja
 
 ## Gde smo stali (03.11.2026)
 
+**Zaboravljanje svih lokacija (urađeno 10.11.2026)**, na zahtev korisnika: Podešavanja, deo 5 (Brisanje
+svih podataka je sada deo 6), uz lozinku `adminconfirm`; zajednički obrazac je `AdminActionPanel.tsx`.
+`ApiClient.forgetAllPlaces` (NOT IN SPEC v2; 409 dok posao radi): sva mesta osim baze scenarija gube
+koordinate i `movedFrom` (status `FAILED`, nazivi ostaju, pa sačuvani rezultati imaju nazive), kamioni
+gube lokaciju (a stari poslovi više ne nude predlog), brišu se `geocodeCache` i `noAccessCache`.
+`distanceCache` i linije ostaju (po koordinatama su i štede ORS upite). Pošiljke i kamioni ostaju;
+pošiljke su „Nejasna lokacija“ dok se mesta ne potraže ponovo (uvoz ili čuvanje pošiljke).
+
 **Automatski kamionski prilaz (urađeno 10.11.2026; zamenjuje dugme iz dva odeljka ispod)**. Korisnik:
 vlasnik upisuje gradove, a magacini su u okolini; putevi za automobile daju lažnu kilometražu, pa
 upisan grad mora sam da stigne do najbliže tačke za kamion, bez dodatnih koraka i uz malu potrošnju
