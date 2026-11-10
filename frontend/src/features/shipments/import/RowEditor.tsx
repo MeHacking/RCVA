@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from 'react'
 import { useApi } from '../../../api/apiContext'
 import { describeError } from '../../../api/client'
 import type { ImportRow, ImportRowPatch, PlaceGuess } from '../../../api/types'
+import { CountrySelect } from '../../../components/CountrySelect'
 import { formatLdm, parseLdmTenths } from '../../../format/units'
 
 interface PlaceFields {
@@ -149,7 +150,7 @@ function PlaceEditor({
       {/* The number read next to a place is kept but not shown: whether it is a postal code is an open question. */}
       <div className="field">
         <label htmlFor={`${idPrefix}-country`}>Zemlja</label>
-        <input id={`${idPrefix}-country`} value={value.country} onChange={(e) => set('country')(e.target.value)} />
+        <CountrySelect id={`${idPrefix}-country`} value={value.country} onChange={set('country')} />
       </div>
     </fieldset>
   )

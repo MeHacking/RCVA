@@ -3,6 +3,7 @@ import { useApi } from '../../api/apiContext'
 import { apiMode } from '../../api/apiMode'
 import { ApiError, describeError } from '../../api/client'
 import type { Location, Shipment, ShipmentUpdateResult } from '../../api/types'
+import { CountrySelect } from '../../components/CountrySelect'
 import { Icon } from '../../components/Icon'
 import { OsmAttribution } from '../../components/OsmAttribution'
 import { haversineMeters } from '../../domain/optimization/distance'
@@ -308,12 +309,7 @@ function PlaceEditor({
       </div>
       <div className="field">
         <label htmlFor={`${prefix}-country`}>{isNew ? 'Zemlja (neobavezno)' : 'Zemlja'}</label>
-        <input
-          id={`${prefix}-country`}
-          value={value.country}
-          placeholder={isNew ? 'npr. RS' : undefined}
-          onChange={(e) => set('country', e.target.value)}
-        />
+        <CountrySelect id={`${prefix}-country`} value={value.country} onChange={(code) => set('country', code)} />
       </div>
       {/* A place with coordinates keeps them; coordinates by hand are only for a place without them. */}
       {(!located || replaced) && (

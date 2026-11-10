@@ -64,6 +64,7 @@ test('imports an Excel file: mapping, corrections, exclusion, commit', async ({ 
   const editor6 = page.getByRole('form', { name: 'Ispravka reda 6' })
   await expect(editor6).toContainText('„12345 SODERTALJE“')
   await editor6.getByRole('group', { name: 'Preuzimanje' }).getByLabel('Mesto').fill('Beograd')
+  await editor6.getByRole('group', { name: 'Preuzimanje' }).getByLabel('Zemlja').selectOption({ label: 'Srbija' })
   await editor6.getByRole('button', { name: 'Sačuvaj ispravku' }).click()
   await expect(summaryValue(page, 'Sa greškom')).toHaveText('2')
 
@@ -81,6 +82,7 @@ test('imports an Excel file: mapping, corrections, exclusion, commit', async ({ 
   await expect(summaryValue(page, 'Isključeno')).toHaveText('1')
   await expect(summaryValue(page, 'Ručno ispravljeno')).toHaveText('2')
   await expect(table.locator('tbody > tr')).toHaveCount(6) // no errors left: all rows shown
+  await expect(table.getByRole('row', { name: /^6 / })).toContainText('Beograd · RS')
 
   // Step 4: confirm and commit
   await page.getByRole('button', { name: 'Dalje: potvrda' }).click()

@@ -222,13 +222,17 @@ test('adds a shipment by hand: says what is missing, names it by relation, and k
 
   await pickup.getByLabel('Mesto').fill('Subotica')
   await delivery.getByLabel('Mesto').fill('Novostad')
-  await delivery.getByLabel('Zemlja (neobavezno)').fill('se')
+  await expect(delivery.getByLabel('Zemlja (neobavezno)')).toHaveValue('')
+  await delivery.getByLabel('Zemlja (neobavezno)').selectOption({ label: 'Švedska' })
   await dialog.getByLabel('LDM').fill('2,4')
   await dialog.getByLabel('Težina (kg)').fill('900')
   await dialog.getByLabel('Opis').fill('Palete')
   await expect(dialog).toContainText('© OpenStreetMap contributors')
+  const lookup = page.waitForRequest((request) => request.url().includes('q=Novostad'))
   await dialog.getByRole('button', { name: 'Dodaj pošiljku' }).click()
 
+  // The country is chosen by name and goes to Nominatim as its code.
+  expect(new URL((await lookup).url()).searchParams.get('countrycodes')).toBe('se')
   const added = page.getByRole('status').filter({ hasText: 'Pošiljka „SUB-NOV-1“ je dodata.' })
   await expect(added).toContainText('„Novostad“: koordinate su pronađene.')
   await expect(dialog).toBeHidden()
@@ -247,6 +251,19 @@ test('adds a shipment by hand: says what is missing, names it by relation, and k
 
   await page.reload()
   await expect(row(page, 'SUB-NOV-1')).toContainText('Novostad')
+  expect(errors).toEqual([])
+})
+
+test('shows the country read from the file by its name, Bosnia written BIH too', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await fakeNominatim(page)
+  await importRows(page, [['PRIMEROVO / BIH / - DRUGOVO / SE /', '1,200 kg', '2,4m']])
+
+  const form = await edit(page, 'PRI-DRU-1')
+  const country = (group: string) => form.getByRole('group', { name: group }).getByLabel('Zemlja')
+  await expect(country('Preuzimanje')).toHaveValue('BA')
+  await expect(country('Preuzimanje').locator('option:checked')).toHaveText('Bosna i Hercegovina')
+  await expect(country('Isporuka').locator('option:checked')).toHaveText('Švedska')
   expect(errors).toEqual([])
 })
 

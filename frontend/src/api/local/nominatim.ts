@@ -1,3 +1,4 @@
+import { isoCountryCode } from '../../domain/countries'
 import { normalizePlaceName } from '../mock/import/gazetteer'
 
 // Coordinates from the public Nominatim (OpenStreetMap), under its usage policy
@@ -41,11 +42,10 @@ export function placeKey(query: PlaceQuery): string {
   return `${normalizePlaceName(query.name)}|${countryCode(query.country) ?? ''}`
 }
 
-/** ISO 3166-1 alpha-2 for Nominatim's `countrycodes`; the files write Bosnia as BIH. */
+/** ISO 3166-1 alpha-2 for Nominatim's `countrycodes`. */
 function countryCode(country: string | null): string | null {
   if (!country) return null
-  const code = country.trim().toLowerCase()
-  if (code === 'bih') return 'ba'
+  const code = isoCountryCode(country).toLowerCase()
   return /^[a-z]{2}$/.test(code) ? code : null
 }
 
