@@ -21,6 +21,18 @@ zemlje se traži svuda. Lokacije kamiona (`TruckLocations.tsx`) i dalje imaju po
 traženo). Testovi: `countries.test.ts` (5), dopune u `editShipment.local.spec.ts` i
 `shipmentImport.spec.ts`; provereno na pokvarenom kodu (4 izmene). Vitest 512; od e2e samo ta dva
 fajla (12), ceo e2e i desktop nisu pokretani.
+- **Dorada istog dana** (korisnik: meni ne sme biti preveliki, na vrhu 7–8 nedavno korišćenih,
+  animirati meni i polja svuda): grupe „Nedavno korišćene“ (8, `countryGroups`) i „Ostale
+  države“; nedavne se pamte po uređaju pri izboru (`localStorage`, `rcva.recentCountries`), a dok
+  ih nema dovoljno dopunjuju se uobičajenima (`USUAL_COUNTRIES`). Svi `<select>` u aplikaciji su
+  `appearance: base-select` u `@supports` (`components.css`): lista najviše 19rem, otvaranje i
+  zatvaranje animirani (`@starting-style`, `allow-discrete`); Chromium od 135, Electron 44 ima
+  152, a pregledači bez podrške zadržavaju običan meni. Svako polje: animiran prsten fokusa i
+  ivica, natpis u boji akcenta dok je fokus u polju, kratko podrhtavanje na grešku; isključeno
+  uz „smanji animacije“. Opcije zatvorenog `base-select` menija nemaju ulogu za Playwright
+  `getByRole`, pa testovi koriste CSS lokator; `selectOption` radi. Testovi: `countries.test.ts`
+  (11), 2 nova e2e; provereno na pokvarenom kodu (6 izmena). Vitest 518, ceo e2e 96 prolaze;
+  desktop nije pokretan.
 
 **Pošiljke bez Excel-a (urađeno 09.11.2026)**, na zahtev korisnika („prozor
 kao na drugim ekranima; izmena, ručno dodavanje i brisanje pošiljki“). Plan nije posebno
