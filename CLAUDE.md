@@ -6,9 +6,27 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 10.11.2026 („Traži ponovo“ za mesto, zemlja iz padajućeg menija; pre toga pošiljke ručno,
 vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 10.11.2026, osim ispravke za Snap i traženja dostupne tačke.
+Sve je push-ovano na `origin/main` 10.11.2026, osim ispravke za Snap i traženja dostupne tačke (i automatskog prilaza).
 
 ## Gde smo stali (03.11.2026)
+
+**Automatski kamionski prilaz (urađeno 10.11.2026; zamenjuje dugme iz dva odeljka ispod)**. Korisnik:
+vlasnik upisuje gradove, a magacini su u okolini; putevi za automobile daju lažnu kilometražu, pa
+upisan grad mora sam da stigne do najbliže tačke za kamion, bez dodatnih koraka i uz malu potrošnju
+upita. Od 41 mesta 40 je javljalo „problem je u drugom mestu“, jer je stara logika pri delimično
+povezanoj mreži optuživala svako mesto iz neuspelih parova. Sada `placesOutOfReach` (izbacuje jedno po
+jedno mesto sa najviše nedostajućih puteva, dok se ostala ne povežu u oba smera; računa se iz
+`distanceCache`, bez upita), pa `moveToReachablePoints` u `jobDistances` pri pokretanju posla sam
+pomera samo ta mesta, bez potvrde (`movedFrom` se čuva, `geocodeStatus` ostaje). Štednja: bez
+traženja kad je više od `MAX_PLACES_SEARCHED` (10) mesta ili nema jasne većine (`worthSearching`,
+tada je reč o grupama, ne o pojedinačnim mestima), neuspeh se pamti (`noAccessCache`, i u fajlu),
+ostali parovi ostaju iz keša; tipično 2 upita po mestu + 1 za nove parove, najviše 12 po mestu.
+Provera prema jednom, najbližem dobrom mestu. Uklonjeni `proposeRoadPoints`, `moveToRoadPoint` i
+`RoadPoints.tsx`; `UnreachablePlaces.tsx` samo navodi mesta bez tačke sa linkom „Gde je trenutna
+lokacija?“; `AccessPointsNotice.tsx` u rezultatu kaže koja su mesta pomerena za bar 500 m. Ranije
+pomerena mesta nisu vraćana na grad (rade, a vraćanje bi trošilo upite). **Nije probano sa pravim
+ORS-om** (nema ključa ovde). Ako je uzrok dve grupe bez veze, pomeranje ne pomaže (poruka navodi
+manju grupu).
 
 **Širenje traženja do 10 km (urađeno 10.11.2026)**, korisnik: većina mesta i dalje nije imala
 dostupnu tačku. Krugovi: prvo do 5 km kao ranije (49 tačaka), pa po jedan prsten na 6, 7, 8, 9 i
