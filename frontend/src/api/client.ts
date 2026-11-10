@@ -177,6 +177,13 @@ export interface ApiClient {
    */
   resetDevice(): Promise<void>
   /**
+   * NOT IN SPEC v2: forgets where every place is (coordinates, moves to a road, where the trucks
+   * are, the answers of the lookup); the shipments, trucks and results stay, and the kept
+   * kilometres too, as they go by coordinates. 409 while a job waits or runs, 404 where there is
+   * no data on the device.
+   */
+  forgetAllPlaces(): Promise<{ places: number }>
+  /**
    * NOT IN SPEC v2: puts a place moved to the nearest road back where it was (movedFrom). 409
    * when it was not moved or while a job waits or runs, 404; 404 over HTTP and in the mock.
    */

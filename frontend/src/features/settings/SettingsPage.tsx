@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { DeviceDataPanel } from './DeviceDataPanel'
 import { FactoryResetPanel } from './FactoryResetPanel'
+import { ForgetPlacesPanel } from './ForgetPlacesPanel'
 import { SettingsPart } from './SettingsPart'
 
 /** Settings of the application on the device; the mock and the backend have none. */
@@ -28,6 +29,7 @@ export function SettingsPage() {
           <>
             <SettingsForm initial={settings.data} />
             <DeviceDataPanel />
+            <ForgetPlacesPanel />
             <FactoryResetPanel />
           </>
         ) : (

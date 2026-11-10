@@ -125,6 +125,34 @@ test('the settings never scroll sideways, and the data buttons sit in the bottom
   expect(errors).toEqual([])
 })
 
+test('forgets all locations only with the administrator password, and keeps the shipments and trucks', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/settings')
+  const forget = page.getByRole('form', { name: 'Zaboravljanje svih lokacija' })
+  const password = forget.getByLabel('Administratorska lozinka')
+  const button = forget.getByRole('button', { name: 'Zaboravi sve lokacije' })
+  await expect(button).toBeDisabled()
+
+  await password.fill('pogresno')
+  await button.click()
+  await expect(forget.getByText('Pogrešna lozinka. Ništa nije obrisano.')).toBeVisible()
+  await page.goto('/shipments')
+  const shipments = page.getByRole('table', { name: 'Pošiljke' })
+  await expect(shipments).not.toContainText('Nejasna lokacija')
+
+  await page.goto('/settings')
+  await password.fill('adminconfirm')
+  await button.click()
+  await expect(page.getByText(/^Zaboravljene su sve lokacije \(mesta: \d+\)\. Pošiljke i kamioni su ostali\.$/)).toBeVisible()
+
+  await page.goto('/shipments')
+  await expect(shipments.getByRole('row')).toHaveCount(6) // header + the scenario's 5
+  await expect(shipments.getByRole('row').nth(1)).toContainText('Nejasna lokacija')
+  await page.goto('/trucks')
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row')).toHaveCount(4) // header + the scenario's 3
+  expect(errors).toEqual([])
+})
+
 test('erases all data only with the administrator password', async ({ page }) => {
   const errors = collectPageErrors(page)
   await addTruck(page, 'Proba brisanja')

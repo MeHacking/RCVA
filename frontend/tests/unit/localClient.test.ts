@@ -417,6 +417,56 @@ describe('local storage on the device', () => {
     expect((await after.createTruck(TRUCK)).id).toBe(1)
   })
 
+  it('forgets all locations and what was found for them, and keeps the shipments, trucks and results', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const id = (await api.createOptimizationJob(REQUEST)).id
+    await settle(api, id)
+    const before = { shipments: await api.listShipments(), trucks: await api.listTrucks() }
+    const base = SCENARIOS.small.base.baseLocationId
+    const saved = (await store.load())!
+    saved.geocodeCache = { 'mesto|': { found: true, lat: 1, lon: 2, label: 'x' } }
+    saved.noAccessCache = { 'driving-hgv|1,2': true }
+    saved.distanceCache = { kept: 1000 }
+    saved.locations.find((l) => l.id !== base)!.movedFrom = { lat: 1, lon: 2, geocodeStatus: 'OK' }
+    await store.save(saved)
+
+    const api2 = setup('small', steps, store)
+    const { places } = await api2.forgetAllPlaces()
+    expect(places).toBe(SCENARIOS.small.locations.filter((l) => l.id !== base).length)
+    const others = (await api2.listLocations()).filter((l) => l.id !== base)
+    expect(others.every((l) => l.lat === null && l.lon === null && l.geocodeStatus === 'FAILED' && !l.movedFrom)).toBe(true)
+    expect(others.map((l) => l.name)).toEqual(SCENARIOS.small.locations.filter((l) => l.id !== base).map((l) => l.name))
+    expect((await api2.listLocations()).find((l) => l.id === base)!.lat).toBe(SCENARIOS.small.locations.find((l) => l.id === base)!.lat)
+
+    expect(await api2.listShipments()).toEqual(before.shipments)
+    const trucks = await api2.listTrucks()
+    expect(trucks.map((t) => t.name)).toEqual(before.trucks.map((t) => t.name))
+    expect(trucks.every((t) => t.startLocationId === null)).toBe(true)
+    // Nothing proposes the place of an old result as where a truck is.
+    expect((await api2.getTruckStarts())!.every((s) => s.proposal === null)).toBe(true)
+    // The old result is still there to read.
+    expect((await api2.getOptimizationResult(id)).routes.length).toBeGreaterThan(0)
+
+    // Stored at once; the kilometres stay, as they are by coordinates and cost requests.
+    const stored = storedData(store)
+    expect([stored.geocodeCache, stored.noAccessCache, stored.distanceCache]).toEqual([{}, {}, { kept: 1000 }])
+    expect((await setup('small', steps, store).listLocations()).filter((l) => l.id !== base)[0].lat).toBeNull()
+  })
+
+  it('does not forget the locations while a job waits or runs', async () => {
+    let release = () => {}
+    const held: Parameters<typeof setup>[1] = async (input, limit) => {
+      await new Promise<void>((resolve) => (release = resolve))
+      return steps(input, limit)
+    }
+    const api = setup('small', held)
+    await api.createOptimizationJob(REQUEST)
+    expect((await rejection(api.forgetAllPlaces())).status).toBe(409)
+    expect((await api.listLocations()).some((l) => l.lat !== null)).toBe(true)
+    release()
+  })
+
   it('gives a removed truck id again only when no kept job uses it', async () => {
     const api = setup('small', steps)
     // The job drives Šleper 1 and 2; Solo 1 (id 3) is not available, so the job has it not.

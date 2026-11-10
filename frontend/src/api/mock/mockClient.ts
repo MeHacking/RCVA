@@ -326,6 +326,11 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         throw notFound('Ponovno traženje mesta postoji samo u aplikaciji na uređaju.')
       }),
 
+    forgetAllPlaces: () =>
+      respond(() => {
+        throw notFound('Zaboravljanje lokacija postoji samo u aplikaciji na uređaju.')
+      }),
+
     resetDevice: () =>
       respond(() => {
         throw notFound('Brisanje svih podataka postoji samo u aplikaciji na uređaju.')

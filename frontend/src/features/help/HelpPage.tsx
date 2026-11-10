@@ -420,6 +420,10 @@ function Steps() {
               lokacije, poslednji rezultati i zapamćene koordinate i kilometraže ostaju.
             </li>
             <li>
+              „Zaboravljanje svih lokacija“ (dno Podešavanja, uz administratorsku lozinku) briše koordinate svih mesta i
+              lokacije kamiona, a pošiljke i kamioni ostaju. Mesta se ponovo traže pri sledećem uvozu ili čuvanju pošiljke.
+            </li>
+            <li>
               „Brisanje svih podataka“ (dno Podešavanja, uz administratorsku lozinku) briše sve na uređaju, i ključ i
               podešavanja, pa je aplikacija kao pri prvom pokretanju. To se ne može poništiti: prvo izvezite podatke.
             </li>

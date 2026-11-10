@@ -92,6 +92,7 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     checkDeviceData: () => Promise.reject(noDeviceData()),
     replaceDeviceData: () => Promise.reject(noDeviceData()),
     resetDevice: () => Promise.reject(noDeviceData()),
+    forgetAllPlaces: () => Promise.reject(noDeviceData()),
     // Nor roads: the backend measures as the crow flies.
     restoreRoadPoint: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema pomeranje mesta.' })),

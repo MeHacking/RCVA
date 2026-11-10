@@ -1083,6 +1083,24 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         return structuredClone(place)
       }),
 
+    forgetAllPlaces: () =>
+      change(() => {
+        assertNoActiveJob('lokacije se mogu zaboraviti')
+        let places = 0
+        for (const place of locations) {
+          // The base of a scenario is no place the user gave.
+          if (place.id === scenario.base.baseLocationId) continue
+          Object.assign(place, { lat: null, lon: null, geocodeStatus: 'FAILED', movedFrom: null })
+          places++
+        }
+        // From now on: the last deliveries of the jobs before this are no proposals any more.
+        const after = newestJobId()
+        for (const truck of trucks) Object.assign(truck, { startLocationId: null, startSetAfterJobId: after })
+        geocodeCache = {}
+        noAccessCache = {}
+        return { places }
+      }),
+
     resetDevice: () =>
       change(() => {
         assertNoActiveJob('svi podaci se mogu obrisati')
