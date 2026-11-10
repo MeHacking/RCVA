@@ -4,11 +4,28 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 10.11.2026 (zemlja mesta iz padajućeg menija; pre toga pošiljke ručno,
+Poslednje ažuriranje: 10.11.2026 („Traži ponovo“ za mesto, zemlja iz padajućeg menija; pre toga pošiljke ručno,
 vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
-Do pošiljki bez Excel-a sve je push-ovano na `origin/main` 09.11.2026; zemlja iz menija još nije.
+Sve je push-ovano na `origin/main` 10.11.2026.
 
 ## Gde smo stali (03.11.2026)
+
+**„Traži ponovo“ za mesto (urađeno 10.11.2026)**, na zahtev korisnika (jedan švedski grad je i
+posle izbora države ostajao u Rusiji). Uzrok: `findPlace` poredi samo naziv, pa mesto sa
+koordinatama nikad nije tražio ponovo, a državu nije ni upisivao (to ostaje tako pri običnom
+čuvanju). Prvi pogrešan odgovor: naziv bez kvačica i bez države, uz `Accept-Language: en-US`, daje grad u
+Rusiji, sa `sr` pravi grad (provereno pravim upitom); sa `countrycodes=se` uvek pravi grad. Dugme je u
+`PlaceSearchAgain.tsx` (samo režim `local`, mesto sa koordinatama i nepromenjenim nazivom):
+`ApiClient.searchPlaceAgain(id, country)` uvek pita Nominatim i ništa ne menja na mestu (404, 409
+kad je traženje isključeno, 502), pa prikaže nađeno i udaljenost; „Prihvati“ zove
+`applyPlaceSearch` (NOT IN SPEC v2; 400, 404, 409 dok posao radi): koordinate, država, `MANUAL`,
+briše `movedFrom`, i prepisuje zapamćen odgovor i pod starom državom, da ponovni uvoz ne vrati
+pogrešnu tačku. Važi za sve pošiljke sa tim mestom; sačuvani rezultati na mapi pokazuju novu tačku
+uz stare kilometre. Promena države poništava prikazan predlog (`key`). Time je ukinuto ograničenje
+iz izmene pošiljki od 02.11. („pomaže samo drugačiji naziv“). Resetovanje svih mesta odbijeno
+(1 upit/s, i bez države bi došli isti odgovori). Testovi: 6 u `localClient.test.ts`, 409 u testu
+reda poslova, 1 e2e; provereno na pokvarenom kodu (11 izmena). **Zamka**: `localClient.ts` ima
+CRLF, pa skripta za izmene sa višelinijskim tekstom tiho ne menja ništa (tada „prolazi“).
 
 **Zemlja iz padajućeg menija (urađeno 10.11.2026)**, na zahtev korisnika: u prozoru pošiljke i
 u ispravci reda pri uvozu zemlja se bira po nazivu (`CountrySelect`, spisak Evrope u
