@@ -10,6 +10,16 @@ Sve je push-ovano na `origin/main` 10.11.2026, osim ispravke za Snap i traženja
 
 ## Gde smo stali (03.11.2026)
 
+**Širenje traženja do 10 km (urađeno 10.11.2026)**, korisnik: većina mesta i dalje nije imala
+dostupnu tačku. Krugovi: prvo do 5 km kao ranije (49 tačaka), pa po jedan prsten na 6, 7, 8, 9 i
+10 km (po 36 tačaka), staje se na prvom uspehu; po krugu dva ORS upita, najviše 12 po mestu (na
+dugmetu „Traženje… (N od M)“). Granica je samo ukupna (10 km + 100 m), jer su tačke prstena tek
+približno na svojoj udaljenosti i prva verzija sa granicom po krugu ih je tiho odbacivala. Proverava se
+prema do 3 najbliža druga mesta (dovoljno je jedno), spuštena Snap-om na put, jer je jedno loše
+mesto obaralo sve tačke (**pretpostavka, uzrok kod korisnika nije potvrđen**: nema ključa ovde);
+`tried` u predlogu kaže koliko je tačaka na putu provereno, pa se vidi da li ih uopšte ima. Linkovi:
+„Gde je trenutna lokacija?“ i „Gde bi bila nova lokacija?“. Provereno na pokvarenom kodu (17 izmena).
+
 **Tačka do koje kamion stiže (urađeno 10.11.2026)**, na zahtev korisnika, jer je mesto bilo na
 dozvoljenom putu (Snap 0 m), a ruta do njega nije postojala (Snap gleda samo tu deonicu, ne da li se
 do nje stiže). `api/local/roadPointSearch.ts`: `pointsAround` (mesto + 8 krugova od 250 m do 5 km,
