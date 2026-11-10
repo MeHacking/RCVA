@@ -12,6 +12,7 @@ import type {
   ImportRowPatch,
   LoadPlan,
   Location,
+  PlaceSearchResult,
   RoadPointProposal,
   OptimizationJob,
   OptimizationJobCreated,
@@ -194,6 +195,22 @@ export interface ApiClient {
    * when it was not moved or while a job waits or runs, 404; 404 over HTTP and in the mock.
    */
   restoreRoadPoint(locationId: number): Promise<Location>
+  /**
+   * NOT IN SPEC v2: looks a place up again by its name in the given country (null: everywhere),
+   * whatever was answered before. Changes nothing on the place. 404, 409 when the lookup is off
+   * in the settings, 502 when Nominatim fails; 404 over HTTP and in the mock.
+   */
+  searchPlaceAgain(locationId: number, country: string | null): Promise<PlaceSearchResult>
+  /**
+   * NOT IN SPEC v2: gives a place the coordinates and the country the user accepted from a new
+   * search, for every shipment there. They are the user's from now on (MANUAL), and a kept move
+   * to the road is dropped. 400 for coordinates out of range, 404, 409 while a job waits or
+   * runs; 404 over HTTP and in the mock.
+   */
+  applyPlaceSearch(
+    locationId: number,
+    found: { lat: number; lon: number; label: string; country: string | null },
+  ): Promise<Location>
 }
 
 export class ApiError extends Error {

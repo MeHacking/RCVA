@@ -407,6 +407,13 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     ])
   }
 
+  function assertValidPoint({ lat, lon }: { lat: number; lon: number }): void {
+    const valid = (n: number, limit: number) => Number.isFinite(n) && Math.abs(n) <= limit
+    if (!valid(lat, 90) || !valid(lon, 180)) {
+      throw new ApiError({ title: 'Neispravne koordinate', status: 400, detail: 'Širina mora biti do ±90, dužina do ±180.' })
+    }
+  }
+
   /** Where a truck is, when that place has coordinates. */
   function startOfTruck(truck: Truck): Location | null {
     const location = locations.find((l) => l.id === truck.startLocationId)
@@ -1018,10 +1025,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         assertNoActiveJob('mesto se može pomeriti')
         const place = locations.find((l) => l.id === locationId)
         if (!place) throw notFound(`Mesto ${locationId} ne postoji.`)
-        const valid = (n: number, limit: number) => Number.isFinite(n) && Math.abs(n) <= limit
-        if (!valid(to.lat, 90) || !valid(to.lon, 180)) {
-          throw new ApiError({ title: 'Neispravne koordinate', status: 400, detail: 'Širina mora biti do ±90, dužina do ±180.' })
-        }
+        assertValidPoint(to)
         // Confirmed by the user: the place's coordinates are the user's from now on; where it was
         // stays (the first place, if it is moved again), so it can go back.
         if (place.lat !== null && place.lon !== null) {
@@ -1045,6 +1049,44 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         place.lat = from.lat
         place.lon = from.lon
         place.geocodeStatus = from.geocodeStatus
+        place.movedFrom = null
+        return structuredClone(place)
+      }),
+
+    searchPlaceAgain: (locationId, country) =>
+      respond(async () => {
+        const place = locations.find((l) => l.id === locationId)
+        if (!place) throw notFound(`Mesto ${locationId} ne postoji.`)
+        if (!settings.geocodingEnabled) {
+          throw new ApiError({ title: 'Traženje je isključeno', status: 409, detail: 'Traženje koordinata je isključeno u podešavanjima.' })
+        }
+        const query = { name: place.name, country: country?.trim().toUpperCase() || null }
+        let answer: GeocodeAnswer
+        try {
+          answer = await geocoder.geocode(query)
+        } catch (error) {
+          if (!(error instanceof GeocodeError)) throw error
+          throw new ApiError({ title: 'Mesto nije traženo', status: 502, detail: error.message })
+        }
+        geocodeCache[placeKey(query)] = answer
+        await persist()
+        return { locationId, name: place.name, country: query.country, found: answer.found ? answer : null }
+      }),
+
+    applyPlaceSearch: (locationId, found) =>
+      change(() => {
+        assertNoActiveJob('mesto se može ispraviti')
+        const place = locations.find((l) => l.id === locationId)
+        if (!place) throw notFound(`Mesto ${locationId} ne postoji.`)
+        assertValidPoint(found)
+        const answer: GeocodeAnswer = { found: true, lat: found.lat, lon: found.lon, label: found.label }
+        // Also under what it was asked as until now, so a later import does not bring the wrong point back.
+        geocodeCache[placeKey(place)] = answer
+        geocodeCache[placeKey({ name: place.name, country: found.country })] = answer
+        place.lat = found.lat
+        place.lon = found.lon
+        place.country = found.country
+        place.geocodeStatus = 'MANUAL'
         place.movedFrom = null
         return structuredClone(place)
       }),

@@ -274,6 +274,11 @@ describe('local optimization', () => {
     expect((await api.getOptimizationJob(second.id)).status).toBe('QUEUED')
     expect(calls).toEqual([5000])
 
+    // A place keeps what the job uses while a job waits or runs.
+    const [someplace] = await api.listLocations()
+    const accepted = { lat: 57.7, lon: 12.9, label: 'x', country: 'SE' }
+    expect((await rejection(api.applyPlaceSearch(someplace.id, accepted))).status).toBe(409)
+
     // A truck cannot be removed while a job waits or runs.
     expect((await rejection(api.deleteTruck(1))).status).toBe(409)
 
@@ -634,7 +639,7 @@ describe('coordinates from Nominatim on the device', () => {
     return { fetch, asked, names: () => asked.map((u) => u.searchParams.get('q')) }
   }
 
-  function client(store: DeviceStore<LocalData>, fake: ReturnType<typeof nominatim>, rows = ROWS): ApiClient {
+  function client(store: DeviceStore<LocalData>, fake: { fetch: typeof globalThis.fetch }, rows = ROWS): ApiClient {
     return createLocalApiClient({
       scenario: SCENARIOS.small,
       runSolver: steps,
@@ -653,6 +658,95 @@ describe('coordinates from Nominatim on the device', () => {
   }
 
   const place = async (api: ApiClient, name: string) => (await api.listLocations()).find((l) => l.name === name)
+
+  describe('a place looked up again', () => {
+    /** Teststad is in another town without a country; in Sweden it is the right one. */
+    function byCountry() {
+      const asked: Array<string | null> = []
+      let down = false
+      const fetch = (async (input: RequestInfo | URL) => {
+        const params = new URL(String(input)).searchParams
+        if (down) throw new TypeError('Failed to fetch')
+        if (params.get('q') !== 'Teststad') return new Response('[]')
+        const country = params.get('countrycodes')
+        asked.push(country)
+        if (country === 'no') return new Response('[]')
+        return new Response(
+          JSON.stringify([
+            country === 'se'
+              ? { lat: '57.7', lon: '12.9', display_name: 'Teststad, Sverige' }
+              : { lat: '56.3', lon: '44.0', display_name: 'Teststad, Rossija' },
+          ]),
+        )
+      }) as typeof globalThis.fetch
+      return { fetch, asked, goDown: () => (down = true) }
+    }
+    const setupWrong = async () => {
+      const fake = byCountry()
+      const store = createMemoryStore<LocalData>()
+      const api = client(store, fake)
+      await importRows(api)
+      const wrong = (await place(api, 'Teststad'))!
+      expect(wrong).toMatchObject({ lat: 56.3, country: null })
+      return { api, fake, wrong, store }
+    }
+
+    it('asks in that country, whatever was kept, and changes nothing yet', async () => {
+      const { api, fake, wrong } = await setupWrong()
+      const result = await api.searchPlaceAgain(wrong.id, ' se ')
+      expect(result).toMatchObject({ name: 'Teststad', country: 'SE', found: { lat: 57.7, lon: 12.9, label: 'Teststad, Sverige' } })
+      expect(await place(api, 'Teststad')).toEqual(wrong)
+
+      await api.searchPlaceAgain(wrong.id, 'SE')
+      expect(fake.asked).toEqual([null, 'se', 'se'])
+    })
+
+    it('says when it is not found, and fails without changing anything', async () => {
+      const { api, fake, wrong } = await setupWrong()
+      expect((await api.searchPlaceAgain(wrong.id, 'NO')).found).toBeNull()
+      expect((await rejection(api.searchPlaceAgain(9999, 'SE'))).status).toBe(404)
+
+      fake.goDown()
+      expect((await rejection(api.searchPlaceAgain(wrong.id, 'SE'))).status).toBe(502)
+      expect(await place(api, 'Teststad')).toEqual(wrong)
+    })
+
+    it('asks nothing when the lookup is switched off', async () => {
+      const { api, fake, wrong } = await setupWrong()
+      await api.updateDeviceSettings({ ...(await api.getDeviceSettings())!, geocodingEnabled: false })
+      expect((await rejection(api.searchPlaceAgain(wrong.id, 'SE'))).status).toBe(409)
+      expect(fake.asked).toEqual([null])
+    })
+
+    it('gives the place what was accepted, also after a restart, and drops a kept move to the road', async () => {
+      const { api, wrong, store } = await setupWrong()
+      await api.moveToRoadPoint(wrong.id, { lat: 56.31, lon: 44.01 })
+      const accepted = { lat: 57.7, lon: 12.9, label: 'Teststad, Sverige', country: 'SE' }
+      const place2 = await api.applyPlaceSearch(wrong.id, accepted)
+      expect(place2).toMatchObject({ id: wrong.id, lat: 57.7, lon: 12.9, country: 'SE', geocodeStatus: 'MANUAL', movedFrom: null })
+
+      expect(await place(client(store, nominatim()), 'Teststad')).toMatchObject({ lat: 57.7, country: 'SE' })
+    })
+
+    it('does not bring the wrong point back when the place is imported again without a country', async () => {
+      const { api, fake, wrong } = await setupWrong()
+      await api.applyPlaceSearch(wrong.id, { lat: 57.7, lon: 12.9, label: 'Teststad, Sverige', country: 'SE' })
+      await api.deleteAllShipments()
+      expect(await place(api, 'Teststad')).toBeUndefined()
+
+      await importRows(api)
+      expect(await place(api, 'Teststad')).toMatchObject({ lat: 57.7, lon: 12.9 })
+      expect(fake.asked).toEqual([null])
+    })
+
+    it('refuses bad coordinates and an unknown place', async () => {
+      const { api, wrong } = await setupWrong()
+      const accepted = { lat: 57.7, lon: 12.9, label: 'x', country: 'SE' }
+      expect((await rejection(api.applyPlaceSearch(wrong.id, { ...accepted, lat: 91 }))).status).toBe(400)
+      expect((await rejection(api.applyPlaceSearch(9999, accepted))).status).toBe(404)
+      expect(await place(api, 'Teststad')).toEqual(wrong)
+    })
+  })
 
   it('asks once per new place while committing, and writes the coordinates', async () => {
     const fake = nominatim()

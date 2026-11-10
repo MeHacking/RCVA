@@ -267,6 +267,67 @@ test('shows the country read from the file by its name, Bosnia written BIH too',
   expect(errors).toEqual([])
 })
 
+test('looks a place found in the wrong town up again, and changes it only when accepted', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const asked: Array<string | null> = []
+  await page.route('https://nominatim.openstreetmap.org/**', async (route) => {
+    const params = new URL(route.request().url()).searchParams
+    if (params.get('q') === 'Novostad') asked.push(params.get('countrycodes'))
+    const country = params.get('countrycodes')
+    const answer =
+      params.get('q') !== 'Novostad'
+        ? { lat: '45.1', lon: '20.1', display_name: 'Primerovo' }
+        : country === 'se'
+          ? { lat: '58.2', lon: '13.3', display_name: 'Novostad, Sverige' }
+          : country === 'no'
+            ? null
+            : { lat: '56.3', lon: '44', display_name: 'Novostad, Rossija' }
+    await route.fulfill({ json: answer ? [answer] : [], headers: { 'Access-Control-Allow-Origin': '*' } })
+  })
+  await importRows(page, [
+    ['PRIMEROVO - NOVOSTAD', '1,200 kg', '2,4m'],
+    ['DRUGOVO - NOVOSTAD', '800 kg', '1,2m'],
+  ])
+  expect(asked).toEqual([null])
+
+  let form = await edit(page, 'PRI-NOV-1')
+  let delivery = form.getByRole('group', { name: 'Isporuka' })
+  const search = delivery.getByRole('button', { name: 'Traži ponovo' })
+  await expect(delivery).toContainText('Koordinate: 56,30000° N, 44,00000° E')
+
+  // Not found there: nothing is offered and nothing changes.
+  await delivery.getByLabel('Zemlja').selectOption({ label: 'Norveška' })
+  await search.click()
+  await expect(delivery).toContainText('„Novostad“ nije pronađeno u izabranoj državi.')
+  expect(asked).toEqual([null, 'no'])
+
+  // Found, but refused: the place stays.
+  await delivery.getByLabel('Zemlja').selectOption({ label: 'Švedska' })
+  await expect(delivery).not.toContainText('nije pronađeno')
+  await search.click()
+  await expect(delivery).toContainText('Pronađeno: Novostad, Sverige')
+  await expect(delivery).toContainText('58,20000° N, 13,30000° E')
+  await expect(delivery).toContainText('Važi za sve pošiljke sa ovim mestom (još 1).')
+  await delivery.getByRole('button', { name: 'Odustani' }).click()
+  await expect(delivery).toContainText('Koordinate: 56,30000° N, 44,00000° E')
+
+  // Asked again, not from what was kept, and accepted.
+  await search.click()
+  await expect(delivery).toContainText('Pronađeno: Novostad, Sverige')
+  expect(asked).toEqual([null, 'no', 'se', 'se'])
+  await delivery.getByRole('button', { name: 'Prihvati' }).click()
+  await expect(form).toHaveCount(0)
+  await expect(page.getByRole('status').filter({ hasText: 'Mesto „Novostad“ je ispravljeno.' })).toBeVisible()
+
+  // The other shipment has it too, also after a reload.
+  await page.reload()
+  form = await edit(page, 'DRU-NOV-1')
+  delivery = form.getByRole('group', { name: 'Isporuka' })
+  await expect(delivery).toContainText('Koordinate: 58,20000° N, 13,30000° E')
+  await expect(delivery.getByLabel('Zemlja').locator('option:checked')).toHaveText('Švedska')
+  expect(errors).toEqual([])
+})
+
 test('offers the recently used countries on top, in a list of limited height', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/shipments')

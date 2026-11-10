@@ -9,6 +9,7 @@ import { OsmAttribution } from '../../components/OsmAttribution'
 import { haversineMeters } from '../../domain/optimization/distance'
 import { formatCoordinates } from '../../format/coordinates'
 import { formatKm } from '../../format/units'
+import { PlaceSearchAgain } from './PlaceSearchAgain'
 import {
   apiErrorsToForm,
   buildShipmentInput,
@@ -37,6 +38,7 @@ export function ShipmentDialog({
   onSaved,
   onClose,
   onPlaceRestored,
+  onPlaceCorrected,
 }: {
   /** null: a new shipment */
   shipment: Shipment | null
@@ -46,6 +48,8 @@ export function ShipmentDialog({
   onClose: () => void
   /** a place moved to the nearest road for lorries was put back where it was */
   onPlaceRestored: (place: Location) => void
+  /** a place was given what a new search found */
+  onPlaceCorrected: (place: Location) => void
 }) {
   const api = useApi()
   const id = useId()
@@ -124,6 +128,10 @@ export function ShipmentDialog({
         onRestored={(restored) => {
           ref.current?.close()
           onPlaceRestored(restored)
+        }}
+        onCorrected={(corrected) => {
+          ref.current?.close()
+          onPlaceCorrected(corrected)
         }}
       />
     )
@@ -217,6 +225,8 @@ export function ShipmentDialog({
 }
 
 const LEGENDS: Record<PlaceRole, string> = { pickup: 'Preuzimanje', delivery: 'Isporuka' }
+// Only the application on the device asks Nominatim itself.
+const CAN_SEARCH_AGAIN = apiMode() === 'local'
 
 function PlaceEditor({
   role,
@@ -231,6 +241,7 @@ function PlaceEditor({
   fieldProps,
   fieldError,
   onRestored,
+  onCorrected,
 }: {
   role: PlaceRole
   idPrefix: string
@@ -247,6 +258,7 @@ function PlaceEditor({
   fieldProps: (field: ShipmentFormField) => FieldProps
   fieldError: (field: ShipmentFormField) => ReactNode
   onRestored: (place: Location) => void
+  onCorrected: (place: Location) => void
 }) {
   const api = useApi()
   const [restoring, setRestoring] = useState(false)
@@ -311,6 +323,17 @@ function PlaceEditor({
         <label htmlFor={`${prefix}-country`}>{isNew ? 'Zemlja (neobavezno)' : 'Zemlja'}</label>
         <CountrySelect id={`${prefix}-country`} value={value.country} onChange={(code) => set('country', code)} />
       </div>
+      {CAN_SEARCH_AGAIN && location && located && !replaced && (
+        <PlaceSearchAgain
+          // What was found belongs to the country it was searched in.
+          key={value.country}
+          location={location}
+          point={located}
+          country={value.country}
+          others={others}
+          onApplied={onCorrected}
+        />
+      )}
       {/* A place with coordinates keeps them; coordinates by hand are only for a place without them. */}
       {(!located || replaced) && (
         <div className="field">

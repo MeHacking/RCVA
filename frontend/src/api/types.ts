@@ -499,6 +499,18 @@ export interface ProblemDetails {
 }
 
 /**
+ * NOT IN SPEC v2: what a new search for a place found, for the user to accept or not.
+ */
+export interface PlaceSearchResult {
+  locationId: number
+  name: string
+  /** the country it was searched in; null: everywhere */
+  country: string | null
+  /** null: not found there */
+  found: { lat: number; lon: number; label: string } | null
+}
+
+/**
  * NOT IN SPEC v2: where a place without a road for lorries could go instead, the nearest point
  * on a road they may use (ORS Snap); `to` is null when there is none within the radius.
  */

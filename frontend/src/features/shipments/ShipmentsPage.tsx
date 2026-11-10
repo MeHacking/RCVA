@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
 import { apiMode } from '../../api/apiMode'
 import { describeError } from '../../api/client'
-import type { Shipment, ShipmentUpdateResult } from '../../api/types'
+import type { Location, Shipment, ShipmentUpdateResult } from '../../api/types'
 import { Badge, type BadgeTone } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
@@ -42,7 +42,10 @@ const STATUS_TONES: Record<ShipmentStatus, BadgeTone> = {
 type Editing = { shipment: Shipment | null }
 
 /** The last thing done to one shipment, told above the table. */
-type Done = { kind: 'saved'; result: ShipmentUpdateResult; created: boolean } | { kind: 'removed'; externalId: string }
+type Done =
+  | { kind: 'saved'; result: ShipmentUpdateResult; created: boolean }
+  | { kind: 'removed'; externalId: string }
+  | { kind: 'corrected'; place: Location }
 
 export function ShipmentsPage() {
   const api = useApi()
@@ -145,6 +148,12 @@ export function ShipmentsPage() {
         </Notice>
       )}
 
+      {done?.kind === 'corrected' && (
+        <Notice tone="success" title={`Mesto „${done.place.name}“ je ispravljeno.`} role="status">
+          <p>Važi za sve pošiljke sa tim mestom. Pokrenite optimizaciju ponovo da bi kilometri bili tačni.</p>
+        </Notice>
+      )}
+
       {loaded.status === 'loading' && <LoadingState label="Učitavanje pošiljki…" />}
       {loaded.status === 'error' && <ErrorState title="Pošiljke nisu učitane" message={loaded.message} onRetry={reload} />}
       {loaded.status === 'success' &&
@@ -202,6 +211,11 @@ export function ShipmentsPage() {
           onPlaceRestored={() => {
             setEditing(null)
             setDone(null)
+            reload()
+          }}
+          onPlaceCorrected={(place) => {
+            setEditing(null)
+            setDone({ kind: 'corrected', place })
             reload()
           }}
         />

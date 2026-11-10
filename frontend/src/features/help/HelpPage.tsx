@@ -267,6 +267,13 @@ function Steps() {
       </p>
       {CAN_SHORTEN && (
         <>
+          {apiMode() === 'local' && (
+            <p>
+              <strong>Mesto pronađeno u pogrešnom gradu:</strong> u prozoru „Izmeni“ izaberite državu i kliknite „Traži
+              ponovo“. Prvo vidite šta je pronađeno i koliko je to daleko od sadašnje tačke; tek „Prihvati“ menja mesto,
+              za sve pošiljke koje ga koriste.
+            </p>
+          )}
           <p>
             <strong>Pošiljka bez Excel-a:</strong> „Dodaj pošiljku“ otvara isti prozor, prazan. Obavezni su mesto
             preuzimanja, mesto isporuke i LDM; ID, težina, opis i zemlja nisu. Bez ID-ja pošiljka dobija kratak naziv
