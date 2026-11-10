@@ -23,8 +23,8 @@ import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { shortenIds } from '../../domain/shipmentIds'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
-import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError } from './openRouteService'
-import { findReachablePoint, type ReachableSearch } from './roadPointSearch'
+import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError, type RoadPoint } from './openRouteService'
+import { findReachablePoint, placesOutOfReach, worthSearching } from './roadPointSearch'
 import {
   TERMINAL_JOB_STATUSES,
   type DeviceSettings,
@@ -36,7 +36,6 @@ import {
   type OrsProfile,
   type OptimizationJobRequest,
   type OptimizationResult,
-  type RoadPointProposal,
   type RouteLine,
   type Shipment,
   type Truck,
@@ -117,8 +116,6 @@ export const KEPT_JOBS = 10
 export const KEPT_JOB_LOG = 5000
 /** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
 export const KEPT_ROUTE_LINES = 50
-/** A point near a place cut off counts as reached when one of this many other places reaches it. */
-const OTHER_PLACES_CHECKED = 3
 
 export interface LocalJob {
   id: number
@@ -153,6 +150,8 @@ export interface LocalData {
   geocodeCache?: Record<string, GeocodeAnswer>
   /** ORS metres by `roadKey` (profile and both coordinates, directed); null: ORS finds no road */
   distanceCache?: Record<string, number | null>
+  /** points (profile and coordinates) no point lorries reach was found around; not searched again */
+  noAccessCache?: Record<string, true>
   /** ORS road lines by `lineKey` (profile and the stops in order), oldest first */
   routeLineCache?: Record<string, RouteLine['path']>
   /** when each job was started (ISO 8601), oldest first; the last KEPT_JOB_LOG */
@@ -163,6 +162,8 @@ export interface LocalData {
 }
 
 /** Coordinates written to 6 decimals (about 10 cm), so a moved place is a new pair. */
+const pointOf = (l: Location): LatLon => ({ lat: l.lat as number, lon: l.lon as number })
+
 const pointKey = (p: LatLon) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`
 
 function roadKey(profile: OrsProfile, from: LatLon, to: LatLon): string {
@@ -191,6 +192,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   let settings: DeviceSettings = { ...DEFAULT_SETTINGS }
   let geocodeCache: Record<string, GeocodeAnswer> = {}
   let distanceCache: Record<string, number | null> = {}
+  let noAccessCache: Record<string, true> = {}
   let routeLineCache: Record<string, RouteLine['path']> = {}
   let jobLog: string[] = []
   const truckTypes: TruckType[] = []
@@ -294,6 +296,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     settings = { ...DEFAULT_SETTINGS, ...data.settings }
     geocodeCache = data.geocodeCache ?? {}
     distanceCache = data.distanceCache ?? {}
+    noAccessCache = data.noAccessCache ?? {}
     routeLineCache = data.routeLineCache ?? {}
     // Older data has no log: it starts from the jobs kept then.
     jobLog = data.jobLog ?? data.jobs.map((j) => j.createdAt).sort()
@@ -324,6 +327,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       settings,
       geocodeCache,
       distanceCache,
+      noAccessCache,
       routeLineCache,
       jobLog,
       truckTypes,
@@ -406,21 +410,6 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       ...trucks.flatMap((t) => (t.startLocationId == null ? [] : [t.startLocationId])),
       ...[...jobs.values()].flatMap((j) => j.input.locationIds),
     ])
-  }
-
-  /** What points near a place cut off are checked against: the nearest other places in use, not cut off if there are such. */
-  function otherPlacesFor(place: Location & LatLon, cutOff: Set<number>): LatLon[] {
-    const used = new Set([
-      ...shipments.flatMap((s) => [s.pickupLocationId, s.deliveryLocationId]),
-      ...trucks.flatMap((t) => t.startLocationId ?? []),
-    ])
-    const others = locations.flatMap((l) =>
-      l.id !== place.id && used.has(l.id) && l.lat !== null && l.lon !== null ? [{ ...l, lat: l.lat, lon: l.lon }] : [],
-    )
-    const reached = others.filter((l) => !cutOff.has(l.id))
-    const pool = reached.length > 0 ? reached : others
-    const by = (l: LatLon) => haversineMeters(place, l)
-    return [...pool].sort((a, b) => by(a) - by(b)).slice(0, OTHER_PLACES_CHECKED)
   }
 
   function assertValidPoint({ lat, lon }: { lat: number; lon: number }): void {
@@ -537,58 +526,30 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
   /** The distance matrix over the job's places: by road with an ORS key, otherwise great-circle. */
   async function jobDistances(used: Location[]): Promise<{ distance: number[][]; source: DistanceSource }> {
-    const points = used.map((l) => ({ lat: l.lat as number, lon: l.lon as number }))
     const apiKey = settings.orsApiKey
-    if (!apiKey) return { distance: haversineMatrix(points), source: 'airline' }
+    if (!apiKey) return { distance: haversineMatrix(used.map(pointOf)), source: 'airline' }
 
     const profile = settings.orsProfile
-    const key = (i: number, j: number) => roadKey(profile, points[i], points[j])
-    // Two places at the same point are 0 m apart; every other pair is asked once, ever.
-    const same = (i: number, j: number) => key(i, j) === key(j, i)
-    const missing: Array<[number, number]> = []
-    points.forEach((_, i) =>
-      points.forEach((_, j) => {
-        if (!same(i, j) && !Object.hasOwn(distanceCache, key(i, j))) missing.push([i, j])
-      }),
-    )
-    if (missing.length > 0) {
-      let answers: Map<string, number | null>
-      try {
-        answers = await roadDistances(points, missing, { apiKey, profile })
-      } catch (error) {
-        if (!(error instanceof RoadDistanceError)) throw error
-        throw new ApiError({ title: 'Kilometraže nisu dostupne', status: 502, detail: error.message })
-      }
-      for (const [i, j] of missing) distanceCache[key(i, j)] = answers.get(pairKey(i, j)) as number | null
-      await persist()
-    }
+    const request = { apiKey, profile }
+    await askRoads(used, request)
+    if (await moveToReachablePoints(used, request)) await askRoads(used, request)
 
+    const points = used.map(pointOf)
+    const key = (i: number, j: number) => roadKey(profile, points[i], points[j])
     const noRoad: string[] = []
-    // How many pairs with each place have a road, and how many have none.
-    const roads = points.map(() => ({ some: 0, none: 0 }))
     const distance = points.map((_, i) =>
       points.map((_, j) => {
-        if (same(i, j)) return 0
+        if (key(i, j) === key(j, i)) return 0
         const meters = distanceCache[key(i, j)]
-        if (meters === null) {
-          noRoad.push(`${used[i].name} → ${used[j].name}`)
-          roads[i].none++
-          roads[j].none++
-        } else {
-          roads[i].some++
-          roads[j].some++
-        }
+        if (meters === null) noRoad.push(`${used[i].name} → ${used[j].name}`)
         return meters ?? 0
       }),
     )
     if (noRoad.length > 0) {
-      // A place no road reaches at all is the cause; when there is none such, every place of a pair without a road.
-      const cut = used.filter((_, i) => roads[i].none > 0 && roads[i].some === 0)
-      const suspects = cut.length > 0 ? cut : used.filter((_, i) => roads[i].none > 0)
       throw new ApiError({
         title: 'Nema puta',
         status: 409,
-        noRoadPlaceIds: suspects.map((l) => l.id),
+        noRoadPlaceIds: outOfReach(used, profile).map((i) => used[i].id),
         detail:
           `OpenRouteService ne nalazi put ${PROFILE_LABELS[profile]} (${noRoad.length}): ` +
           `${noRoad.slice(0, 5).join(', ')}${noRoad.length > 5 ? ` i još ${noRoad.length - 5}` : ''}. ` +
@@ -596,6 +557,79 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       })
     }
     return { distance, source: profile }
+  }
+
+  /** Asks ORS for the roads between the places it was never asked about; every pair once, ever. */
+  async function askRoads(used: Location[], request: { apiKey: string; profile: OrsProfile }): Promise<void> {
+    const points = used.map(pointOf)
+    const key = (i: number, j: number) => roadKey(request.profile, points[i], points[j])
+    const missing: Array<[number, number]> = []
+    points.forEach((_, i) =>
+      points.forEach((_, j) => {
+        // Two places at the same point are 0 m apart.
+        if (key(i, j) !== key(j, i) && !Object.hasOwn(distanceCache, key(i, j))) missing.push([i, j])
+      }),
+    )
+    if (missing.length === 0) return
+    let answers: Map<string, number | null>
+    try {
+      answers = await roadDistances(points, missing, request)
+    } catch (error) {
+      if (!(error instanceof RoadDistanceError)) throw error
+      throw new ApiError({ title: 'Kilometraže nisu dostupne', status: 502, detail: error.message })
+    }
+    for (const [i, j] of missing) distanceCache[key(i, j)] = answers.get(pairKey(i, j)) as number | null
+    await persist()
+  }
+
+  /** The places (indices into `used`) in the way of a road between every two; from the kept answers only. */
+  function outOfReach(used: Location[], profile: OrsProfile): number[] {
+    const points = used.map(pointOf)
+    const open = points.map((from) =>
+      points.map((to) => roadKey(profile, from, to) === roadKey(profile, to, from) || distanceCache[roadKey(profile, from, to)] != null),
+    )
+    return placesOutOfReach(points.length, (i, j) => open[i][j])
+  }
+
+  /**
+   * Moves the places lorries do not reach to the nearest point they do, without asking: the user
+   * writes a town and the point found for it may be closed to them. Few ORS requests: only for
+   * the places really out of reach, none when they are too many to be single places, and never
+   * again for a point where nothing was found. True when a place was moved.
+   */
+  async function moveToReachablePoints(used: Location[], request: { apiKey: string; profile: OrsProfile }): Promise<boolean> {
+    const out = outOfReach(used, request.profile)
+    if (!worthSearching(out.length, used.length) || activeJob()) return false
+    const reached = used.filter((_, i) => !out.includes(i)).map(pointOf)
+    let moved = false
+    let searched = false
+    for (const i of out) {
+      const place = used[i]
+      const point = pointOf(place)
+      const key = `${request.profile}|${pointKey(point)}`
+      if (noAccessCache[key]) continue
+      searched = true
+      const nearness = (l: LatLon) => haversineMeters(point, l)
+      const other = reached.reduce((nearest, l) => (nearness(l) < nearness(nearest) ? l : nearest))
+      let road: RoadPoint | null
+      try {
+        road = await findReachablePoint({ place: point, other, snap: roadSnap, distances: roadDistances, request })
+      } catch (error) {
+        if (!(error instanceof RoadDistanceError)) throw error
+        throw new ApiError({ title: 'Kilometraže nisu dostupne', status: 502, detail: error.message })
+      }
+      if (road && road.distanceMeters > 0) {
+        // Where it was stays (the first place, if it is moved again), so it can go back.
+        place.movedFrom ??= { lat: point.lat, lon: point.lon, geocodeStatus: place.geocodeStatus }
+        place.lat = road.at.lat
+        place.lon = road.at.lon
+        moved = true
+      } else {
+        noAccessCache[key] = true
+      }
+    }
+    if (searched) await persist()
+    return moved
   }
 
   /** The road line of one route, asked from ORS once per profile and stops; null without a key. */
@@ -994,67 +1028,6 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     checkDeviceData: (content) => respond(() => readFile(content).summary),
-
-    proposeRoadPoints: (locationIds, proposeOptions) =>
-      respond(async () => {
-        const apiKey = settings.orsApiKey
-        if (!apiKey) {
-          throw new ApiError({
-            title: 'Nema ključa za OpenRouteService',
-            status: 400,
-            detail: 'Najbliži put za kamione traži ključ za OpenRouteService (Podešavanja).',
-          })
-        }
-        const places = locationIds.map((id) => {
-          const place = locations.find((l) => l.id === id)
-          if (!place) throw notFound(`Mesto ${id} ne postoji.`)
-          if (place.lat === null || place.lon === null) {
-            throw new ApiError({ title: 'Mesto nema koordinate', status: 400, detail: `„${place.name}“ nema koordinate.` })
-          }
-          return { ...place, lat: place.lat, lon: place.lon }
-        })
-        const request = { apiKey, profile: settings.orsProfile }
-        const answers: ReachableSearch[] = []
-        try {
-          for (const place of places) {
-            proposeOptions?.onProgress?.({ done: answers.length, total: places.length })
-            const others = otherPlacesFor(place, new Set(locationIds))
-            answers.push(await findReachablePoint({ place, others, snap: roadSnap, distances: roadDistances, request }))
-          }
-        } catch (error) {
-          if (!(error instanceof RoadDistanceError)) throw error
-          throw new ApiError({ title: 'Najbliži put nije dostupan', status: 502, detail: error.message })
-        }
-        return places.map((place, i): RoadPointProposal => {
-          const { road: answer, tried } = answers[i]
-          return {
-            tried,
-            locationId: place.id,
-            name: place.name,
-            from: { lat: place.lat, lon: place.lon },
-            to: answer ? answer.at : null,
-            distanceMeters: answer ? answer.distanceMeters : null,
-            street: answer ? answer.street : null,
-          }
-        })
-      }),
-
-    moveToRoadPoint: (locationId, to) =>
-      change(() => {
-        assertNoActiveJob('mesto se može pomeriti')
-        const place = locations.find((l) => l.id === locationId)
-        if (!place) throw notFound(`Mesto ${locationId} ne postoji.`)
-        assertValidPoint(to)
-        // Confirmed by the user: the place's coordinates are the user's from now on; where it was
-        // stays (the first place, if it is moved again), so it can go back.
-        if (place.lat !== null && place.lon !== null) {
-          place.movedFrom ??= { lat: place.lat, lon: place.lon, geocodeStatus: place.geocodeStatus }
-        }
-        place.lat = to.lat
-        place.lon = to.lon
-        place.geocodeStatus = 'MANUAL'
-        return structuredClone(place)
-      }),
 
     restoreRoadPoint: (locationId) =>
       change(() => {

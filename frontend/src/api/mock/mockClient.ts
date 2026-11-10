@@ -311,16 +311,6 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         throw notFound('Izvoz i uvoz podataka postoje samo u aplikaciji na uređaju.')
       }),
 
-    proposeRoadPoints: () =>
-      respond(() => {
-        throw notFound('Najbliži put za kamione postoji samo u aplikaciji na uređaju.')
-      }),
-
-    moveToRoadPoint: () =>
-      respond(() => {
-        throw notFound('Najbliži put za kamione postoji samo u aplikaciji na uređaju.')
-      }),
-
     restoreRoadPoint: () =>
       respond(() => {
         throw notFound('Najbliži put za kamione postoji samo u aplikaciji na uređaju.')

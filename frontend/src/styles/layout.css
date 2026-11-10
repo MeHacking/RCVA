@@ -2660,24 +2660,3 @@ button.truck-3d__shipment[aria-pressed='true'] {
   margin-top: var(--space-1);
 }
 
-/* The proposed moves to the nearest road for lorries (RoadPoints.tsx), in the notice. */
-.road-points {
-  margin: var(--space-3) 0;
-}
-
-.road-points__where {
-  white-space: normal;
-}
-
-.road-points__map {
-  white-space: nowrap;
-}
-
-.road-points__map a {
-  display: block;
-}
-
-/* The tick column only as wide as its box. */
-.road-points :is(th, td):first-child {
-  width: 2.5rem;
-}

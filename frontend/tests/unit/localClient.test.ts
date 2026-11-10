@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
 import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
-import { pointsAround, POINT_SNAP_RADIUS_M } from '../../src/api/local/roadPointSearch'
 import {
   createLocalApiClient,
   DEFAULT_SETTINGS,
@@ -720,10 +719,12 @@ describe('coordinates from Nominatim on the device', () => {
     })
 
     it('gives the place what was accepted, also after a restart, and drops a kept move to the road', async () => {
-      const { api, wrong, store } = await setupWrong()
-      await api.moveToRoadPoint(wrong.id, { lat: 56.31, lon: 44.01 })
+      const { wrong, store } = await setupWrong()
+      const saved = (await store.load())!
+      saved.locations.find((l) => l.id === wrong.id)!.movedFrom = { lat: 56.2, lon: 44, geocodeStatus: 'OK' }
+      await store.save(saved)
       const accepted = { lat: 57.7, lon: 12.9, label: 'Teststad, Sverige', country: 'SE' }
-      const place2 = await api.applyPlaceSearch(wrong.id, accepted)
+      const place2 = await client(store, nominatim()).applyPlaceSearch(wrong.id, accepted)
       expect(place2).toMatchObject({ id: wrong.id, lat: 57.7, lon: 12.9, country: 'SE', geocodeStatus: 'MANUAL', movedFrom: null })
 
       expect(await place(client(store, nominatim()), 'Teststad')).toMatchObject({ lat: 57.7, country: 'SE' })
@@ -1041,113 +1042,102 @@ describe('road distances from OpenRouteService on the device', () => {
     expect(fake.asked).toHaveLength(1)
   })
 
-  it('checks the points around a place against the nearest other place that is not cut off too', async () => {
-    const checkedAgainst: number[][] = []
-    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources: number[]; destinations: number[] }
-      if (String(input).includes('/snap/')) return new Response(JSON.stringify({ locations: body.locations.map((location) => ({ location })) }))
-      checkedAgainst.push(body.locations[0])
-      return new Response(JSON.stringify({ distances: body.sources.map(() => body.destinations.map(() => 1000)) }))
-    }) as typeof globalThis.fetch
-    const api = createLocalApiClient({ scenario: SCENARIOS.small, runSolver: steps, store: createMemoryStore<LocalData>(), ors: { fetch, minIntervalMs: 0 } })
-    await withKey(api)
-
-    const usedIds = new Set(SCENARIOS.small.shipments.flatMap((s) => [s.pickupLocationId, s.deliveryLocationId]))
-    const used = SCENARIOS.small.locations.filter((l) => usedIds.has(l.id))
-    const point = (l: Location) => ({ lat: l.lat!, lon: l.lon! })
-    const place = used[0]
-    const byDistance = used.slice(1).sort((a, b) => haversineMeters(point(place), point(a)) - haversineMeters(point(place), point(b)))
-    expect(byDistance.length).toBeGreaterThan(1)
-
-    await api.proposeRoadPoints([place.id])
-    await api.proposeRoadPoints([place.id, byDistance[0].id])
-    expect(checkedAgainst[0]).toEqual([byDistance[0].lon, byDistance[0].lat])
-    expect(checkedAgainst[1]).toEqual([byDistance[1].lon, byDistance[1].lat])
-
-    // All cut off: another of them, never the place itself.
-    checkedAgainst.length = 0
-    await api.proposeRoadPoints(used.map((l) => l.id))
-    expect(checkedAgainst[0]).toEqual([byDistance[0].lon, byDistance[0].lat])
-  })
-
-  it('names the place no road reaches, proposes the nearest road for lorries, and moves it once asked', async () => {
-    // One place of the scenario is closed to lorries: no road to or from it; for the place
-    // itself ORS Snap finds a road 0,01° north of it (no roads around), and there the roads are fine.
+  describe('a place lorries do not reach', () => {
     const closedId = SCENARIOS.small.shipments[0].deliveryLocationId
     const closed = SCENARIOS.small.locations.find((l) => l.id === closedId)!
     const isClosed = (p: number[]) => Math.abs(p[0] - closed.lon!) < 1e-9 && Math.abs(p[1] - closed.lat!) < 1e-9
-    const snaps: { url: string; key: string; body: { locations: number[][]; radius: number } }[] = []
-    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources?: number[]; destinations?: number[]; radius?: number }
-      if (String(input).includes('/snap/')) {
-        snaps.push({ url: String(input), key: (init?.headers as Record<string, string>).Authorization, body: body as never })
-        const isPlace = ([lon, lat]: number[]) => SCENARIOS.small.locations.some((l) => l.lon === lon && l.lat === lat)
-        const locations = body.locations.map(([lon, lat]) =>
-          isClosed([lon, lat])
-            ? { location: [lon, lat + 0.01], name: 'Teretna ulica', snapped_distance: 1112.3 }
-            : isPlace([lon, lat])
-              ? { location: [lon, lat] }
-              : null,
+
+    /**
+     * ORS Snap finds no road around the place, and for the place itself: a road 0,01° north of it
+     * ('north'), none ('none'), or that very point, which the search then finds open ('here').
+     */
+    function closedPlace(road_: 'north' | 'none' | 'here') {
+      const calls = { snap: 0, matrix: 0 }
+      const sent: number[][][] = []
+      const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { locations: number[][]; sources: number[]; destinations: number[] }
+        if (String(input).includes('/snap/')) {
+          calls.snap++
+          const roadAt = (lon: number, lat: number) =>
+            road_ === 'north' ? { location: [lon, lat + 0.01], name: 'Teretna ulica' } : road_ === 'here' ? { location: [lon, lat] } : null
+          const locations = body.locations.map(([lon, lat]) => (isClosed([lon, lat]) ? roadAt(lon, lat) : null))
+          return new Response(JSON.stringify({ locations }))
+        }
+        calls.matrix++
+        sent.push(body.locations)
+        const open = road_ === 'here' && calls.matrix > 1
+        const at = (i: number) => body.locations[i]
+        const distances = body.sources.map((s) =>
+          body.destinations.map((d) =>
+            !open && s !== d && (isClosed(at(s)) || isClosed(at(d))) ? null : road({ lon: at(s)[0], lat: at(s)[1] }, { lon: at(d)[0], lat: at(d)[1] }),
+          ),
         )
-        return new Response(JSON.stringify({ locations }))
-      }
-      const at = (i: number) => body.locations[i]
-      const distances = body.sources!.map((s) =>
-        body.destinations!.map((d) =>
-          s !== d && (isClosed(at(s)) || isClosed(at(d))) ? null : road({ lon: at(s)[0], lat: at(s)[1] }, { lon: at(d)[0], lat: at(d)[1] }),
-        ),
-      )
-      return new Response(JSON.stringify({ distances }))
-    }) as typeof globalThis.fetch
-    const api = createLocalApiClient({ scenario: SCENARIOS.small, runSolver: steps, store: createMemoryStore<LocalData>(), ors: { fetch, minIntervalMs: 0 } })
+        return new Response(JSON.stringify({ distances }))
+      }) as typeof globalThis.fetch
+      const store = createMemoryStore<LocalData>()
+      const make = () => createLocalApiClient({ scenario: SCENARIOS.small, runSolver: steps, store, ors: { fetch, minIntervalMs: 0 } })
+      return { calls, sent, make }
+    }
 
-    // Without a key there is nothing to ask.
-    expect((await rejection(api.proposeRoadPoints([closedId]))).status).toBe(400)
-    await withKey(api)
-    const refused = await rejection(api.createOptimizationJob(REQUEST))
-    expect(refused.status).toBe(409)
-    expect(refused.problem.noRoadPlaceIds).toEqual([closedId])
+    it('leaves a place where it is when the point found is that very point, and does not search again', async () => {
+      const { calls, make } = closedPlace('here')
+      const api = make()
+      await withKey(api)
+      expect((await rejection(api.createOptimizationJob(REQUEST))).status).toBe(409)
+      expect(calls).toEqual({ snap: 1, matrix: 2 })
+      expect((await api.listLocations()).find((l) => l.id === closedId)?.movedFrom).toBeUndefined()
 
-    // A proposal changes nothing.
-    const [proposal] = await api.proposeRoadPoints([closedId])
-    expect(proposal).toEqual({
-      locationId: closedId,
-      name: closed.name,
-      from: { lat: closed.lat, lon: closed.lon },
-      to: { lat: closed.lat! + 0.01, lon: closed.lon },
-      distanceMeters: 1112,
-      street: 'Teretna ulica',
-      tried: 1,
+      expect((await rejection(api.createOptimizationJob(REQUEST))).status).toBe(409)
+      expect(calls).toEqual({ snap: 1, matrix: 2 })
     })
-    expect(snaps).toHaveLength(1)
-    expect(snaps[0]).toMatchObject({
-      url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json',
-      key: 'test-kljuc',
-      body: { radius: POINT_SNAP_RADIUS_M },
+
+    it('moves only that place, on its own, spending three matrix requests and one snap, and the job runs', async () => {
+      const { calls, sent, make } = closedPlace('north')
+      const api = make()
+      await withKey(api)
+      expect((await solve(api)).validation.passed).toBe(true)
+      expect(calls).toEqual({ snap: 1, matrix: 3 })
+
+      // Checked against the nearest place that is fine.
+      const toClosed = ([lon, lat]: number[]) => haversineMeters({ lat, lon }, { lat: closed.lat!, lon: closed.lon! })
+      const fine = sent[0].filter((p) => !isClosed(p)).sort((a, b) => toClosed(a) - toClosed(b))
+      expect(fine.length).toBeGreaterThan(1)
+      expect(sent[1][0]).toEqual(fine[0])
+
+      const from = { lat: closed.lat, lon: closed.lon, geocodeStatus: closed.geocodeStatus }
+      const places = await api.listLocations()
+      expect(places.find((l) => l.id === closedId)).toMatchObject({ lat: closed.lat! + 0.01, geocodeStatus: closed.geocodeStatus, movedFrom: from })
+      expect(places.filter((l) => l.movedFrom)).toHaveLength(1)
+
+      // In the data file too, and the next job asks nothing.
+      const file = (await api.exportDeviceData())!
+      expect((JSON.parse(file.content) as { data: { locations: Location[] } }).data.locations.find((l) => l.id === closedId)?.movedFrom).toEqual(from)
+      await solve(api)
+      expect(calls).toEqual({ snap: 1, matrix: 3 })
+
+      // And it goes back there, with the status it had; then there is nothing more to put back.
+      const back = await api.restoreRoadPoint(closedId)
+      expect(back).toMatchObject({ lat: closed.lat, lon: closed.lon, geocodeStatus: closed.geocodeStatus, movedFrom: null })
+      const again = await rejection(api.restoreRoadPoint(closedId))
+      expect([again.status, again.problem.detail]).toEqual([409, `„${closed.name}“ nije pomereno do puta za kamione.`])
+      expect((await rejection(api.restoreRoadPoint(9999))).status).toBe(404)
     })
-    const around = pointsAround({ lat: closed.lat!, lon: closed.lon! }).map((p) => [p.lon, p.lat])
-    expect(snaps[0].body.locations.slice(0, around.length)).toEqual(around)
-    expect((await api.listLocations()).find((l) => l.id === closedId)).toMatchObject({ lat: closed.lat, geocodeStatus: closed.geocodeStatus })
 
-    // Moved once confirmed: the place's coordinates are the user's, and the job can run.
-    expect(await api.moveToRoadPoint(closedId, proposal.to!)).toMatchObject({ lat: closed.lat! + 0.01, geocodeStatus: 'MANUAL' })
-    expect((await solve(api)).validation.passed).toBe(true)
-    expect((await rejection(api.moveToRoadPoint(closedId, { lat: 91, lon: 0 }))).status).toBe(400)
-    expect((await rejection(api.moveToRoadPoint(9999, { lat: 1, lon: 1 }))).status).toBe(404)
+    it('names only that place when nothing is found, and does not search for it again', async () => {
+      const { calls, make } = closedPlace('none')
+      const api = make()
+      await withKey(api)
+      const refused = await rejection(api.createOptimizationJob(REQUEST))
+      expect(refused.status).toBe(409)
+      expect(refused.problem.noRoadPlaceIds).toEqual([closedId])
+      expect(calls).toEqual({ snap: 6, matrix: 1 })
+      expect((await api.listLocations()).find((l) => l.id === closedId)).toMatchObject({ lat: closed.lat })
 
-    // Where it was is kept (the first point, also when moved again), in the data file too.
-    const from = { lat: closed.lat, lon: closed.lon, geocodeStatus: closed.geocodeStatus }
-    expect((await api.moveToRoadPoint(closedId, { lat: closed.lat! + 0.02, lon: closed.lon! })).movedFrom).toEqual(from)
-    const file = (await api.exportDeviceData())!
-    expect((await api.checkDeviceData(file.content)).locations).toBe((await api.listLocations()).length)
-    expect((JSON.parse(file.content) as { data: { locations: Location[] } }).data.locations.find((l) => l.id === closedId)?.movedFrom).toEqual(from)
-
-    // And it goes back there, with the status it had; then there is nothing more to put back.
-    const back = await api.restoreRoadPoint(closedId)
-    expect(back).toMatchObject({ lat: closed.lat, lon: closed.lon, geocodeStatus: closed.geocodeStatus, movedFrom: null })
-    const again = await rejection(api.restoreRoadPoint(closedId))
-    expect([again.status, again.problem.detail]).toEqual([409, `„${closed.name}“ nije pomereno do puta za kamione.`])
-    expect((await rejection(api.restoreRoadPoint(9999))).status).toBe(404)
+      // Also after a restart.
+      expect((await rejection(api.createOptimizationJob(REQUEST))).status).toBe(409)
+      expect((await rejection(make().createOptimizationJob(REQUEST))).status).toBe(409)
+      expect(calls).toEqual({ snap: 6, matrix: 1 })
+    })
   })
 
   it('asks nothing for a job that is proven infeasible first', async () => {

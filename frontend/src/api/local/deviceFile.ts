@@ -40,6 +40,7 @@ export function writeDeviceFile(data: Required<LocalData>, exportedAt: Date): st
       settings: { geocodingEnabled, contactEmail, orsProfile, extraTruckSavingPercent },
       geocodeCache: data.geocodeCache,
       distanceCache: data.distanceCache,
+      noAccessCache: data.noAccessCache,
       routeLineCache: data.routeLineCache,
       jobLog: data.jobLog,
       truckTypes: data.truckTypes,
@@ -283,6 +284,8 @@ const FILE = object({
     }),
     geocodeCache: recordOf(GEOCODE),
     distanceCache: recordOf(nullable(NUM)),
+    // Added 10.11.2026; older files have none.
+    noAccessCache: optional(recordOf(BOOL)),
     routeLineCache: recordOf(arrayOf(POINT)),
     // Added 03.11.2026; older files have no log.
     jobLog: optional(arrayOf(STR)),

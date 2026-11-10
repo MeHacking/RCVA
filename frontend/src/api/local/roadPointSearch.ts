@@ -1,9 +1,10 @@
 import { haversineMeters, type LatLon } from '../../domain/optimization/distance'
 import { MAX_LOCATIONS_PER_REQUEST, pairKey, type RoadDistances, type RoadPoint, type RoadSnap } from './openRouteService'
 
-// A place in a zone closed to lorries can lie on a road they may use, or next to one, and still
-// be out of reach: every way there is closed. ORS Snap gives only the nearest road, so points
-// around the place are put on the roads, and the matrix says which of them a lorry reaches.
+// The user writes a town, and the point found for it can be where lorries may not go: a centre
+// closed to them, a street every way to which is closed. So the places out of reach are moved
+// to the nearest point a lorry does reach. ORS Snap gives only the nearest road, so points around
+// the place are put on the roads, and the matrix says which of them a lorry reaches.
 // First up to FIRST_RADIUS_M, then one kilometre farther each time nothing is found.
 
 export const FIRST_RADIUS_M = 5000
@@ -16,6 +17,8 @@ const POINTS_PER_FAR_RING = 36
 const FARTHEST_M = LAST_RADIUS_M + 100
 /** How far from a point around the place a road may be; about the distance between the points. */
 export const POINT_SNAP_RADIUS_M = 1000
+/** More places out of reach than this is no matter of single places, and searching would only spend requests. */
+export const MAX_PLACES_SEARCHED = 10
 
 function offset(center: LatLon, meters: number, degrees: number): LatLon {
   const bearing = degrees * (Math.PI / 180)
@@ -47,44 +50,59 @@ function searchRounds(center: LatLon): LatLon[][] {
   return rounds
 }
 
-export interface ReachableSearch {
-  /** the nearest point a lorry reaches; null when there is none */
-  road: RoadPoint | null
-  /** how many different points on roads were checked */
-  tried: number
+/**
+ * The places in the way of a road between every two places: taken out one at a time, the one
+ * with the most missing roads first, until all the rest reach each other both ways. One bad
+ * place then stands out, instead of every place it has no road with.
+ */
+export function placesOutOfReach(count: number, hasRoad: (from: number, to: number) => boolean): number[] {
+  const rest = new Set(Array.from({ length: count }, (_, i) => i))
+  const missing = (i: number) => [...rest].filter((j) => j !== i && !(hasRoad(i, j) && hasRoad(j, i))).length
+  const out: number[] = []
+  for (;;) {
+    let worst = -1
+    let most = 0
+    for (const i of rest) {
+      const roads = missing(i)
+      if (roads > most) {
+        most = roads
+        worst = i
+      }
+    }
+    if (worst < 0) return out
+    rest.delete(worst)
+    out.push(worst)
+  }
+}
+
+/** Whether moving those places can help: a few of them, and the rest clearly the places that are fine. */
+export function worthSearching(outOfReach: number, places: number): boolean {
+  return outOfReach > 0 && outOfReach <= MAX_PLACES_SEARCHED && (places - outOfReach) * 2 > places
 }
 
 /**
- * The nearest point on a road that a lorry can reach from one of the other places and leave for
- * it. The other places are put on the roads too, since one off the roads would make every point
- * look cut off. Two ORS requests for each radius tried.
+ * The nearest point on a road that a lorry can reach from `other` and leave for it; null when
+ * there is none up to LAST_RADIUS_M. Two ORS requests for each radius tried.
  */
 export async function findReachablePoint({
   place,
-  others,
+  other,
   snap,
   distances,
   request,
 }: {
   place: LatLon
-  /** places the lorries reach, as far as is known */
-  others: LatLon[]
+  /** a place the lorries do reach */
+  other: LatLon
   snap: RoadSnap
   distances: RoadDistances
   request: Parameters<RoadDistances>[2]
-}): Promise<ReachableSearch> {
-  if (others.length === 0) return { road: null, tried: 0 }
+}): Promise<RoadPoint | null> {
   const seen = new Set<string>()
-  let tried = 0
-  let anchors: LatLon[] | null = null
   for (const points of searchRounds(place)) {
-    const asked = anchors ? points : [...points, ...others]
-    const roads = await snap(asked, { ...request, radiusMeters: POINT_SNAP_RADIUS_M })
-    anchors ??= roads.slice(points.length).flatMap((road) => (road ? [road.at] : []))
-    if (anchors.length === 0) return { road: null, tried: 0 }
-
+    const roads = await snap(points, { ...request, radiusMeters: POINT_SNAP_RADIUS_M })
     const candidates: RoadPoint[] = []
-    for (const road of roads.slice(0, points.length)) {
+    for (const road of roads) {
       if (!road) continue
       const key = `${road.at.lat.toFixed(6)},${road.at.lon.toFixed(6)}`
       const distanceMeters = Math.round(haversineMeters(place, road.at))
@@ -92,19 +110,15 @@ export async function findReachablePoint({
       seen.add(key)
       candidates.push({ ...road, distanceMeters })
     }
-    candidates.sort((a, b) => a.distanceMeters - b.distanceMeters)
-    candidates.splice(MAX_LOCATIONS_PER_REQUEST - anchors.length)
     if (candidates.length === 0) continue
-    tried += candidates.length
+    candidates.sort((a, b) => a.distanceMeters - b.distanceMeters)
+    candidates.splice(MAX_LOCATIONS_PER_REQUEST - 1)
 
-    // The anchors come first; both ways, since a lorry also has to drive off again.
-    const count = anchors.length
-    const pairs = candidates.flatMap((_, i) => anchors!.flatMap((_, a) => [[a, count + i] as const, [count + i, a] as const]))
-    const found = await distances([...anchors, ...candidates.map((c) => c.at)], pairs, request)
-    const reachable = (i: number) =>
-      anchors!.some((_, a) => found.get(pairKey(a, count + i)) != null && found.get(pairKey(count + i, a)) != null)
-    const road = candidates.find((_, i) => reachable(i))
-    if (road) return { road, tried }
+    // Index 0 is the other place; both ways, since a lorry also has to drive off again.
+    const pairs = candidates.flatMap((_, i) => [[0, i + 1] as const, [i + 1, 0] as const])
+    const found = await distances([other, ...candidates.map((c) => c.at)], pairs, request)
+    const road = candidates.find((_, i) => found.get(pairKey(0, i + 1)) != null && found.get(pairKey(i + 1, 0)) != null)
+    if (road) return road
   }
-  return { road: null, tried }
+  return null
 }

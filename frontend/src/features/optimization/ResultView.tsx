@@ -20,6 +20,7 @@ import { RouteTable } from './RouteTable'
 import { useLoadPlans } from './useLoadPlans'
 import { useReferenceData } from './useReferenceData'
 import { ViberPhoneDialog } from './ViberPhoneDialog'
+import { AccessPointsNotice } from './AccessPointsNotice'
 import { ExtraTruckNotice, ShortageActions } from './FleetActions'
 import type { StartOptions } from './lastJobContext'
 import { DRIVER_SUPPORTED } from '../trucks/truckFormValidation'
@@ -120,6 +121,7 @@ export function ResultView({
       <Summary result={result} onExport={reference.status === 'success' ? () => savePdf(null) : null} />
       {pdfMessage(null)}
       <Validation result={result} />
+      {reference.status === 'success' && <AccessPointsNotice result={result} locations={reference.data.locations} />}
       {options && <ExtraTruckNotice result={result} options={options} />}
       {options && result.unassignedShipmentIds.length > 0 && (
         <Notice tone="warning" title={`Nema dovoljno kamiona: nedodeljenih pošiljki ${result.unassignedShipmentIds.length}`} role="status">

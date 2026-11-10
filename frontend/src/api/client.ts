@@ -13,7 +13,6 @@ import type {
   LoadPlan,
   Location,
   PlaceSearchResult,
-  RoadPointProposal,
   OptimizationJob,
   OptimizationJobCreated,
   OptimizationJobRequest,
@@ -177,23 +176,6 @@ export interface ApiClient {
    * data on the device.
    */
   resetDevice(): Promise<void>
-  /**
-   * NOT IN SPEC v2: for places no road for lorries reaches (noRoadPlaceIds of a 409 "Nema puta"),
-   * the nearest point up to LAST_RADIUS_M (10 km, wider each time nothing is found) that a lorry
-   * can reach from another place and leave for it, by the profile in the settings; `to` is the
-   * place itself (0 m) when it is reached after all. Changes nothing. 400 without an ORS key, 502 when ORS fails, 404 over HTTP and in the mock.
-   */
-  proposeRoadPoints(
-    locationIds: number[],
-    options?: { onProgress?: (progress: { done: number; total: number }) => void },
-  ): Promise<RoadPointProposal[]>
-  /**
-   * NOT IN SPEC v2: moves a place to the point the user confirmed (a proposal's `to`); its
-   * coordinates are then the user's (MANUAL), and where it was is kept in movedFrom (the first
-   * place, if it is moved again). 400 for coordinates out of range, 404, 409 while a
-   * job waits or runs; 404 over HTTP and in the mock.
-   */
-  moveToRoadPoint(locationId: number, to: { lat: number; lon: number }): Promise<Location>
   /**
    * NOT IN SPEC v2: puts a place moved to the nearest road back where it was (movedFrom). 409
    * when it was not moved or while a job waits or runs, 404; 404 over HTTP and in the mock.

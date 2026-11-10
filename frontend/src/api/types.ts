@@ -16,7 +16,7 @@ export interface Location {
   geocodeStatus: GeocodeStatus
   /**
    * NOT IN SPEC v2: where the place was before it was moved to the nearest road for lorries
-   * (moveToRoadPoint), so it can go back (restoreRoadPoint); missing or null otherwise
+   * (on its own when a job starts), so it can go back (restoreRoadPoint); missing or null otherwise
    */
   movedFrom?: { lat: number; lon: number; geocodeStatus: GeocodeStatus } | null
 }
@@ -510,19 +510,3 @@ export interface PlaceSearchResult {
   found: { lat: number; lon: number; label: string } | null
 }
 
-/**
- * NOT IN SPEC v2: where a place without a road for lorries could go instead, the nearest point
- * they do reach; `to` is null when there is none within the radius.
- */
-export interface RoadPointProposal {
-  locationId: number
-  name: string
-  from: { lat: number; lon: number }
-  to: { lat: number; lon: number } | null
-  /** from `from` to `to`; null with no `to` */
-  distanceMeters: number | null
-  /** the road's name, when OSM has one */
-  street: string | null
-  /** how many different points on roads were checked */
-  tried: number
-}
