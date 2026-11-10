@@ -343,6 +343,12 @@ describe('nearest road for lorries (ORS Snap)', () => {
     ])
   })
 
+  it('reads a point already on the road: ORS leaves a distance of 0 out of the answer', async () => {
+    const fetch = (async () => new Response(JSON.stringify({ locations: [{ location: [10.76, 59.92], name: 'Teretna ulica' }, null, null] }))) as typeof globalThis.fetch
+    const answers = await createOrsSnap({ fetch, minIntervalMs: 0 })(POINTS, { ...KEY, radiusMeters: 5000 })
+    expect(answers[0]).toEqual({ at: { lat: 59.92, lon: 10.76 }, distanceMeters: 0, street: 'Teretna ulica' })
+  })
+
   it('refuses an answer it does not understand, and passes the ORS failure on', async () => {
     const answering = (response: Response) => createOrsSnap({ fetch: (async () => response) as typeof globalThis.fetch, minIntervalMs: 0 })
     await expect(answering(new Response(JSON.stringify({ locations: [null] })))(POINTS, { ...KEY, radiusMeters: 5000 })).rejects.toThrow(
@@ -350,6 +356,9 @@ describe('nearest road for lorries (ORS Snap)', () => {
     )
     await expect(
       answering(new Response(JSON.stringify({ locations: [{ location: ['x', 1], snapped_distance: 1 }, null, null] })))(POINTS, { ...KEY, radiusMeters: 5000 }),
+    ).rejects.toThrow('neočekivan odgovor')
+    await expect(
+      answering(new Response(JSON.stringify({ locations: [{ location: [1, 2], snapped_distance: 'x' }, null, null] })))(POINTS, { ...KEY, radiusMeters: 5000 }),
     ).rejects.toThrow('neočekivan odgovor')
     await expect(answering(new Response('{}', { status: 429 }))(POINTS, { ...KEY, radiusMeters: 5000 })).rejects.toThrow(
       'potrošena je kvota upita (HTTP 429)',

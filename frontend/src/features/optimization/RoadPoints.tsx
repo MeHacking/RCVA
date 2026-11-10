@@ -13,6 +13,9 @@ const FAR_MOVE_M = 2000
 const osmLink = (p: { lat: number; lon: number }) =>
   `https://www.openstreetmap.org/?mlat=${p.lat.toFixed(5)}&mlon=${p.lon.toFixed(5)}#map=17/${p.lat.toFixed(5)}/${p.lon.toFixed(5)}`
 
+/** A place already on the nearest road would stay where it is, and the job would fail the same way. */
+const canMove = (p: RoadPointProposal) => p.to !== null && p.distanceMeters !== 0
+
 /**
  * When OpenRouteService finds no road for lorries to some places (a city centre closed to
  * them, a point off the roads), this offers the nearest point on a road they may use for each
@@ -37,7 +40,7 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
     setState({ kind: 'asking' })
     try {
       const proposals = await api.proposeRoadPoints(placeIds)
-      setChosen(new Set(proposals.filter((p) => p.to).map((p) => p.locationId)))
+      setChosen(new Set(proposals.filter(canMove).map((p) => p.locationId)))
       setState({ kind: 'proposed', proposals })
     } catch (error) {
       setState({ kind: 'error', message: describeError(error) })
@@ -55,7 +58,7 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
   }
 
   const shown = state.kind === 'proposed' || state.kind === 'moving' ? state.proposals : null
-  const movable = shown?.filter((p) => p.to && chosen.has(p.locationId)) ?? []
+  const movable = shown?.filter((p) => canMove(p) && chosen.has(p.locationId)) ?? []
   const toggle = (id: number) =>
     setChosen((before) => {
       const next = new Set(before)
@@ -109,8 +112,8 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
                     <td>
                       <input
                         type="checkbox"
-                        checked={p.to !== null && chosen.has(p.locationId)}
-                        disabled={p.to === null || state.kind === 'moving'}
+                        checked={canMove(p) && chosen.has(p.locationId)}
+                        disabled={!canMove(p) || state.kind === 'moving'}
                         onChange={() => toggle(p.locationId)}
                         aria-label={`Pomeri ${p.name}`}
                       />
@@ -123,6 +126,12 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
                       ) : (
                         <>
                           {p.street ?? 'put bez naziva'}
+                          {!canMove(p) && (
+                            <span className="text--warning">
+                              {' '}
+                              · tačka je već na putu, pa pomeranje ne pomaže; u izmeni pošiljke upišite obližnje mesto
+                            </span>
+                          )}
                           {p.distanceMeters !== null && p.distanceMeters > FAR_MOVE_M && (
                             <span className="text--warning">
                               {' '}
@@ -136,7 +145,7 @@ export function RoadPoints({ placeIds, options }: { placeIds: number[]; options:
                       <a href={osmLink(p.from)} target="_blank" rel="noreferrer">
                         sada
                       </a>
-                      {p.to && (
+                      {p.to && canMove(p) && (
                         <>
                           {' · '}
                           <a href={osmLink(p.to)} target="_blank" rel="noreferrer">

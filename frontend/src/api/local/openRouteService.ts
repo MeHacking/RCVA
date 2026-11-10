@@ -239,7 +239,8 @@ export function createOrsSnap(options: OrsOptions): RoadSnap {
       }
       return answers.map((answer): RoadPoint | null => {
         if (answer === null) return null
-        const { location, snapped_distance: distance, name } = answer as {
+        // ORS leaves a distance of 0 out of its answer (the point is on the road).
+        const { location, snapped_distance: distance = 0, name } = answer as {
           location?: unknown
           snapped_distance?: unknown
           name?: unknown

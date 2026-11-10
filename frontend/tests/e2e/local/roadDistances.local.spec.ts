@@ -82,10 +82,8 @@ test('when ORS refuses, no job starts and the reason is shown', async ({ page })
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeHidden()
 })
 
-test('moves a place no road for lorries reaches to the nearest road, once confirmed, and starts again', async ({ page }) => {
-  const errors = collectPageErrors(page)
-  // The northernmost place of the first matrix is closed to lorries; ORS Snap finds a road
-  // 0,02° north of it, and from there every road is fine.
+/** The northernmost place of the first matrix is closed to lorries; `snap` is ORS Snap's answer for a point. */
+async function fakeOrsWithClosedPlace(page: Page, snap: (point: number[]) => unknown) {
   let closed: number[] | null = null
   const snaps: { url: string; body: unknown }[] = []
   await page.route('https://api.heigit.org/openrouteservice/**', async (route) => {
@@ -94,8 +92,7 @@ test('moves a place no road for lorries reaches to the nearest road, once confir
     if (request.url().includes('/snap/')) {
       const body = request.postDataJSON() as { locations: number[][]; radius: number }
       snaps.push({ url: request.url(), body })
-      const locations = body.locations.map(([lon, lat]) => ({ location: [lon, lat + 0.02], name: 'Lagerveien', snapped_distance: 2224 }))
-      return route.fulfill({ json: { locations }, headers: CORS })
+      return route.fulfill({ json: { locations: body.locations.map(snap) }, headers: CORS })
     }
     const body = request.postDataJSON() as { locations: number[][]; sources: number[]; destinations: number[] }
     closed ??= body.locations.reduce((north, p) => (p[1] > north[1] ? p : north))
@@ -109,6 +106,33 @@ test('moves a place no road for lorries reaches to the nearest road, once confir
     )
     await route.fulfill({ json: { distances }, headers: CORS })
   })
+  return { snaps, closed: () => closed! }
+}
+
+test('says when a place is already on the road, so moving it would not help', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  // As the real ORS answers a point on the road: no snapped_distance at all.
+  await fakeOrsWithClosedPlace(page, (point) => ({ location: point, name: 'Lagerveien' }))
+  await saveKey(page)
+  await start(page)
+  const offer = page.getByRole('status').filter({ hasText: 'Mesta do kojih nema puta za kamione' })
+  await offer.getByRole('button', { name: 'Pomeri na najbliži put za kamione' }).click({ timeout: 20_000 })
+
+  const row = offer.getByRole('table', { name: 'Predlog pomeranja mesta' }).getByRole('row').nth(1)
+  await expect(row).toContainText('Lagerveien')
+  await expect(row).toContainText('tačka je već na putu, pa pomeranje ne pomaže')
+  await expect(row.getByRole('checkbox')).toBeDisabled()
+  await expect(row.getByRole('checkbox')).not.toBeChecked()
+  await expect(row.getByRole('link', { name: 'posle' })).toHaveCount(0)
+  await expect(offer.getByRole('button', { name: 'Primeni (0) i pokreni ponovo' })).toBeDisabled()
+  expect(errors).toEqual([])
+})
+
+test('moves a place no road for lorries reaches to the nearest road, once confirmed, and starts again', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  // ORS Snap finds a road 0,02° north of the closed place, and from there every road is fine.
+  const ors = await fakeOrsWithClosedPlace(page, ([lon, lat]) => ({ location: [lon, lat + 0.02], name: 'Lagerveien', snapped_distance: 2224 }))
+  const { snaps } = ors
   await saveKey(page)
   await start(page)
   await expect(page.getByRole('main').getByText('Pokretanje nije uspelo', { exact: true })).toBeVisible({ timeout: 20_000 })
@@ -122,7 +146,7 @@ test('moves a place no road for lorries reaches to the nearest road, once confir
   await expect(proposal.getByRole('row').nth(1)).toContainText('2,2 km')
   await expect(proposal.getByRole('row').nth(1)).toContainText('Lagerveien · daleko: proverite da li je to još mesto istovara')
   expect(snaps).toEqual([
-    { url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json', body: { locations: [closed], radius: 5000 } },
+    { url: 'https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json', body: { locations: [ors.closed()], radius: 5000 } },
   ])
   // Ticked at first; untick it and there is nothing to apply. Both points open on the OSM map.
   const place = (await proposal.getByRole('row').nth(1).getByRole('cell').nth(1).textContent())!
@@ -131,7 +155,7 @@ test('moves a place no road for lorries reaches to the nearest road, once confir
   await tick.uncheck()
   await expect(offer.getByRole('button', { name: 'Primeni (0) i pokreni ponovo' })).toBeDisabled()
   await tick.check()
-  const [lon, lat] = closed!
+  const [lon, lat] = ors.closed()
   await expect(proposal.getByRole('link', { name: 'sada' })).toHaveAttribute('href', new RegExp(`mlat=${lat.toFixed(5)}&mlon=${lon.toFixed(5)}`))
   await expect(proposal.getByRole('link', { name: 'posle' })).toHaveAttribute('href', new RegExp(`mlat=${(lat + 0.02).toFixed(5)}&`))
 
