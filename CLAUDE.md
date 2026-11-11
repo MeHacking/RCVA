@@ -10,6 +10,22 @@ Sve je push-ovano na `origin/main` 11.11.2026 (i automatski kamionski prilaz i z
 
 ## Gde smo stali (03.11.2026)
 
+**Ručna preraspodela pošiljki (urađeno 11.11.2026)**, korak 1 dogovorenog plana: vlasnik premešta
+pošiljku u drugi kamion posla ili je izbacuje u nedodeljene i vraća. Kapacitet ostaje strogo pravilo
+(predlog, korisnik nije posebno odgovorio). Logika `domain/optimization/manualAssignment.ts`
+(`reassign`): ponovo se planiraju samo ta dva kamiona (`plannersFor(...).plan`, ista pravila kao
+solver), ostale rute se prepisuju iz stanica, pa `toOptimizationResult` i validator. API (NOT IN SPEC
+v2): `reassignShipment(jobId, shipmentId, truckId | null)` (400 ne staje, 404, 409) i
+`restoreOptimizedResult` (409 bez izmena); `LocalJob.optimizedResult` čuva predlog optimizacije,
+`result.manual.optimizedMeters` za poređenje, `extraTruck` se pri izmeni briše; `fleetTruckIds` se dodaje
+pri čitanju (svi kamioni posla, i prazni). Fajl sa podacima nosi oba (neobavezno). Ekran:
+`MoveShipment.tsx` (lista „Premesti u…“ / „Dodaj u…“) u `TruckShipmentsDialog` i u tabeli nedodeljenih,
+`ManualChangesNotice.tsx` (km razlika, „Vrati predlog optimizacije“), `LastJobContext.replaceResult`;
+obaveštenje „Nema dovoljno kamiona“ se ne prikazuje za ručno izmenjen rezultat. **Zamka nađena e2e
+testom**: rasporedi tovara i linije po putu su se čuvali po poslu i kamionu, pa je posle izmene PDF crtao
+stari raspored (pad: boja bloka za pošiljku koje nema); sada `routesVersion(result)` u
+`useLoadPlans` i `useRouteLines`. Otvoreno za kasnije: zaključavanje i „Ne planiraj sada“ (korak 2).
+
 **Zaboravljanje svih lokacija (urađeno 10.11.2026)**, na zahtev korisnika: Podešavanja, deo 5 (Brisanje
 svih podataka je sada deo 6), uz lozinku `adminconfirm`; zajednički obrazac je `AdminActionPanel.tsx`.
 `ApiClient.forgetAllPlaces` (NOT IN SPEC v2; 409 dok posao radi): sva mesta osim baze scenarija gube
