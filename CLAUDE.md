@@ -6,7 +6,7 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 10.11.2026 („Traži ponovo“ za mesto, zemlja iz padajućeg menija; pre toga pošiljke ručno,
 vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 11.11.2026 (i automatski kamionski prilaz i zaboravljanje lokacija).
+Sve je push-ovano na `origin/main` 11.11.2026 (i ručna preraspodela pošiljki).
 
 ## Gde smo stali (03.11.2026)
 
