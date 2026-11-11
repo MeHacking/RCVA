@@ -13,6 +13,7 @@ import {
   buildUnassignedRows,
   DISTANCE_SOURCES,
   distanceScope,
+  routesVersion,
   type ReferenceData,
   type TruckRow,
 } from './resultRows'
@@ -22,7 +23,13 @@ import { useReferenceData } from './useReferenceData'
 import { ViberPhoneDialog } from './ViberPhoneDialog'
 import { AccessPointsNotice } from './AccessPointsNotice'
 import { ExtraTruckNotice, ShortageActions } from './FleetActions'
-import type { StartOptions } from './lastJobContext'
+import { useLastJob, type StartOptions } from './lastJobContext'
+import { ManualChangesNotice } from './ManualChangesNotice'
+import { MoveShipment, type Reassign } from './MoveShipment'
+import { apiMode } from '../../api/apiMode'
+
+// Moving shipments by hand: only the application on the device keeps and plans the result itself.
+const CAN_REASSIGN = apiMode() === 'local'
 import { DRIVER_SUPPORTED } from '../trucks/truckFormValidation'
 
 /** `options`: how the job was started, on the device; there the result offers trucks to add. */
@@ -36,6 +43,18 @@ export function ResultView({
   options?: StartOptions | null
 }) {
   const [reference, reload] = useReferenceData()
+  const { replaceResult } = useLastJob()
+  const reassign: Reassign | undefined =
+    CAN_REASSIGN && reference.status === 'success'
+      ? {
+          jobId: job.id,
+          targets: (result.fleetTruckIds ?? result.routes.map((r) => r.truckId)).map((id) => ({
+            id,
+            name: reference.data.trucks.find((t) => t.id === id)?.name ?? `Kamion #${id}`,
+          })),
+          onChanged: (changed) => replaceResult(job.id, changed),
+        }
+      : undefined
   /** the last PDF made: of the whole result (truckId null) or of one truck */
   const [pdf, setPdf] = useState<{ tone: 'success' | 'error'; text: string; truckId: number | null } | null>(null)
   /** the truck whose driver's PDF is being made; null: the report is the whole result */
@@ -43,6 +62,7 @@ export function ResultView({
   const loadPlans = useLoadPlans(
     job.id,
     result.routes.map((route) => route.truckId),
+    routesVersion(result),
   )
 
   /** the truck whose driver has no phone, asked for before its PDF goes to Viber */
@@ -121,9 +141,11 @@ export function ResultView({
       <Summary result={result} onExport={reference.status === 'success' ? () => savePdf(null) : null} />
       {pdfMessage(null)}
       <Validation result={result} />
+      <ManualChangesNotice jobId={job.id} result={result} onChanged={(changed) => replaceResult(job.id, changed)} />
       {reference.status === 'success' && <AccessPointsNotice result={result} locations={reference.data.locations} />}
       {options && <ExtraTruckNotice result={result} options={options} />}
-      {options && result.unassignedShipmentIds.length > 0 && (
+      {/* Shipments taken off by hand are no shortage of trucks. */}
+      {options && !result.manual && result.unassignedShipmentIds.length > 0 && (
         <Notice tone="warning" title={`Nema dovoljno kamiona: nedodeljenih pošiljki ${result.unassignedShipmentIds.length}`} role="status">
           <p>Kamioni nisu mogli da ponesu sve pošiljke; nedodeljene su navedene ispod ruta.</p>
           <ShortageActions add={1} options={options} />
@@ -143,6 +165,7 @@ export function ResultView({
             rows={buildTruckRows(result, reference.data)}
             onDriverPdf={savePdf}
             onViber={DRIVER_SUPPORTED ? (row) => sendToViber(row) : undefined}
+            reassign={reassign}
           />
           {askPhone && (
             <ViberPhoneDialog
@@ -156,7 +179,7 @@ export function ResultView({
               onClose={() => setAskPhone(null)}
             />
           )}
-          <Unassigned result={result} reference={reference.data} />
+          <Unassigned result={result} reference={reference.data} reassign={reassign} />
         </>
       )}
     </div>
@@ -230,7 +253,7 @@ function Validation({ result }: { result: OptimizationResult }) {
   )
 }
 
-function Unassigned({ result, reference }: { result: OptimizationResult; reference: ReferenceData }) {
+function Unassigned({ result, reference, reassign }: { result: OptimizationResult; reference: ReferenceData; reassign?: Reassign }) {
   const rows = buildUnassignedRows(result, reference)
   return (
     <>
@@ -248,6 +271,7 @@ function Unassigned({ result, reference }: { result: OptimizationResult; referen
                 </th>
                 <th scope="col">Preuzimanje</th>
                 <th scope="col">Isporuka</th>
+                {reassign && <th scope="col">Kamion</th>}
               </tr>
             </thead>
             <tbody>
@@ -257,6 +281,11 @@ function Unassigned({ result, reference }: { result: OptimizationResult; referen
                   <td className="num">{row.ldmTenths === null ? '–' : formatLdm(row.ldmTenths)}</td>
                   <td>{row.pickupName}</td>
                   <td>{row.deliveryName}</td>
+                  {reassign && (
+                    <td>
+                      <MoveShipment reassign={reassign} shipmentId={row.shipmentId} label={row.label} truckId={null} />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -231,6 +231,8 @@ const RESULT = object({
   openRoute: optional(BOOL),
   distanceSource: optional(DISTANCE_SOURCE),
   extraTruck: optional(object({ trucksUsed: INT, totalMeters: NUM, savingPercent: INT, newTruck: BOOL })),
+  // Added 11.11.2026: a result changed by hand.
+  manual: optional(object({ optimizedMeters: NUM })),
 })
 const JOB_INPUT = object({
   shipments: arrayOf(SHIPMENT),
@@ -257,6 +259,7 @@ const JOB = object({
   fleet: arrayOf(TRUCK),
   addedTruckIds: arrayOf(INT),
   result: nullable(RESULT),
+  optimizedResult: optional(RESULT),
   distanceSource: optional(DISTANCE_SOURCE),
 })
 const POINT: Check = (v, p) =>

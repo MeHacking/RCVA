@@ -6,6 +6,7 @@ import { formatShipmentCount } from '../../format/count'
 import { formatKm } from '../../format/units'
 import type { TruckRow } from './resultRows'
 import { StopList } from './StopList'
+import type { Reassign } from './MoveShipment'
 import { TruckShipmentsDialog } from './TruckShipmentsDialog'
 
 const COLUMNS = 6
@@ -16,15 +17,28 @@ export function RouteTable({
   rows,
   onDriverPdf,
   onViber,
+  reassign,
 }: {
   jobId: number
   rows: TruckRow[]
   onDriverPdf?: (row: TruckRow) => void
   onViber?: (row: TruckRow) => void
+  /** moving shipments between the trucks by hand (only on the device) */
+  reassign?: Reassign
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set())
   /** the truck whose shipments are shown in a window */
-  const [shipmentsOf, setShipmentsOf] = useState<TruckRow | null>(null)
+  const [shipmentsOfId, setShipmentsOf] = useState<number | null>(null)
+  // Found again in the rows, which change as shipments are moved.
+  const shipmentsOf = rows.find((row) => row.truckId === shipmentsOfId) ?? null
+  // A truck left empty closes its window, so it does not open again when it gets a shipment.
+  const reassignHere: Reassign | undefined = reassign && {
+    ...reassign,
+    onChanged: (result) => {
+      if (!result.routes.some((route) => route.truckId === shipmentsOfId)) setShipmentsOf(null)
+      reassign.onChanged(result)
+    },
+  }
 
   const toggle = (truckId: number) =>
     setExpanded((previous) => {
@@ -67,7 +81,7 @@ export function RouteTable({
                       className="button--small button--ghost"
                       aria-haspopup="dialog"
                       aria-label={`${formatShipmentCount(row.shipments.length)}: ${row.truckName}`}
-                      onClick={() => setShipmentsOf(row)}
+                      onClick={() => setShipmentsOf(row.truckId)}
                     >
                       <Icon name="shipments" size={14} />
                       {formatShipmentCount(row.shipments.length)}
@@ -129,7 +143,7 @@ export function RouteTable({
           })}
         </tbody>
       </table>
-      {shipmentsOf && <TruckShipmentsDialog row={shipmentsOf} onClose={() => setShipmentsOf(null)} />}
+      {shipmentsOf && <TruckShipmentsDialog row={shipmentsOf} reassign={reassignHere} onClose={() => setShipmentsOf(null)} />}
     </div>
   )
 }

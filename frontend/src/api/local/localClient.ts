@@ -5,6 +5,7 @@ import { provenFindings } from '../../domain/optimization/feasibility'
 import type { JobInput, JobTruck } from '../../domain/optimization/job'
 import { toSolverInput } from '../../domain/optimization/job'
 import { rearLoadedPlan } from '../../domain/optimization/loadPlan'
+import { AssignmentError, reassign } from '../../domain/optimization/manualAssignment'
 import { toOptimizationResult } from '../../domain/optimization/result'
 import { OPEN_ROUTE_REAR_LOADING } from '../../domain/optimization/routePlanner'
 import { isFeasible, type Score, type SolverInput } from '../../domain/optimization/solver'
@@ -133,6 +134,8 @@ export interface LocalJob {
   /** ids of the standard trucks added for this job; only the used ones are kept */
   addedTruckIds: Set<number>
   result: OptimizationResult | null
+  /** the optimizer's result, once the shipments were moved by hand (`result` is then the changed one) */
+  optimizedResult?: OptimizationResult
   /** missing in jobs stored before road distances existed */
   distanceSource?: DistanceSource
 }
@@ -371,6 +374,11 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     const job = jobs.get(id)
     if (!job) throw notFound(`Posao optimizacije ${id} ne postoji.`)
     return job
+  }
+
+  /** The result as the screens get it: with the trucks of the job, for moving shipments by hand. */
+  function withFleet(job: LocalJob): OptimizationResult {
+    return { ...completedResult(job), fleetTruckIds: job.input.trucks.map((t) => t.id) }
   }
 
   function completedResult(job: LocalJob): OptimizationResult {
@@ -948,7 +956,40 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
 
     getOptimizationHistory: () => respond(() => jobLog),
 
-    getOptimizationResult: (id) => respond(() => completedResult(findJob(id))),
+    getOptimizationResult: (id) => respond(() => withFleet(findJob(id))),
+
+    reassignShipment: (jobId, shipmentId, truckId) =>
+      change(() => {
+        const job = findJob(jobId)
+        const result = completedResult(job)
+        let changed: OptimizationResult
+        try {
+          changed = reassign(job.input, result, shipmentId, truckId)
+        } catch (error) {
+          if (!(error instanceof AssignmentError)) throw error
+          if (error.kind === 'notFound') throw notFound(error.message)
+          throw new ApiError({ title: 'Pošiljka ne staje', status: 400, detail: error.message })
+        }
+        if (changed !== result) {
+          job.optimizedResult ??= result
+          // The advice of one more truck was for the optimizer's result.
+          const { openRoute, distanceSource } = result
+          job.result = { ...changed, openRoute, distanceSource, manual: { optimizedMeters: job.optimizedResult.totalMeters } }
+        }
+        return withFleet(job)
+      }),
+
+    restoreOptimizedResult: (jobId) =>
+      change(() => {
+        const job = findJob(jobId)
+        completedResult(job)
+        if (!job.optimizedResult) {
+          throw new ApiError({ title: 'Nema ručnih izmena', status: 409, detail: `Raspored posla ${jobId} nije ručno menjan.` })
+        }
+        job.result = job.optimizedResult
+        delete job.optimizedResult
+        return withFleet(job)
+      }),
 
     getLoadPlan: (jobId, truckId) =>
       respond(() => {

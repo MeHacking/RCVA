@@ -393,6 +393,16 @@ function Steps() {
         </li>
         {TRUCK_TYPES && (
           <li>
+            <strong>Ručna preraspodela</strong>: u prozoru sa pošiljkama kamiona (klik na „N pošiljki“) svaka pošiljka ima
+            „Premesti u…“: drugi kamion ovog posla (i prazan) ili „Izbaci iz kamiona“, pa je pošiljka među nedodeljenim,
+            odakle se vraća sa „Dodaj u…“. Ponovo se planiraju samo ta dva kamiona, po istim pravilima kao optimizacija;
+            pošiljka koja ne staje po LDM-u ili težini se ne prebacuje. Iznad ruta piše koliko je kilometara više nego
+            predlog optimizacije, a „Vrati predlog optimizacije“ vraća raspored kakav je bio. Nova optimizacija ručne
+            izmene ne pamti.
+          </li>
+        )}
+        {TRUCK_TYPES && (
+          <li>
             <strong>Viber</strong> (u redu kamiona): isti PDF za vozača, za slanje na Viber. Viber ne dozvoljava drugoj
             aplikaciji da sama pošalje fajl, pa aplikacija za PC sačuva PDF u folder „Dokumenti\RCVA za Viber“, otvori
             taj folder i otvori Viber razgovor sa vozačem; fajl samo prevucite u razgovor. U pregledaču se PDF čuva kroz

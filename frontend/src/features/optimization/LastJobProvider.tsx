@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useApi } from '../../api/apiContext'
 import { ApiError, describeError, isProvenInfeasible, type ApiClient } from '../../api/client'
+import type { OptimizationResult } from '../../api/types'
 import { isTerminal } from './jobStatus'
 import { LastJobContext, type LastJobState, type StartOptions } from './lastJobContext'
 
@@ -98,7 +99,13 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
     }
   }, [api, trackedJobId])
 
-  const value = useMemo(() => ({ state, start }), [state, start])
+  const replaceResult = useCallback(
+    (jobId: number, result: OptimizationResult) =>
+      setState((previous) => (previous.kind === 'tracking' && previous.jobId === jobId ? { ...previous, result } : previous)),
+    [],
+  )
+
+  const value = useMemo(() => ({ state, start, replaceResult }), [state, start, replaceResult])
   return <LastJobContext value={value}>{children}</LastJobContext>
 }
 

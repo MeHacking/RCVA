@@ -231,6 +231,10 @@ export interface OptimizationResult {
    * kilometres set in the settings. Missing: no such advice (or it was not looked for).
    */
   extraTruck?: ExtraTruckAdvice
+  /** NOT IN SPEC v2 (only on the device): the shipments were moved by hand; the optimizer's total, to compare */
+  manual?: { optimizedMeters: number }
+  /** NOT IN SPEC v2 (only on the device): every truck the job could use, empty ones too */
+  fleetTruckIds?: number[]
 }
 
 /** NOT IN SPEC v2: the same shipments solved again with one truck more */

@@ -38,6 +38,8 @@ export interface LastJobContextValue {
    * device the truck locations are checked first. Resolves to the state it ends in.
    */
   start: (options?: StartOptions) => Promise<LastJobState['kind']>
+  /** The result of the tracked job changed (shipments moved by hand). */
+  replaceResult: (jobId: number, result: OptimizationResult) => void
 }
 
 export const LastJobContext = createContext<LastJobContextValue | null>(null)

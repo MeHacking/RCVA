@@ -9,7 +9,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatKm } from '../../format/units'
 import { completedJob, isLastJobBusy, useLastJob, type LastJobState } from '../optimization/lastJobContext'
-import { buildTruckRows, type TruckRow } from '../optimization/resultRows'
+import { buildTruckRows, routesVersion, type TruckRow } from '../optimization/resultRows'
 import { StopList } from '../optimization/StopList'
 import { useReferenceData } from '../optimization/useReferenceData'
 import { buildMapModel, routeColor, type LatLng, type MapRoute } from './mapModel'
@@ -55,7 +55,7 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
   const [reference, reload] = useReferenceData()
   const { jobId, truckId } = parseRouteMapParams(searchParams)
   const shownTrucks = truckId !== null && result.routes.some((r) => r.truckId === truckId) ? [truckId] : result.routes.map((r) => r.truckId)
-  const [lines, retryLines] = useRouteLines(job.id, shownTrucks)
+  const [lines, retryLines] = useRouteLines(job.id, shownTrucks, routesVersion(result))
 
   if (reference.status === 'loading') return <LoadingState label="Učitavanje ruta…" />
   if (reference.status === 'error') {

@@ -189,6 +189,15 @@ export interface ApiClient {
    */
   restoreRoadPoint(locationId: number): Promise<Location>
   /**
+   * NOT IN SPEC v2: moves a shipment of a completed job to another truck of the job, or off
+   * every truck (null); only those two trucks are planned again, by the solver's rules. The
+   * optimizer's result is kept, for restoreOptimizedResult. 400 when the shipment does not fit,
+   * 404, 409 when the job has no result; 404 over HTTP and in the mock.
+   */
+  reassignShipment(jobId: number, shipmentId: number, truckId: number | null): Promise<OptimizationResult>
+  /** NOT IN SPEC v2: the optimizer's result again, after moves by hand. 409 when there were none. */
+  restoreOptimizedResult(jobId: number): Promise<OptimizationResult>
+  /**
    * NOT IN SPEC v2: looks a place up again by its name in the given country (null: everywhere),
    * whatever was answered before. Changes nothing on the place. 404, 409 when the lookup is off
    * in the settings, 502 when Nominatim fails; 404 over HTTP and in the mock.

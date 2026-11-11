@@ -311,6 +311,16 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         throw notFound('Izvoz i uvoz podataka postoje samo u aplikaciji na uređaju.')
       }),
 
+    reassignShipment: () =>
+      respond(() => {
+        throw notFound('Ručna preraspodela pošiljki postoji samo u aplikaciji na uređaju.')
+      }),
+
+    restoreOptimizedResult: () =>
+      respond(() => {
+        throw notFound('Ručna preraspodela pošiljki postoji samo u aplikaciji na uređaju.')
+      }),
+
     restoreRoadPoint: () =>
       respond(() => {
         throw notFound('Najbliži put za kamione postoji samo u aplikaciji na uređaju.')

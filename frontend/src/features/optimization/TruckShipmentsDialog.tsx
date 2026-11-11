@@ -2,13 +2,14 @@ import { useEffect, useId, useRef } from 'react'
 import { Icon } from '../../components/Icon'
 import { formatShipmentCount } from '../../format/count'
 import { formatKg, formatLdm } from '../../format/units'
+import { MoveShipment, type Reassign } from './MoveShipment'
 import type { TruckRow } from './resultRows'
 
 /**
  * What a truck carries, with the relation of each shipment, in a modal window (a native
  * <dialog>: Escape closes it, focus stays inside and goes back to the button after).
  */
-export function TruckShipmentsDialog({ row, onClose }: { row: TruckRow; onClose: () => void }) {
+export function TruckShipmentsDialog({ row, onClose, reassign }: { row: TruckRow; onClose: () => void; reassign?: Reassign }) {
   const ref = useRef<HTMLDialogElement>(null)
   const id = useId()
 
@@ -46,6 +47,7 @@ export function TruckShipmentsDialog({ row, onClose }: { row: TruckRow; onClose:
               <th scope="col" className="num">
                 Težina
               </th>
+              {reassign && <th scope="col">Premesti</th>}
             </tr>
           </thead>
           <tbody>
@@ -58,6 +60,11 @@ export function TruckShipmentsDialog({ row, onClose }: { row: TruckRow; onClose:
                 </td>
                 <td className="num">{shipment.ldmTenths === null ? '–' : formatLdm(shipment.ldmTenths)}</td>
                 <td className="num">{shipment.weightKg === null ? '–' : `${formatKg(shipment.weightKg)} kg`}</td>
+                {reassign && (
+                  <td>
+                    <MoveShipment reassign={reassign} shipmentId={shipment.shipmentId} label={shipment.label} truckId={row.truckId} />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

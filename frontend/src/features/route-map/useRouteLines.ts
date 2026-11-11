@@ -16,29 +16,32 @@ export type RouteLineState =
  * Each line arrives on its own; `retry()` asks again for the ones that failed. Answers
  * that come after another job is shown are dropped.
  */
-export function useRouteLines(jobId: number, truckIds: number[]): [Map<number, RouteLineState>, () => void] {
+/** `version`: see routesVersion; the lines of a changed route are asked for again. */
+export function useRouteLines(jobId: number, truckIds: number[], version = ''): [Map<number, RouteLineState>, () => void] {
+  // The routes as they are now: a job, as changed by hand.
+  const scope = `${jobId}/${version}`
   const api = useApi()
-  const [lines, setLines] = useState(() => ({ jobId, byTruck: new Map<number, RouteLineState>() }))
+  const [lines, setLines] = useState(() => ({ scope, byTruck: new Map<number, RouteLineState>() }))
   const [attempt, setAttempt] = useState(0)
-  // `${jobId}:${truckId}` already asked, so a filter change asks no route twice; a failed
+  // `${scope}:${truckId}` already asked, so a filter change asks no route twice; a failed
   // one is asked again only on retry().
   const asked = useRef(new Set<string>())
   const failed = useRef(new Set<string>())
-  const shownJob = useRef(jobId)
+  const shownJob = useRef(scope)
   const wanted = truckIds.join(',')
 
   useEffect(() => {
-    shownJob.current = jobId
+    shownJob.current = scope
     const answer = (id: number, state: RouteLineState) => {
-      if (state.status === 'error') failed.current.add(`${jobId}:${id}`)
+      if (state.status === 'error') failed.current.add(`${scope}:${id}`)
       setLines((previous) => {
-        if (shownJob.current !== jobId) return previous
-        const byTruck = new Map(previous.jobId === jobId ? previous.byTruck : [])
-        return { jobId, byTruck: byTruck.set(id, state) }
+        if (shownJob.current !== scope) return previous
+        const byTruck = new Map(previous.scope === scope ? previous.byTruck : [])
+        return { scope, byTruck: byTruck.set(id, state) }
       })
     }
     for (const id of wanted === '' ? [] : wanted.split(',').map(Number)) {
-      const key = `${jobId}:${id}`
+      const key = `${scope}:${id}`
       if (asked.current.has(key)) continue
       asked.current.add(key)
       api.getRouteLine(jobId, id).then(
@@ -46,7 +49,7 @@ export function useRouteLines(jobId: number, truckIds: number[]): [Map<number, R
         (error: unknown) => answer(id, { status: 'error', message: describeError(error) }),
       )
     }
-  }, [api, jobId, wanted, attempt])
+  }, [api, jobId, scope, wanted, attempt])
 
   const retry = useCallback(() => {
     for (const key of failed.current) asked.current.delete(key)
@@ -59,7 +62,7 @@ export function useRouteLines(jobId: number, truckIds: number[]): [Map<number, R
     setAttempt((n) => n + 1)
   }, [])
 
-  const known = lines.jobId === jobId ? lines.byTruck : new Map<number, RouteLineState>()
+  const known = lines.scope === scope ? lines.byTruck : new Map<number, RouteLineState>()
   const byTruck = new Map(truckIds.map((id): [number, RouteLineState] => [id, known.get(id) ?? { status: 'loading' }]))
   return [byTruck, retry]
 }

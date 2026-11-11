@@ -467,6 +467,53 @@ describe('local storage on the device', () => {
     release()
   })
 
+  it('moves shipments between the trucks by hand, keeps the optimizer\'s result, and gives it back', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const id = (await api.createOptimizationJob(REQUEST)).id
+    await settle(api, id)
+    const optimized = await api.getOptimizationResult(id)
+    expect(optimized.fleetTruckIds).toEqual(SCENARIOS.small.trucks.filter((t) => t.available).map((t) => t.id))
+    expect(optimized.manual).toBeUndefined()
+    const first = optimized.routes[0]
+    const shipmentId = first.stops[0].shipmentId
+
+    // Off its truck: listed as unassigned, the routes still pass the validator.
+    const off = await api.reassignShipment(id, shipmentId, null)
+    expect(off.unassignedShipmentIds).toEqual([shipmentId])
+    expect(off.manual).toEqual({ optimizedMeters: optimized.totalMeters })
+    expect(off.validation.passed).toBe(true)
+    expect(off.extraTruck).toBeUndefined()
+    expect(await api.getOptimizationResult(id)).toEqual(off)
+
+    // Back on, compared still with the optimizer's result; kept after a restart and in the data file.
+    const back = await api.reassignShipment(id, shipmentId, first.truckId)
+    expect(back.unassignedShipmentIds).toEqual([])
+    expect(back.manual).toEqual({ optimizedMeters: optimized.totalMeters })
+    expect((await setup('small', steps, store).getOptimizationResult(id)).manual).toEqual({ optimizedMeters: optimized.totalMeters })
+    const file = (await api.exportDeviceData())!
+    expect((await api.checkDeviceData(file.content)).results).toBeGreaterThan(0)
+
+    // What does not fit is refused: more than one truck carries cannot all go on one.
+    const other = optimized.fleetTruckIds!.find((t) => t !== first.truckId)!
+    const refusals: number[] = []
+    for (const shipment of SCENARIOS.small.shipments) {
+      await api.reassignShipment(id, shipment.id, other).catch((error: unknown) => {
+        if (error instanceof ApiError) refusals.push(error.status)
+      })
+    }
+    expect(refusals.length).toBeGreaterThan(0)
+    expect(new Set(refusals)).toEqual(new Set([400]))
+    expect((await api.getOptimizationResult(id)).validation.passed).toBe(true)
+
+    // The optimizer's result again; then there is nothing to give back.
+    expect(await api.restoreOptimizedResult(id)).toEqual(optimized)
+    expect((await rejection(api.restoreOptimizedResult(id))).status).toBe(409)
+    expect((await rejection(api.reassignShipment(id, 999, other))).status).toBe(404)
+    expect((await rejection(api.reassignShipment(id, shipmentId, 999))).status).toBe(404)
+    expect((await rejection(api.reassignShipment(999, shipmentId, other))).status).toBe(404)
+  })
+
   it('gives a removed truck id again only when no kept job uses it', async () => {
     const api = setup('small', steps)
     // The job drives Šleper 1 and 2; Solo 1 (id 3) is not available, so the job has it not.

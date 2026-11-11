@@ -10,6 +10,11 @@ export const DISTANCE_SOURCES: Record<DistanceSource, string> = {
 }
 
 /** What the total distance covers. */
+/** Changes whenever a route does (a shipment moved by hand), so what is drawn from the routes is asked for again. */
+export function routesVersion(result: OptimizationResult): string {
+  return result.routes.map((r) => `${r.truckId}:${r.stops.map((s) => s.shipmentId).join('.')}`).join('|')
+}
+
 export function distanceScope(result: OptimizationResult): string {
   if (!result.openRoute) return 'uključuje povratak u bazu'
   return result.routes.some((r) => r.startLocationId !== undefined)
