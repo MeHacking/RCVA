@@ -4,11 +4,39 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 10.11.2026 („Traži ponovo“ za mesto, zemlja iz padajućeg menija; pre toga pošiljke ručno,
-vozač, PDF za vozača, kratki nazivi pošiljki, 3D u PDF-u, Viber); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 11.11.2026 (i ručna preraspodela pošiljki).
+Poslednje ažuriranje: 18.11.2026 (nov 3D prikaz kao u smartLoad-u; pre toga ručna preraspodela
+pošiljki, „Traži ponovo“ za mesto, zemlja iz padajućeg menija); videti „Gde smo stali“.
+Push-ovano na `origin/main` 11.11.2026 (do ručne preraspodele); 3D prikaz još nije push-ovan.
 
 ## Gde smo stali (03.11.2026)
+
+**Nov 3D prikaz (urađeno 18.11.2026)**, na zahtev korisnika („3D prikaz kao u smartLoad-u“;
+smartLoad je takođe korisnikov projekat, `F:\GitHubProjects\smartLoad`). Samo prikaz, bez
+uređivača rasporeda (korisnik: „samo želim novi 3D prikaz“); telefon za sada nije tema.
+- `three` **0.187.0** (MIT, 30.10.2026) i `@types/three` 0.187.0 (MIT; povlače
+  `@types/webxr`, `@types/stats.js`, `@tweenjs/tween.js`, `fflate`, `meshoptimizer` (MIT) i
+  `@dimforge/rapier3d-compat` (Apache-2.0)), `--save-exact`. `npm audit --omit=dev` 0;
+  ranjivosti u razvojnim alatima (picomatch, minimatch) postojale su i pre. Poseban deo paketa
+  (`Truck3D-*.js`, 141 kB gzip), učitava se tek na 3D ekranu.
+- `features/truck-3d/`: `Truck3D.tsx` (three.js, prenet iz smartLoad-a bez delova za uređivanje:
+  model kamiona, tegljač sa poluprikolicom od 10 m, crta samo kad se nešto promeni), `scene.ts`
+  (plan u mm → scena u cm, pogledi, `fitView`), `truckShape.ts`, `viewIcons.tsx`,
+  `placementColor.ts` (ista paleta kao ranije; deli je PDF), `TruckVisualizer.tsx` (kartica:
+  Ukoso / Odozgo / Sa strane / Od vrata, „Ceo ekran“, red sa podacima o izabranoj pošiljci).
+  Izbor klikom na blok ili u spisku; ostali blokovi tada postaju providni (višnja preko plave
+  se jedva videla). Klik pored kamiona poništava izbor.
+- **Kamera**: smartLoad uklapa kameru korak po korak; kod „Od vrata“ to ne konvergira
+  (cik-cak, kamion izlazi 18 % ispod slike; isti kod je u smartLoad-u, tamo nije proveravano). `fitView` rešava položaj
+  tačno (za fiksan pravac pogleda uslov „ugao je u slici“ je linearan), 88 % slike.
+- Ceo ekran: zajednički `hooks/useFullscreen.ts` (mapa ga sada koristi isto). TeGo
+  (`public/legacy/tego/`, `tego/`) je uklonjen; boje modela su tokeni `--truck3d-*`.
+- Testovi: `truck3dScene.test.ts` (37, i `fitView` za sve poglede), `mockLoadPlan.test.ts`
+  (testovi mock rasporeda izdvojeni iz uklonjenog `tegoAdapter.test.ts`), prepisan
+  `truck3d.spec.ts` (test 8: redosled, izbor u spisku i u slici, poništavanje, odakle gleda svaki
+  pogled i uklapanje; test 9 i 9b; ceo ekran i ponovno uklapanje), serverski test 8 preko sonde.
+  Provereno na pokvarenom kodu (15 izmena): 14 obaraju testove, jedna je ekvivalentna (videti
+  „Zamke“, 3D prikaz). Uz to je ispravljen zastareli serverski test („Skor“, kao 04.11. u mock-u).
+- Uputstvo dopunjeno (3D prikaz). PDF i dalje crta SVG (`LoadDrawings`), nije menjan.
 
 **Ručna preraspodela pošiljki (urađeno 11.11.2026)**, korak 1 dogovorenog plana: vlasnik premešta
 pošiljku u drugi kamion posla ili je izbacuje u nedodeljene i vraća. Kapacitet ostaje strogo pravilo
@@ -1005,7 +1033,7 @@ Rezultat se prikazuje kao spisak ruta (kasnije mapa) i kao 3D raspored robe u ka
 | Pitanja za vlasnika procesa | `docs/pitanja-za-vlasnika-procesa.md` | poslato 28.10.2026 |
 | Odgovori vlasnika procesa | `docs/odgovori-vlasnika-procesa.md` | stigli 29.10.2026; menjaju model |
 | Tipovi i API koje frontend očekuje | `frontend/src/api/types.ts`, `frontend/src/api/client.ts` | ugovor u kodu |
-| Licence preuzetog TeGo koda | `frontend/public/legacy/tego/NOTICE` | |
+| 3D prikaz preuzet iz smartLoad-a | `F:\GitHubProjects\smartLoad` (`frontend/src/editor/`, `truckShape.ts`) | isti vlasnik; TeGo uklonjen 18.11.2026 |
 
 Iz Spec v2, važno za rad:
 
@@ -1018,7 +1046,8 @@ Iz Spec v2, važno za rad:
 - Test 7 (u fixture-u `test7`): 2 kamiona, 1 001 489 m = „1001,5 km“ (S1+S3, S2+S4), iako
   3 kamiona daju 921,5 km.
 - Testovi 8 i 9 (3D): broj tela = broj pošiljki; 20 promena kamiona bez curenja (jedan canvas,
-  isti broj slušalaca i GPU geometrija). Oba su u `frontend/tests/e2e/truck3d.spec.ts`.
+  isti broj slušalaca i GPU geometrija). Oba su u `frontend/tests/e2e/truck3d.spec.ts`; scenu
+  čitaju preko `canvas.rcvaProbe` (`Truck3dProbe` u `Truck3D.tsx`).
 
 ## Struktura
 
@@ -1034,7 +1063,7 @@ RCVA/
 │   │                             src/api/mock/shipmentEdit.ts: izmena pošiljke (mock i local)
 │   ├── src/fixtures/             probni scenariji: small, test7, proven, notFound
 │   ├── src/features/             ekrani: dashboard, shipments (+ import/), trucks,
-│   │                             optimization, route-map, truck-3d (+ tego/),
+│   │                             optimization, route-map, truck-3d (three.js: Truck3D, scene, truckShape),
 │   │                             settings (samo režim local)
 │   ├── src/domain/capacity.ts    donja granica po LDM (fixture-i); provere posla su u optimization/feasibility
 │   ├── src/domain/fleet.ts       standardna cerada i flota koju pravi aplikacija
@@ -1042,7 +1071,6 @@ RCVA/
 │   │                             feasibility (PROVEN), validator, result (API rezultat), loadPlan
 │   ├── src/format/               jedini modul za formatiranje jedinica (LDM, km, kg, vreme)
 │   ├── src/styles/               tokens.css (sve boje), base, layout, components
-│   ├── public/legacy/tego/       TeGo 3D vizuelizator (klasične skripte; packwidget.js izmenjen)
 │   ├── electron/                 aplikacija za PC: main.mjs, package.json (web/ = kopija dist/)
 │   ├── electron-builder.yml      Windows instaler (release/)
 │   ├── branding/                 logo-source.png (izvor loga) i icon.ico (npm run icons)
@@ -1113,7 +1141,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (04.11.2026, posle tipova kamiona, na Node 24.14.0): frontend tsc, lint i build čisti,
+Stanje (18.11.2026, posle novog 3D prikaza, Node 24.22.1, iz `F:\`): tsc, lint i build čisti,
+Vitest 593, Playwright 102, desktop 4 i serverski e2e 9 prolaze.
+Ranije stanje (04.11.2026, posle tipova kamiona, na Node 24.14.0): frontend tsc, lint i build čisti,
 425 Vitest testova prolaze, Playwright 80 od 82 (pada zastareli test „Skor“ u
 `optimization.spec.ts` i jednom nestabilni test mape; videti „Gde smo stali“). Pre toga (posle
 menija „Popuni prema“): 414 Vitest testova. Ranije (03.11.2026, posle Uputstva i Pregleda sa grafikonima): 408 Vitest testova, Playwright 75 i desktop 4 prolaze (spakovani
@@ -1162,7 +1192,7 @@ Svih šest ekrana iz prompta radi nad mock API-jem:
 | Kamioni | tabela, dodavanje i izmena sa validacijom, uklanjanje sa potvrdom u redu (409 dok posao radi) |
 | Rezultati optimizacije | pokretanje sa vremenskim ograničenjem, praćenje statusa, rezime i skor, validator, tabela po kamionu sa redosledom stanica, nedodeljene pošiljke, PROVEN i NOT_FOUND |
 | Mapa ruta | mapa (Leaflet, podloga OSM) sa rutama u bojama kamiona i mestima (u režimu `local` sa ORS ključem po putu, inače isprekidane prave linije), filter po kamionu (`?truck=`), ispod spisak stanica |
-| 3D prikaz | TeGo vizuelizator (`TruckVisualizer`), izbor kamiona, spisak pošiljki, oznaka „Ilustrativni raspored“ |
+| 3D prikaz | three.js prikaz kao u smartLoad-u (model kamiona, pogledi, ceo ekran, izbor klikom), izbor kamiona, spisak pošiljki, oznaka „Ilustrativni raspored“ |
 
 Gornja traka svuda prikazuje status poslednjeg posla i dugme „Pokreni optimizaciju“.
 
@@ -1275,13 +1305,17 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
   Kod u `page.evaluate` koristi DOM tipove, zato postoji `tsconfig.e2e.json`.
 - **Tabele**: `max-width` ne važi za ćelije, pa se širine ograničavaju na unutrašnjim
   elementima. `.table-wrap` ima `position: relative`, da `.visually-hidden` ne širi stranicu.
-- **TeGo (`public/legacy/tego/`)**: klasične skripte sa implicitnim globalnim promenljivama,
-  pa se ne pakuju bundler-om. Učitava ih `loadTego()` jednom po stranici. Crtaju u **jedan
-  deljeni canvas fiksiran iza stranice** (odluka „A“), pa **kontejner 3D prikaza i njegovi
-  roditelji moraju biti providni**. `packwidget.js` je izmenjen (`destroy()`, oznaka
-  „MODIFIED for RCVA“); fajl ima mešane završetke redova (LF/CRLF), pa automatske izmene
-  moraju to da poštuju. `console.warn` „OrbitControls: target is now immutable“ dolazi iz
-  r73 i nije greška.
+- **3D prikaz (three.js, od 18.11.2026)**: svaki kamion ima svoje platno u kartici (TeGo sa
+  deljenim platnom iza stranice je uklonjen). Boje modela kamiona su tokeni `--truck3d-*` u
+  `tokens.css` (three.js ih čita preko `getComputedStyle`). U three 0.187 `renderer.dispose()`
+  sam briše sve geometrije koje je poslao kartici, pa test 9 ne može da uhvati izostavljen
+  `disposeGroup` (ekvivalentna izmena; `disposeGroup` ostaje).
+- **Slovo diska i Vitest**: pokrenut iz `f:\...` (malo slovo, kako VS Code otvara folder)
+  Vitest 5 učita svoje module dva puta (`F:/` i `f:/`), pa **svaki** test fajl pada sa
+  „Cannot read properties of undefined (reading 'config')“, i na starom kodu. Pokretati iz
+  `F:\GitHubProjects\RCVA\frontend` (PowerShell `Set-Location F:\...`); Playwright to ne smeta.
+- **Završeci redova**: fajlovi su na disku sa CRLF (`core.autocrlf true`), a `grep -c $'\r'`
+  u Git Bash-u to ne vidi; skripte za izmene moraju da čuvaju CRLF (ili koristiti alat Edit).
 - **Fast-forward spajanje** je jednom obrisalo korisnikov ignorisani fajl
   `pocetne instrukcije za react app.txt` sa diska, jer je bio praćen u starijem commit-u.
   Vraćen je iz istorije. Pre spajanja ili prebacivanja grana proveriti ignorisane fajlove.
