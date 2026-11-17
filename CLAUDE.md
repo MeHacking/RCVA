@@ -6,7 +6,7 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 18.11.2026 (nov 3D prikaz kao u smartLoad-u; pre toga ručna preraspodela
 pošiljki, „Traži ponovo“ za mesto, zemlja iz padajućeg menija); videti „Gde smo stali“.
-Push-ovano na `origin/main` 11.11.2026 (do ručne preraspodele); 3D prikaz još nije push-ovan.
+Sve je push-ovano na `origin/main` 18.11.2026 (i nov 3D prikaz).
 
 ## Gde smo stali (03.11.2026)
 
