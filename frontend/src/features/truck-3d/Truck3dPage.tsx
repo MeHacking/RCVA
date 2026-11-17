@@ -13,7 +13,7 @@ import { completedJob, isLastJobBusy, useLastJob } from '../optimization/lastJob
 import { buildTruckRows, type ReferenceData } from '../optimization/resultRows'
 import { useReferenceData } from '../optimization/useReferenceData'
 import { parseRouteMapParams } from '../route-map/routeMapParams'
-import { placementColor } from './tego/tegoAdapter'
+import { placementColor } from './placementColor'
 import { TruckVisualizer } from './TruckVisualizer'
 
 export function Truck3dPage() {
@@ -117,10 +117,14 @@ function TruckLoad({
   const shipments = new Map(reference.shipments.map((s) => [s.id, s]))
   const locations = new Map(reference.locations.map((l) => [l.id, l.name]))
   const toggle = (id: number) => setSelectedShipmentId((current) => (current === id ? null : id))
+  const chosenIndex = placements.findIndex((p) => p.shipmentId === selectedShipmentId)
+  const chosen = chosenIndex < 0 ? undefined : placements[chosenIndex]
   // 1 = the first shipment off the truck (it stands at the doors: loading is from the rear).
   const deliveryOrder = new Map(
     (route?.stops ?? []).filter((s) => s.type === 'DELIVERY').map((s, i) => [s.shipmentId, i + 1] as const),
   )
+  const chosenShipment = chosen ? shipments.get(chosen.shipmentId) : undefined
+  const chosenUnloaded = chosen ? deliveryOrder.get(chosen.shipmentId) : undefined
 
   return (
     <>
@@ -139,7 +143,26 @@ function TruckLoad({
           placements={placements}
           mode={mode}
           selectedShipmentId={selectedShipmentId}
-          onSelect={(id) => id !== null && toggle(id)}
+          onSelect={(id) => (id === null ? setSelectedShipmentId(null) : toggle(id))}
+          selectedInfo={
+            chosen && (
+              <>
+                <span className="truck-3d__swatch" style={{ background: placementColor(chosenIndex) }} aria-hidden="true" />{' '}
+                <strong>{chosenShipment?.externalId ?? `Pošiljka #${chosen.shipmentId}`}</strong>
+                {': '}
+                {[
+                  chosenShipment &&
+                    `${locations.get(chosenShipment.pickupLocationId) ?? '?'} → ${locations.get(chosenShipment.deliveryLocationId) ?? '?'}`,
+                  chosenShipment && `${formatLdm(chosenShipment.ldmTenths)} LDM`,
+                  formatDimensionsMm(chosen.lengthMm, chosen.widthMm, chosen.heightMm),
+                  chosenShipment?.weightKg != null && `${formatKg(chosenShipment.weightKg)} kg`,
+                  chosenUnloaded !== undefined && `istovar ${chosenUnloaded}.`,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </>
+            )
+          }
         />
         <section className="panel truck-3d__list" aria-labelledby="truck-3d-shipments">
           <h2 id="truck-3d-shipments">

@@ -72,6 +72,27 @@
   --drawing-line: var(--gray-700);
   --drawing-light: rgba(255, 255, 255, 0.4);
   --drawing-shade: rgba(0, 0, 0, 0.22);
+  /* The 3D view (Truck3D, three.js reads these): the stage behind it, the light, the cargo
+     space (floor, frame and marks in dark grey), the edges of the blocks, the chosen block in
+     the accent, and the truck model (cab, trim, steel, glass, tyres, rims, lights) */
+  --truck3d-stage: #fbf7f0;
+  --truck3d-stage-glow: rgba(255, 255, 255, 0.9);
+  --truck3d-stage-border: var(--gray-200);
+  --truck3d-sky: #ffffff;
+  --truck3d-ground-light: #8a8a8a;
+  --truck3d-shadow: #000000;
+  --truck3d-floor: #e3dacc;
+  --truck3d-frame: var(--dark-grey);
+  --truck3d-edge: #111111;
+  --truck3d-selected: var(--accent);
+  --truck3d-body: #e9eaed;
+  --truck3d-trim: #2a2c31;
+  --truck3d-steel: #4a4d54;
+  --truck3d-glass: #3b5d7a;
+  --truck3d-tyre: #18191c;
+  --truck3d-rim: #b9bcc2;
+  --truck3d-headlight: #fff6d8;
+  --truck3d-tail-light: #c8352c;
   /* A bar on the dark: a light rose instead of cherry (cherry on dark grey is barely seen) */
   --on-dark-accent: #e6a6b7;
   --on-dark-track: rgba(255, 255, 255, 0.14);

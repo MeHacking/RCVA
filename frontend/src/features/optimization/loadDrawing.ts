@@ -1,5 +1,5 @@
 import type { LoadPlan, Placement } from '../../api/types'
-import { placementColor } from '../truck-3d/tego/tegoAdapter'
+import { placementColor } from '../truck-3d/placementColor'
 
 // The load of a truck drawn for the PDF from its load plan (no WebGL, so it prints sharp and
 // the same everywhere): an oblique 3D view, seen from the side with the doors on the right,

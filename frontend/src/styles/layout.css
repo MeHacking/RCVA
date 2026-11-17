@@ -1549,8 +1549,9 @@ button.quick-action--primary:hover:not(:disabled) {
   }
 }
 
-/* Truck 3D view. TeGo renders into one fixed canvas behind the page, so the viewport
-   element must stay transparent (no background on it or on its ancestors). */
+/* Truck 3D view (Truck3D with three.js, as in smartLoad): a card with the views and full
+   screen above the picture and a line about the chosen shipment under it; the list of the
+   shipments beside it (under it on narrow screens). */
 
 .truck-3d {
   display: grid;
@@ -1559,28 +1560,137 @@ button.quick-action--primary:hover:not(:disabled) {
   align-items: start;
 }
 
-.truck-visualizer__label {
+@media (max-width: 60rem) {
+  .truck-3d {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.truck-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.truck-view__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* The views: one pill with a pill per view, the chosen one in the accent. */
+.view-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--chip-border);
+  border-radius: 999px;
+  background: var(--chip-surface);
+}
+
+.view-switch button {
+  height: 2.25rem;
+  padding: 0 var(--space-4) 0 var(--space-3);
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.view-switch button:hover:not(:disabled, [aria-pressed='true']) {
+  background: var(--chip-hover);
+}
+
+.view-switch button[aria-pressed='true'] {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+.view-switch .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.truck-view__label {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  margin: 0;
   font-size: var(--text-sm);
 }
 
-.truck-visualizer__viewport {
+.truck3d {
   position: relative;
-  height: 30rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: transparent;
+  height: max(26rem, calc(100dvh - 24rem));
+  border: 1px solid var(--truck3d-stage-border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse at 50% 35%, var(--truck3d-stage-glow), transparent 70%),
+    var(--truck3d-stage);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
 }
 
-.truck-visualizer__loading {
-  position: absolute;
-  inset: 0;
+.truck3d:active {
+  cursor: grabbing;
+}
+
+.truck3d canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.truck3d__fallback {
   display: grid;
   place-items: center;
+  height: 100%;
+  margin: 0;
   color: var(--text-muted);
+}
+
+.truck-view__info {
+  min-height: 1.5em;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.truck-view__info .truck-3d__swatch {
+  display: inline-block;
+  vertical-align: -1px;
+}
+
+/* Full screen: the whole card, the picture filling what is left; without the browser's full
+   screen (some phones) the card is spread over the page, above the bars. */
+/* .panel (components.css, loaded later) would keep its bottom margin, which shortens a fixed box */
+.panel.truck-view:fullscreen,
+.panel.truck-view--expanded {
+  margin: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+
+.truck-view--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.truck-view:fullscreen .truck-view__stage,
+.truck-view--expanded .truck-view__stage {
+  flex: 1;
+  min-height: 0;
+}
+
+.truck-view:fullscreen .truck3d,
+.truck-view--expanded .truck3d {
+  height: 100%;
 }
 
 /* The list beside the 3D view: the truck's fill and cargo space, then one row per shipment,

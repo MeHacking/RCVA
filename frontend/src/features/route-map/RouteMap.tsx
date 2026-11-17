@@ -1,8 +1,9 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
 import { Icon } from '../../components/Icon'
+import { useFullscreen } from '../../hooks/useFullscreen'
 import type { MapModel, PlaceKind } from './mapModel'
 
 // Leaflet directly (BSD-2-Clause; react-leaflet is not used, see CLAUDE.md). One map per
@@ -35,45 +36,13 @@ export default function RouteMap({ model }: { model: MapModel }) {
   // Full screen: the browser's own (Esc leaves it), or, where there is none (some phones) or it
   // is refused, the map spread over the whole page.
   const frame = useRef<HTMLDivElement>(null)
-  const [native, setNative] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const full = native || expanded
-
-  useEffect(() => {
-    const onChange = () => setNative(document.fullscreenElement !== null && document.fullscreenElement === frame.current)
-    document.addEventListener('fullscreenchange', onChange)
-    return () => document.removeEventListener('fullscreenchange', onChange)
-  }, [])
-
-  useEffect(() => {
-    if (!expanded) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExpanded(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [expanded])
+  const { full, expanded, toggle: toggleFullscreen } = useFullscreen(frame)
 
   // The map's box changed size: Leaflet measures it again (after the new layout), or tiles stay missing.
   useEffect(() => {
     const id = requestAnimationFrame(() => map.current?.map.invalidateSize())
     return () => cancelAnimationFrame(id)
   }, [full])
-
-  async function toggleFullscreen() {
-    const element = frame.current
-    if (!element) return
-    if (document.fullscreenElement) return document.exitFullscreen()
-    if (expanded) return setExpanded(false)
-    if (document.fullscreenEnabled) {
-      try {
-        return await element.requestFullscreen()
-      } catch {
-        // refused (e.g. not from a click): spread over the page instead
-      }
-    }
-    setExpanded(true)
-  }
 
   useEffect(() => {
     const element = container.current

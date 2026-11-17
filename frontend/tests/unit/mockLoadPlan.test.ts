@@ -1,30 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '../../src/api/client'
 import { buildLoadPlan } from '../../src/api/mock/loadPlan'
-import { toViewerBin, toViewerItems } from '../../src/features/truck-3d/tego/tegoAdapter'
 import { SCENARIOS } from '../../src/fixtures'
 import { truck } from '../../src/fixtures/scenario'
-
-describe('TeGo adapter (mm -> cm, axes as in mapJsonToViewerFormat)', () => {
-  it('maps the cargo space: length -> x (width), height -> y, width -> z (depth)', () => {
-    expect(toViewerBin({ innerLengthMm: 13600, innerWidthMm: 2480, innerHeightMm: 2700 })).toEqual({
-      x: 0,
-      y: 0,
-      z: 0,
-      width: 1360,
-      height: 270,
-      depth: 248,
-    })
-  })
-
-  it('maps placements: y (across) -> z, z (up) -> y', () => {
-    const [item] = toViewerItems([
-      { shipmentId: 7, xMm: 1000, yMm: 200, zMm: 300, lengthMm: 1200, widthMm: 800, heightMm: 1500, rotated: true },
-    ])
-    expect(item).toMatchObject({ shipmentId: 7, x: 100, y: 30, z: 20, width: 120, height: 150, depth: 80 })
-    expect(item.color).toMatch(/^0x[0-9a-f]{6}$/)
-  })
-})
 
 describe('mock load plan', () => {
   const scenario = SCENARIOS.small

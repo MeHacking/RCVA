@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LoadPlan, Placement } from '../../src/api/types'
 import { blockColor, blockNumbers, obliqueDrawing } from '../../src/features/optimization/loadDrawing'
-import { placementColor } from '../../src/features/truck-3d/tego/tegoAdapter'
+import { placementColor } from '../../src/features/truck-3d/placementColor'
 
 const SPACE = { innerLengthMm: 13_600, innerWidthMm: 2480, innerHeightMm: 2700 }
 const block = (shipmentId: number, xMm: number, lengthMm: number, more: Partial<Placement> = {}): Placement => ({

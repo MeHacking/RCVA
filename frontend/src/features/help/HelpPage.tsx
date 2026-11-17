@@ -378,7 +378,12 @@ function Steps() {
             ' Sa ključem za OpenRouteService linije idu po putu; bez njega su isprekidane prave linije.'}
         </li>
         <li>
-          <strong>3D prikaz:</strong> ilustrativni raspored robe u kamionu; ono što se prvo istovara stoji kod vrata.
+          <strong>3D prikaz:</strong> ilustrativni raspored robe u kamionu (od 10 m nacrtan kao tegljač sa
+          poluprikolicom, kraći kao kamion); ono što se prvo istovara stoji kod vrata. Pogledi Ukoso, Odozgo, Sa
+          strane i Od vrata uvek prikazuju ceo kamion. Mišem: prevlačenje okreće pogled, točkić približava, desni
+          taster pomera. Klik na blok ili na pošiljku u spisku je ističe (ostale postaju providne) i ispod slike
+          piše koja je, odakle i kuda ide i kada se istovara; klik pored kamiona poništava izbor. „Ceo ekran“
+          prikazuje 3D preko celog ekrana (Esc izlazi).
         </li>
         <li>
           <strong>Izvezi ceo rezultat (PDF):</strong> izveštaj sa rezimeom na prvoj strani i svakim kamionom na svojoj
