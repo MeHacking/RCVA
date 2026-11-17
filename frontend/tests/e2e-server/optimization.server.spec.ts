@@ -18,7 +18,8 @@ test('runs a job on the server: 2 trucks, validator passed, nothing unassigned',
   const stats = page.locator('.stats')
   await expect(stats).toContainText('Kamioni2')
   await expect(stats).toContainText('jednako donjoj granici po kapacitetu')
-  await expect(stats).toContainText(/0hard\/-2medium\/-\d+soft/)
+  // The score is no card any more (since 04.11.2026; as in tests/e2e/optimization.spec.ts).
+  await expect(stats).not.toContainText(/hard|medium|soft/)
   await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
   await expect(page.getByText('Sve pošiljke su dodeljene kamionima.')).toBeVisible()
   await expect(routes.locator('tbody > tr')).toHaveCount(2)
@@ -42,8 +43,9 @@ test('test 8 on a solver result: one 3D body per shipment on the truck', async (
 
     const bodies = await page.evaluate(async () => {
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-      const tego = (window as unknown as { PackWidget: { prototype: { widgetRenderer: { widgets: { itemMap: Map<unknown, unknown> }[] } } } }).PackWidget
-      return tego.prototype.widgetRenderer.widgets.at(-1)?.itemMap.size
+      // Truck3dProbe in src/features/truck-3d/Truck3D.tsx
+      const canvas = document.querySelector('.truck3d canvas') as (HTMLCanvasElement & { rcvaProbe?: { pieces: () => number[] } }) | null
+      return canvas?.rcvaProbe?.pieces().length
     })
     expect(shipments).toBeGreaterThan(0)
     expect(bodies).toBe(shipments)
