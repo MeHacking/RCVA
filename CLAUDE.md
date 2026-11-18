@@ -4,11 +4,49 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 18.11.2026 (nov 3D prikaz kao u smartLoad-u; pre toga ručna preraspodela
+Poslednje ažuriranje: 18.11.2026 (teme i animacije; pre toga nov 3D prikaz kao u smartLoad-u, ručna preraspodela
 pošiljki, „Traži ponovo“ za mesto, zemlja iz padajućeg menija); videti „Gde smo stali“.
 Sve je push-ovano na `origin/main` 18.11.2026 (i nov 3D prikaz).
 
 ## Gde smo stali (03.11.2026)
+
+**Teme i animacije (urađeno 18.11.2026)**, na zahtev korisnika („da ui menja boju kao smartLoad,
+teget, trula višnja… i neka animacija“; izbori: svih pet tema, izbor u Podešavanjima, sve četiri
+predložene animacije). Teme su palete iz smartLoad-a (`styles.css` tamo): **Višnja** (dosadašnja,
+početna, bez atributa), **Teget**, **Šuma**, **Grafit** i **Neon** (tamne, `color-scheme: dark`).
+- `app/theme.ts` (`THEMES`, `loadTheme`/`saveTheme` u `localStorage` `rcva.theme`, ne u fajlu sa
+  podacima; `applyTheme` = `data-theme` na `<html>`, pre prvog crtanja u `main.tsx`; `revealTheme`).
+  Podešavanja, deo 1 „Izgled“ (`ThemePanel.tsx`: radio dugmad kao kartice sa sličicom teme; ostali
+  delovi su sada 2–7). Uputstvo dopunjeno.
+- Vrednosti tema su na kraju `tokens.css` pod `@media screen`. Akcent koji nosi tekst je tamniji od
+  palete (narandžasta i crvena ne daju 4,5 : 1), a jarka boja ostaje na oznaci u meniju i trakama.
+  U Tegetu i Šumi greška je malina (`--danger`), da se ne meša sa akcentom. Novi tokeni:
+  `--accent-on-light` (akcent na krem dugmetu tamne kartice; u tamnim temama je akcent svetao),
+  `--dark-hover`, `--map-control-*`, `--shine`, `--swatch-*`.
+- Animacije: promena teme se širi u krugu od mesta klika (View Transitions, `theme-switching` na
+  `<html>`); promena ekrana iz menija (`NavLink viewTransition`): stara strana nestaje, nova se
+  pojavi; `.app__main` dobija `view-transition-name` **samo dok prelaz traje**
+  (`:active-view-transition`), jer bi stalno ime od nje napravilo „backdrop root“ i staklene kartice
+  ne bi mutile talase. Dugmad: utisnuće (`scale`), glavna se podignu sa sjajem akcenta i preko njih
+  pređe odsjaj; ikonica brze akcije se nagne. Brojevi na Pregledu odbroje do vrednosti
+  (`CountUp.tsx`, `countUpModel.ts`). Sve isključeno uz „smanji animacije“.
+- Testovi: `theme.test.ts` (čita `tokens.css` preko `?raw`; Vitest zato ima `css.include` za
+  tokens: kontrast 22 para u svakoj temi i razlika greške i akcenta; prvi prolaz je našao 3 stvarna
+  problema), `countUp.test.ts`, e2e `theme.local.spec.ts`.
+- **Zamka (View Transitions)**: dok prelaz traje, Chromium svaki klik i pokret miša daje `<html>`-u
+  (`pointer-events: none` na `::view-transition` to ne menja, probano), pa se klik u tom trenutku
+  gubi; zato su prelazi kratki (tema 0,5 s, ekran ~0,23 s). Test koji pomera miš jednom posle klika na
+  meni prvo čeka kraj prelaza (`:active-view-transition`, u `dashboard.local.spec.ts`). Nova tema
+  usred prelaza bi prekinula stari i dala neobrađeno „Transition was skipped“: tada se tema menja
+  bez kruga (`transitionActive`), i `ready` se hvata; test brze promene ide tastaturom (pada na kodu
+  bez toga, 2 od 3).
+- **Zamka**: korisnikov smartLoad dev server zauzima port 5174 (isti kao e2e server za `small`); e2e je
+  tada pušten sa privremenom kopijom podešavanja sa portovima +100 (van repozitorijuma).
+- Stanje: tsc, lint čisti, Vitest 716, e2e 107 (tri puna prolaza: posle ispravki 106 od 107, pao je
+  poznati nestabilni `routeMap.spec.ts:71`; u jednom prolazu su pali i `smoke` logo i
+  `dashboard.local` prvi test, sami prolaze: obe su trke u testu, logo bez čekanja učitavanja i
+  Pregled odmah posle „Sačuvaj“). Desktop i serverski e2e nisu pokretani. Izgled proveren snimcima
+  (sve teme: Pregled, Podešavanja, Kamioni, Pošiljke; Grafit: Rezultati, 3D, mapa).
 
 **Nov 3D prikaz (urađeno 18.11.2026)**, na zahtev korisnika („3D prikaz kao u smartLoad-u“;
 smartLoad je takođe korisnikov projekat, `F:\GitHubProjects\smartLoad`). Samo prikaz, bez
@@ -1141,7 +1179,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (18.11.2026, posle novog 3D prikaza, Node 24.22.1, iz `F:\`): tsc, lint i build čisti,
+Stanje (18.11.2026, posle tema i animacija): tsc, lint i build čisti, Vitest 716, Playwright 107
+(videti „Teme i animacije“ u „Gde smo stali“); desktop i serverski e2e nisu ponovo pokretani.
+Pre toga (18.11.2026, posle novog 3D prikaza, Node 24.22.1, iz `F:\`): tsc, lint i build čisti,
 Vitest 593, Playwright 102, desktop 4 i serverski e2e 9 prolaze.
 Ranije stanje (04.11.2026, posle tipova kamiona, na Node 24.14.0): frontend tsc, lint i build čisti,
 425 Vitest testova prolaze, Playwright 80 od 82 (pada zastareli test „Skor“ u
@@ -1178,8 +1218,11 @@ pokrenuti 28.10.2026; posle toga backend je dobio samo `TimefoldOracleTest`, koj
   sme da se čita, ali **ništa iz njega ne ide u repozitorijum** (ni redovi, ni tačne težine,
   ni nazivi mesta karakteristični za fajl). U kodu i testovima samo izmišljeni primeri istog
   oblika. Pre commit-a proveriti grep-om.
-- **Stil**: sve boje su u `src/styles/tokens.css` (paleta Cream + Dark Grey + Black Cherry);
-  samo svetla tema. Formatiranje jedinica isključivo kroz `src/format/`.
+- **Stil**: sve boje su u `src/styles/tokens.css`: Višnja (Cream + Dark Grey + Black Cherry) u
+  `:root`, ostale teme (Teget, Šuma, Grafit, Neon; od 18.11.2026) samo menjaju vrednosti tokena na
+  kraju fajla, pod `@media screen` (štampa je uvek Višnja). Nova boja = token u `:root` i, ako treba,
+  vrednost u svakoj temi; `theme.test.ts` proverava kontrast svake teme. Formatiranje jedinica
+  isključivo kroz `src/format/`.
 
 ## Stanje: urađeno
 
