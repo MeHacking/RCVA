@@ -1,4 +1,6 @@
-/* Design tokens: the only place for raw colors, sizes and spacing. Light theme only. */
+/* Design tokens: the only place for raw colors, sizes and spacing. Višnja (below, in :root) is
+   the default look; the other themes (Podešavanja > Izgled) change only these values, at the
+   end of this file. */
 :root {
   /* Palette: Cream + Dark Grey + Black Cherry */
   --cream: #f5efe6;
@@ -24,6 +26,9 @@
   --accent-hover: #4a1424;
   --accent-subtle: #f2e1e3;
   --accent-text: var(--cream);
+  /* The accent as text on cream (a primary button or a number on a dark card): in the dark
+     themes the accent itself is light, so they give a deeper one here. */
+  --accent-on-light: var(--accent);
 
   /* Status. Danger is a brighter orange-red so it never reads as the brand cherry. */
   --success: #2f6b3a;
@@ -65,6 +70,8 @@
      glass, nearly solid, with light text, controls, icons and bars that keep their contrast */
   --card-cherry-surface: rgba(94, 26, 46, 0.93);
   --card-dark-surface: rgba(43, 42, 44, 0.93);
+  /* A dark grey card that is a button ("Izvezi PDF"), under the pointer */
+  --dark-hover: var(--gray-700);
   /* behind a modal window */
   --backdrop: rgba(43, 42, 44, 0.45);
   /* the drawings of the load in the PDF: the cargo space, its edges, and light and shade on the blocks */
@@ -183,4 +190,235 @@
   --map-height: 26rem;
   /* The edge Leaflet gives its own map buttons (zoom), for ours next to them */
   --leaflet-control-border: rgba(0, 0, 0, 0.2);
+  /* Our button on the map (full screen) looks like Leaflet's, white in every theme, as the map is */
+  --map-control-surface: var(--white);
+  --map-control-hover: var(--gray-50);
+  --map-control-text: var(--dark-grey);
+
+  /* Motion: things that appear, leave, and the theme's circle */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+
+  /* The light that passes over a primary button under the pointer */
+  --shine: rgba(255, 255, 255, 0.3);
+
+  /* The theme cards in Podešavanja > Izgled: page, menu, text and accent of each theme */
+  --swatch-edge: rgba(0, 0, 0, 0.12);
+  --swatch-visnja-page: #f3e7d3;
+  --swatch-visnja-nav: #2b2a2c;
+  --swatch-visnja-ink: #2b2a2c;
+  --swatch-visnja-accent: #5e1a2e;
+  --swatch-teget-page: #f2efe9;
+  --swatch-teget-nav: #14213d;
+  --swatch-teget-ink: #14213d;
+  --swatch-teget-accent: #ff6b1a;
+  --swatch-suma-page: #eee5d4;
+  --swatch-suma-nav: #1d4a35;
+  --swatch-suma-ink: #1d4a35;
+  --swatch-suma-accent: #f2462e;
+  --swatch-grafit-page: #262b34;
+  --swatch-grafit-nav: #1a1e25;
+  --swatch-grafit-ink: #eef1f5;
+  --swatch-grafit-accent: #7cc4ff;
+  --swatch-neon-page: #1c1c1e;
+  --swatch-neon-nav: #121214;
+  --swatch-neon-ink: #d5d7db;
+  --swatch-neon-accent: #ff2d78;
+}
+
+/*
+ * Themes (the owner's palettes from smartLoad, each 60 % page, 30 % menu and text, 10 % accent).
+ * Only on the screen: printing (the PDF of a result) always uses Višnja above, on white paper.
+ * An accent that carries text is a shade deeper than the palette's own, so it keeps 4.5 : 1; the
+ * bright one stays on the menu's marks and on the bars of the dark cards.
+ */
+@media screen {
+  /* Teget: #f2efe9 / #14213d / #ff6b1a. Danger turns raspberry, so it never reads as the orange accent. */
+  :root[data-theme='teget'] {
+    --beige: #f2efe9;
+    --cream: #f7f4ee;
+    --cream-light: #fffdf9;
+    --dark-grey: #14213d;
+    --gray-50: #f8f6f1;
+    --gray-100: #ebe8e1;
+    --gray-200: #dcd8cf;
+    --gray-300: #c6c1b5;
+    --gray-500: #5a6072;
+    --gray-700: #36405a;
+    --accent: #b8430b;
+    --accent-hover: #963608;
+    --accent-subtle: #fbe5d6;
+    --danger: #a3164a;
+    --danger-hover: #86113c;
+    --danger-subtle: #f9e1e9;
+    --danger-border: #ebb5c7;
+    --chip-hover: rgba(255, 107, 26, 0.08);
+    --wave-1: #f8f5ef;
+    --wave-2: #f1ece3;
+    --wave-3: #e9e3d7;
+    --wave-4: #e0d8c9;
+    --wave-shadow: rgba(20, 33, 61, 0.13);
+    --topbar-surface: rgba(255, 253, 249, 0.75);
+    --card-cherry-surface: rgba(158, 57, 8, 0.94);
+    --card-dark-surface: rgba(20, 33, 61, 0.94);
+    --dark-hover: #263659;
+    --on-dark-accent: #ffa36b;
+    --focus-ring: 0 0 0 3px rgba(184, 67, 11, 0.32);
+    --nav-text: #b6bdcc;
+    --nav-accent: #e85d12;
+    --shadow-card: 0 1px 2px rgba(20, 33, 61, 0.08), 0 6px 12px -2px rgba(20, 33, 61, 0.11),
+      0 18px 32px -10px rgba(20, 33, 61, 0.2);
+    --shadow-card-raised: 0 2px 4px rgba(20, 33, 61, 0.1), 0 12px 24px -6px rgba(20, 33, 61, 0.17),
+      0 28px 48px -12px rgba(20, 33, 61, 0.28);
+    --truck3d-stage: #fbf9f5;
+    --truck3d-floor: #dcd8cf;
+  }
+
+  /* Šuma: #eee5d4 / #1d4a35 / #f2462e. Danger turns raspberry, so it never reads as the red accent. */
+  :root[data-theme='suma'] {
+    --beige: #eee5d4;
+    --cream: #f6f0e4;
+    --cream-light: #fffbf3;
+    --dark-grey: #1d4a35;
+    --gray-50: #f7f2e8;
+    --gray-100: #e9e1d1;
+    --gray-200: #dcd2bf;
+    --gray-300: #c7bba5;
+    --gray-500: #5a6257;
+    --gray-700: #34473b;
+    --accent: #b8361b;
+    --accent-hover: #982b14;
+    --accent-subtle: #f8e0d8;
+    --danger: #a3164a;
+    --danger-hover: #86113c;
+    --danger-subtle: #f9e1e9;
+    --danger-border: #ebb5c7;
+    --chip-hover: rgba(242, 70, 46, 0.08);
+    --wave-1: #f6f0e4;
+    --wave-2: #efe7d7;
+    --wave-3: #e7dcc7;
+    --wave-4: #ddd0b7;
+    --wave-shadow: rgba(60, 70, 40, 0.15);
+    --topbar-surface: rgba(255, 251, 243, 0.75);
+    --card-cherry-surface: rgba(150, 42, 20, 0.94);
+    --card-dark-surface: rgba(29, 74, 53, 0.94);
+    --dark-hover: #2a5c45;
+    --on-dark-accent: #ff9b85;
+    --focus-ring: 0 0 0 3px rgba(184, 54, 27, 0.3);
+    --nav-text: #b8cabd;
+    --nav-accent: #d8432a;
+    --shadow-card: 0 1px 2px rgba(29, 50, 35, 0.08), 0 6px 12px -2px rgba(29, 50, 35, 0.11),
+      0 18px 32px -10px rgba(29, 50, 35, 0.2);
+    --shadow-card-raised: 0 2px 4px rgba(29, 50, 35, 0.1), 0 12px 24px -6px rgba(29, 50, 35, 0.17),
+      0 28px 48px -12px rgba(29, 50, 35, 0.28);
+    --truck3d-stage: #fcf8f0;
+    --truck3d-floor: #dcd2bf;
+  }
+
+  /* The two dark themes share how the glass, lines and states look; each sets its own colours below. */
+  :root:is([data-theme='grafit'], [data-theme='neon']) {
+    color-scheme: dark;
+    --surface: var(--cream-light);
+    --card-surface: rgba(255, 255, 255, 0.06);
+    --card-surface-solid: var(--cream-light);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    --chip-surface: rgba(255, 255, 255, 0.06);
+    --chip-border: rgba(255, 255, 255, 0.12);
+    --tile-surface: rgba(255, 255, 255, 0.06);
+    --tile-surface-hover: rgba(255, 255, 255, 0.11);
+    --wave-shadow: rgba(0, 0, 0, 0.35);
+    --backdrop: rgba(0, 0, 0, 0.6);
+    --success: #6fd39a;
+    --success-subtle: rgba(111, 211, 154, 0.13);
+    --warning: #ffd166;
+    --warning-subtle: rgba(255, 209, 102, 0.12);
+    --danger: #ffa190;
+    --danger-hover: #ffb8aa;
+    --danger-subtle: rgba(255, 138, 117, 0.11);
+    --danger-border: rgba(255, 161, 144, 0.4);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 12px -2px rgba(0, 0, 0, 0.3),
+      0 18px 32px -10px rgba(0, 0, 0, 0.45);
+    --shadow-card-raised: 0 2px 4px rgba(0, 0, 0, 0.3), 0 12px 24px -6px rgba(0, 0, 0, 0.4),
+      0 28px 48px -12px rgba(0, 0, 0, 0.55);
+    --map-control-hover: #eceef1;
+    --truck3d-stage-glow: rgba(255, 255, 255, 0.04);
+    --truck3d-stage-border: rgba(255, 255, 255, 0.1);
+    --truck3d-frame: var(--gray-700);
+  }
+
+  /* Grafit: slate #262b34 / white / light blue #7cc4ff */
+  :root[data-theme='grafit'] {
+    --beige: #262b34;
+    --cream: #f3f5f8;
+    --cream-light: #2f3540;
+    --dark-grey: #12151a;
+    --gray-50: #2c323c;
+    --gray-100: #363d49;
+    --gray-200: #434b58;
+    --gray-300: #545d6b;
+    --gray-500: #a6aebb;
+    --gray-700: #c9ced6;
+    --gray-900: #eef1f5;
+    --accent: #7cc4ff;
+    --accent-hover: #a8d8ff;
+    --accent-subtle: rgba(124, 196, 255, 0.15);
+    --accent-text: #0d1b2a;
+    --accent-on-light: #1d63a6;
+    --wave-1: #2c323c;
+    --wave-2: #2a2f38;
+    --wave-3: #282d35;
+    --wave-4: #252a32;
+    --topbar-surface: rgba(30, 34, 41, 0.78);
+    --chip-hover: rgba(124, 196, 255, 0.12);
+    --card-cherry-surface: rgba(28, 74, 122, 0.92);
+    --card-dark-surface: rgba(14, 16, 21, 0.82);
+    --dark-hover: #262b34;
+    --on-dark-accent: #7cc4ff;
+    --focus-ring: 0 0 0 3px rgba(124, 196, 255, 0.45);
+    --nav-bg: #1a1e25;
+    --nav-text: #a9b1bd;
+    --nav-text-active: #f3f5f8;
+    --nav-accent: #2b7fcc;
+    --truck3d-stage: #20242b;
+    --truck3d-floor: #3b414c;
+  }
+
+  /* Neon: #1c1c1e / #d5d7db / #ff2d78 */
+  :root[data-theme='neon'] {
+    --beige: #1c1c1e;
+    --cream: #f2f2f4;
+    --cream-light: #28282b;
+    --dark-grey: #0e0e10;
+    --gray-50: #232326;
+    --gray-100: #2e2e32;
+    --gray-200: #3b3b40;
+    --gray-300: #4b4b51;
+    --gray-500: #a3a5ab;
+    --gray-700: #c8cace;
+    --gray-900: #e4e5e8;
+    --accent: #ff4a8b;
+    --accent-hover: #ff73a6;
+    --accent-subtle: rgba(255, 45, 120, 0.15);
+    --accent-text: #1c1c1e;
+    --accent-on-light: #c80f56;
+    --wave-1: #222225;
+    --wave-2: #202023;
+    --wave-3: #1e1e21;
+    --wave-4: #1b1b1e;
+    --topbar-surface: rgba(22, 22, 24, 0.8);
+    --chip-hover: rgba(255, 45, 120, 0.12);
+    --card-cherry-surface: rgba(112, 12, 50, 0.9);
+    --card-dark-surface: rgba(6, 6, 8, 0.82);
+    --dark-hover: #222225;
+    --on-dark-accent: #ff7aa8;
+    --focus-ring: 0 0 0 3px rgba(255, 45, 120, 0.45);
+    --nav-bg: #131315;
+    --nav-text: #a3a5ab;
+    --nav-text-active: #f2f2f4;
+    --nav-accent: #d4115c;
+    --truck3d-stage: #19191b;
+    --truck3d-floor: #36363b;
+  }
 }

@@ -45,7 +45,9 @@ test('counts the optimizations started, per day, week or month, with a tooltip o
   await expect(rows.last()).toHaveText(/1$/, { useInnerText: false })
   await expect(activity).toContainText('Ukupno u prikazanom periodu: 1 optimizacija')
 
-  // Hovering the right end shows today.
+  // Hovering the right end shows today. First the change of screen must end: while it lasts the
+  // browser gives the pointer to no element, and the test moves it only once.
+  await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'))
   const frame = activity.getByRole('group', { name: /^Pokrenute optimizacije po danima/ })
   await frame.scrollIntoViewIfNeeded()
   const box = (await frame.boundingBox())!

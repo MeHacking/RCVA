@@ -427,6 +427,10 @@ function Steps() {
               ili automobile, i najmanja ušteda za preporuku dodatnog kamiona.
             </li>
             <li>
+              „Izgled“ (prvi deo Podešavanja) bira boje aplikacije: Višnja (početna), Teget, Šuma, i tamne Grafit i Neon.
+              Tema se pamti na ovom računaru i ne ulazi u izvoz podataka; PDF za štampu je uvek u svetlim bojama.
+            </li>
+            <li>
               „Izvezi podatke“ pravi jedan fajl sa svim podacima (bez ključa), za rezervnu kopiju ili prenos na drugi
               uređaj; „Uvezi podatke…“ zamenjuje sve podatke na uređaju podacima iz fajla.
             </li>

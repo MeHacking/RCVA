@@ -6,6 +6,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
 import { ErrorState, LoadingState } from '../../components/states'
 import type { Shipment, Truck } from '../../api/types'
+import { CountUp } from '../../components/CountUp'
 import { formatKg, formatKm, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../optimization/jobStatus'
@@ -65,14 +66,18 @@ function Cards({ model }: { model: DashboardModel }) {
         <dt>
           <Icon name="shipments" /> Pošiljke
         </dt>
-        <dd className="stat__value">{model.shipmentCount}</dd>
+        <dd className="stat__value">
+          <CountUp value={model.shipmentCount} delayMs={150} />
+        </dd>
         <dd className="stat__hint">ukupno uneto</dd>
       </div>
       <div className="stat">
         <dt>
           <Icon name="cube" /> Ukupno LDM
         </dt>
-        <dd className="stat__value">{formatLdm(model.totalLdmTenths)}</dd>
+        <dd className="stat__value">
+          <CountUp value={model.totalLdmTenths} format={formatLdm} delayMs={200} />
+        </dd>
         <dd className="stat__hint">
           {model.shipmentCount === 0
             ? 'nema pošiljki'
@@ -85,14 +90,18 @@ function Cards({ model }: { model: DashboardModel }) {
         <dt>
           <Icon name="weight" /> Ukupna težina
         </dt>
-        <dd className="stat__value">{formatKg(model.totalWeightKg)} kg</dd>
+        <dd className="stat__value">
+          <CountUp value={model.totalWeightKg} format={formatKg} delayMs={250} /> kg
+        </dd>
         <dd className="stat__hint">pošiljka bez težine se računa kao 0 kg</dd>
       </div>
       <div className="stat">
         <dt>
           <Icon name="truck" /> Kamioni
         </dt>
-        <dd className="stat__value">{model.availableTrucks}</dd>
+        <dd className="stat__value">
+          <CountUp value={model.availableTrucks} delayMs={300} />
+        </dd>
         <dd className="stat__hint">
           dostupno od {model.totalTrucks} · {formatLdm(model.availableCapacityTenths)} LDM
         </dd>
@@ -102,7 +111,7 @@ function Cards({ model }: { model: DashboardModel }) {
           <Icon name="alert" /> Pošiljke sa greškom
         </dt>
         <dd className={`stat__value${model.shipmentsWithErrors > 0 ? ' text--error' : ''}`}>
-          {model.shipmentsWithErrors}
+          <CountUp value={model.shipmentsWithErrors} delayMs={350} />
         </dd>
         <dd className="stat__hint">nejasna lokacija</dd>
       </div>
@@ -196,7 +205,9 @@ function LastJobPanel({ trucks, shipments }: { trucks: Truck[]; shipments: Shipm
           </div>
           <div>
             <dt>Kilometraža</dt>
-            <dd>{formatKm(result.totalMeters)}</dd>
+            <dd>
+              <CountUp value={result.totalMeters} format={formatKm} delayMs={350} />
+            </dd>
           </div>
           <div>
             <dt>Nedodeljene pošiljke</dt>

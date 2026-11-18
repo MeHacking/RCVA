@@ -12,5 +12,7 @@ export default defineConfig({
     // Unit tests cover pure logic only; UI (and WebGL) is tested with Playwright in tests/e2e.
     include: ['tests/unit/**/*.test.ts'],
     environment: 'node',
+    // CSS is empty in unit tests, but for the tokens: theme.test.ts checks the contrast of each theme.
+    css: { include: [/tokens\.css/] },
   },
 })

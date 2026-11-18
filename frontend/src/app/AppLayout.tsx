@@ -81,7 +81,8 @@ function NavList() {
       )}
       {NAV_ITEMS.map((item) => (
         <li key={item.to}>
-          <NavLink to={item.to} end={item.to === '/'} className="nav-link">
+          {/* viewTransition: the old screen sinks away as the new one comes (layout.css). */}
+          <NavLink to={item.to} end={item.to === '/'} className="nav-link" viewTransition>
             <span className="nav-link__icon">
               <Icon name={item.icon} />
             </span>

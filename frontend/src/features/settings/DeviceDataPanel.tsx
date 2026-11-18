@@ -83,7 +83,7 @@ export function DeviceDataPanel() {
   return (
     <div className="panel device-data">
       <SettingsPart
-        n={4}
+        n={5}
         title="Podaci na uređaju"
         about={
           <>

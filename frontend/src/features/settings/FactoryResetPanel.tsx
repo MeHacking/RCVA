@@ -6,7 +6,7 @@ export function FactoryResetPanel() {
   const api = useApi()
   return (
     <AdminActionPanel
-      n={6}
+      n={7}
       title="Brisanje svih podataka"
       about={
         <>

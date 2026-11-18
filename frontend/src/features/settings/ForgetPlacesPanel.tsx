@@ -6,7 +6,7 @@ export function ForgetPlacesPanel() {
   const api = useApi()
   return (
     <AdminActionPanel
-      n={5}
+      n={6}
       title="Zaboravljanje svih lokacija"
       about={
         <>

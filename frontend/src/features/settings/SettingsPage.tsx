@@ -10,6 +10,7 @@ import { DeviceDataPanel } from './DeviceDataPanel'
 import { FactoryResetPanel } from './FactoryResetPanel'
 import { ForgetPlacesPanel } from './ForgetPlacesPanel'
 import { SettingsPart } from './SettingsPart'
+import { ThemePanel } from './ThemePanel'
 
 /** Settings of the application on the device; the mock and the backend have none. */
 export function SettingsPage() {
@@ -20,6 +21,8 @@ export function SettingsPage() {
   return (
     <section className="settings">
       <PageHeader title="Podešavanja" />
+      {/* The look is the browser's own, so it is there whatever the data source says. */}
+      <ThemePanel />
       {settings.status === 'loading' && <LoadingState label="Učitavanje podešavanja…" />}
       {settings.status === 'error' && (
         <ErrorState title="Podešavanja nisu učitana" message={settings.message} onRetry={reload} />
@@ -102,7 +105,7 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
   return (
     <form className="panel settings-form" onSubmit={handleSubmit} noValidate aria-label="Podešavanja aplikacije">
       <SettingsPart
-        n={1}
+        n={2}
         title="Koordinate mesta"
         about={
           <>
@@ -148,7 +151,7 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
       </SettingsPart>
 
       <SettingsPart
-        n={2}
+        n={3}
         title="Kilometraže"
         about={
           <>
@@ -200,7 +203,7 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
       </SettingsPart>
 
       <SettingsPart
-        n={3}
+        n={4}
         title="Preporuka dodatnog kamiona"
         about={
           <p className="text--muted">

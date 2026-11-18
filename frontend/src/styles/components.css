@@ -27,11 +27,19 @@ button {
   white-space: nowrap;
   transition:
     background-color 0.12s,
-    border-color 0.12s;
+    border-color 0.12s,
+    box-shadow 0.18s ease,
+    translate 0.18s var(--ease-out),
+    scale 0.12s var(--ease-out);
 }
 
 button:hover:not(:disabled) {
   background: var(--gray-100);
+}
+
+/* Every button gives a little under the finger (scale, so a lift in transform stays). */
+button:active:not(:disabled) {
+  scale: 0.97;
 }
 
 button:disabled {
@@ -48,6 +56,51 @@ button.button--primary {
 button.button--primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
+  translate: 0 -1px;
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+/* A light passes over the primary buttons (and the start tile on the dashboard) under the pointer. */
+button.button--primary,
+button.quick-action--primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+button.button--primary::after,
+button.quick-action--primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, var(--shine) 50%, transparent 70%);
+  translate: -110% 0;
+  pointer-events: none;
+}
+
+button.button--primary:hover:not(:disabled)::after,
+button.quick-action--primary:hover:not(:disabled)::after {
+  translate: 110% 0;
+  transition: translate 0.75s var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition:
+      background-color 0.12s,
+      border-color 0.12s;
+  }
+
+  button:active:not(:disabled),
+  button.button--primary:hover:not(:disabled) {
+    scale: none;
+    translate: none;
+  }
+
+  button.button--primary::after,
+  button.quick-action--primary::after {
+    display: none;
+  }
 }
 
 button.button--small {
@@ -286,6 +339,179 @@ fieldset.field {
 
 .settings-part__fields .field:last-child {
   margin-bottom: 0;
+}
+
+/* Podešavanja > Izgled (ThemePanel): a card per theme with a small picture of the application in
+   its colours; the chosen one is framed in the accent, with a tick that springs in. */
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.theme-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--tile-surface);
+  box-shadow: var(--card-edge), var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    translate 0.18s var(--ease-out),
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.theme-option:hover {
+  translate: 0 -2px;
+  box-shadow: var(--card-edge), var(--shadow-card);
+}
+
+.theme-option:active {
+  translate: 0;
+  scale: 0.98;
+}
+
+.theme-option:has(:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-card);
+}
+
+.theme-option:has(:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+.theme-option__preview {
+  display: flex;
+  height: 4rem;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--t-page);
+  box-shadow: inset 0 0 0 1px var(--swatch-edge);
+}
+
+.theme-option__nav {
+  width: 28%;
+  background: var(--t-nav);
+}
+
+.theme-option__page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px;
+}
+
+.theme-option__line {
+  width: 80%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--t-ink);
+  opacity: 0.35;
+}
+
+.theme-option__line--short {
+  width: 50%;
+}
+
+.theme-option__button {
+  width: 45%;
+  height: 11px;
+  margin-top: auto;
+  border-radius: 6px;
+  background: var(--t-accent);
+}
+
+.theme-option__text {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-1) var(--space-1);
+}
+
+.theme-option__name {
+  font-weight: var(--weight-semibold);
+}
+
+.theme-option__about {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.theme-option__check {
+  position: absolute;
+  top: calc(var(--space-2) + 6px);
+  right: calc(var(--space-2) + 6px);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--accent-text);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+  scale: 0;
+  transition: scale 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-option:has(:checked) .theme-option__check {
+  scale: 1;
+}
+
+.theme-option--visnja {
+  --t-page: var(--swatch-visnja-page);
+  --t-nav: var(--swatch-visnja-nav);
+  --t-ink: var(--swatch-visnja-ink);
+  --t-accent: var(--swatch-visnja-accent);
+}
+
+.theme-option--teget {
+  --t-page: var(--swatch-teget-page);
+  --t-nav: var(--swatch-teget-nav);
+  --t-ink: var(--swatch-teget-ink);
+  --t-accent: var(--swatch-teget-accent);
+}
+
+.theme-option--suma {
+  --t-page: var(--swatch-suma-page);
+  --t-nav: var(--swatch-suma-nav);
+  --t-ink: var(--swatch-suma-ink);
+  --t-accent: var(--swatch-suma-accent);
+}
+
+.theme-option--grafit {
+  --t-page: var(--swatch-grafit-page);
+  --t-nav: var(--swatch-grafit-nav);
+  --t-ink: var(--swatch-grafit-ink);
+  --t-accent: var(--swatch-grafit-accent);
+}
+
+.theme-option--neon {
+  --t-page: var(--swatch-neon-page);
+  --t-nav: var(--swatch-neon-nav);
+  --t-ink: var(--swatch-neon-ink);
+  --t-accent: var(--swatch-neon-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-option,
+  .theme-option__check {
+    transition: none;
+  }
+
+  .theme-option:hover,
+  .theme-option:active {
+    translate: none;
+    scale: none;
+  }
 }
 
 /* Export and import of the data on the device: two buttons of one size, in the bottom right
@@ -1056,7 +1282,7 @@ button.button--danger:hover:not(:disabled) {
 }
 
 :is(.panel--cherry, .panel--dark, .table-wrap--dark) button.button--primary {
-  color: var(--accent);
+  color: var(--accent-on-light);
   background: var(--cream);
   border-color: var(--cream);
 }
@@ -1072,7 +1298,7 @@ button.button--danger:hover:not(:disabled) {
 
 /* A part's number on a dark card: cream with the cherry number (cherry on cherry is not seen). */
 :is(.panel--cherry, .panel--dark) .number-badge {
-  color: var(--accent);
+  color: var(--accent-on-light);
   background: var(--cream);
 }
 
