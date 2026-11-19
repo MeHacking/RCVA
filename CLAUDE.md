@@ -4,11 +4,43 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 19.11.2026 (uvoz rasporeda iz smartLoad+; pre toga teme i animacije, nov 3D prikaz kao u
-smartLoad-u, ručna preraspodela pošiljki); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 19.11.2026 (i uvoz rasporeda iz smartLoad+).
+Poslednje ažuriranje: 19.11.2026 (ručno uređivanje rasporeda, „Uredi“ na 3D ekranu; pre toga uvoz rasporeda iz
+smartLoad+, teme i animacije, nov 3D prikaz kao u smartLoad-u); videti „Gde smo stali“.
+Push-ovano na `origin/main` 19.11.2026 do uvoza rasporeda iz smartLoad+; „Uredi“ nije push-ovan.
 
 ## Gde smo stali (03.11.2026)
+
+**Ručno uređivanje rasporeda (urađeno 19.11.2026)**, na zahtev korisnika: dugme „Uredi“ levo od „Ceo ekran“ na 3D
+ekranu otvara isto što i korak Rezultat u smartLoad-u (`screens/optimization.tsx`, `editor/LayoutEditor.tsx`,
+`editor/plan.ts`): kartice Dužina, Zapremina, Težina, Utovareno, pa 2D pod odozgo i 3D, i u oba se roba prevlači.
+Odluke korisnika: pomera se **cela pošiljka** (i svi komadi iz smartLoad+), raspored se čuva **uz posao i kamion**,
+**kartice + uređivač**, **bez „Van kamiona“** (izbacivanje ide preko „Premesti u…“). Samo režim `local`.
+- `domain/loadEditing.ts` (cm, kao scena): prenos pomeranja iz smartLoad-a (`groupOf` = pošiljka i sve što stoji na
+  njoj, `moveGroup`/`settle` spušta na najviši vrh, `snapMove` lepljenje na 5 cm i u celim cm, `rotateGroup` oko sredine
+  pošiljke), `checkLoad`: izlazi iz prostora, preklapanje (ne između komada iste pošiljke), pun oslonac, i **redosled
+  istovara** (D2: pošiljka koja ranije izlazi ne sme imati kasniju na sebi ni ispred sebe ka vratima; uzastopni istovari
+  na istom mestu izlaze zajedno, `unloadOrder.visit`). Pravila slaganja iz smartLoad-a (šta sme na šta, nosivost
+  odozgo) RCVA nema. `samePieces`, `routeKey` (istovari redom sa mestima), `arrangedWarnings`.
+- API (NOT IN SPEC v2): `saveLoadPlan(jobId, truckId, placements)` (400 kad komadi nisu isti kao u planu, 404, 409 kao
+  `getLoadPlan`; pravila se ne nameću), `resetLoadPlan` (409 bez ručnog); mock i `httpClient` 404.
+  `LocalJob.loadPlans[truckId] = { route, placements }` (i u fajlu sa podacima, provera da je kamion u poslu).
+  `getLoadPlan` vraća ručni (`LoadPlan.manual`) dok važe ruta i komadi; inače izračunat uz upozorenje (npr. uvezen
+  raspored iz smartLoad+ posle); preraspodela i „Vrati predlog optimizacije“ brišu ručne rasporede kamiona čija se ruta
+  promenila. Upozorenja: prekršena pravila, bez „Raspored je duži…“ izračunatog reda. PDF i Viber ga koriste sami.
+- Ekran: `LoadEditor.tsx` (umesto kartice 3D i spiska dok se uređuje): alatke Poništi/Ponovi/Okreni 90°, korak strelica
+  1/5/10 cm, zum poda; panel sa izabranom pošiljkom i prekršajima; „Otkaži“ i „Sačuvaj raspored“ sa potvrdom u kartici
+  (ne `window.confirm`). `Truck3D` dobio `selection`, `bad`, `editable`, prevlačenje (`onDragStart/onDrag/onDragEnd`,
+  ravan na visini pritiska), Ctrl+klik, Shift+okvir, dvoklik; prikaz bez uređivanja radi kao ranije. Obaveštenje
+  „Raspored je ručno uređen“ sa „Vrati izračunat raspored“. Nove ikonice, `--truck3d-bad`, `formatMetersMm`,
+  `formatCubicMetersMm3`, `formatCm`. Uputstvo dopunjeno.
+- Testovi: `loadEditing.test.ts` (14), 2 u `localClient.test.ts`, 3 slučaja u `deviceFile.test.ts`, e2e
+  `loadEditor.local.spec.ts` (bira kamion sa više mesta istovara; scenario `small` ima dve pošiljke za isto mesto).
+  Provereno na pokvarenom kodu: 33 izmene u logici i API-ju (5 su prvo prošle, dodati testovi) i 8 na ekranu (7 obara
+  e2e; bez `capture` na `pointerdown` je ekvivalentna: OrbitControls i tada ne okreće, jer proverava `enabled` pri
+  pomeranju).
+- Stanje: tsc, lint i build čisti, Vitest 774, e2e 109 (u punom prolazu pao samo poznati `routeMap.spec.ts:71`, sam
+  prolazi). Desktop i serverski e2e nisu pokretani. Izgled proveren snimkom (1440 px; na 390 px stisnuto kao i ostali
+  ekrani, deo koraka „telefon“).
 
 **Uvoz rasporeda iz smartLoad+ (urađeno 19.11.2026)**, na zahtev korisnika: smartLoad+ (korisnikov drugi projekat)
 izvozi raspored jedne optimizacije kao JSON („Izvezi raspored (JSON)“, format `smartload.layout`, verzija 1; opis
@@ -1211,7 +1243,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (19.11.2026, posle uvoza rasporeda iz smartLoad+): tsc, lint i build čisti, Vitest 759, Playwright 108 (pao
+Stanje (19.11.2026, posle „Uredi“ na 3D ekranu): tsc, lint i build čisti, Vitest 774, Playwright 109 (pao samo
+poznati nestabilni `routeMap.spec.ts:71`, sam prolazi); desktop i serverski e2e nisu pokretani.
+Pre toga (19.11.2026, posle uvoza rasporeda iz smartLoad+): tsc, lint i build čisti, Vitest 759, Playwright 108 (pao
 samo poznati nestabilni `smoke` logo, sam prolazi); desktop i serverski e2e nisu pokretani.
 Pre toga (18.11.2026, posle tema i animacija): tsc, lint i build čisti, Vitest 716, Playwright 107
 (videti „Teme i animacije“ u „Gde smo stali“); desktop i serverski e2e nisu ponovo pokretani.
@@ -1392,7 +1426,9 @@ Pitanja za tim: odeljak 9 u `docs/specifikacija-v2-dopuna-1.md`.
   „Cannot read properties of undefined (reading 'config')“, i na starom kodu. Pokretati iz
   `F:\GitHubProjects\RCVA\frontend` (PowerShell `Set-Location F:\...`); Playwright to ne smeta.
 - **Završeci redova**: fajlovi su na disku sa CRLF (`core.autocrlf true`), a `grep -c $'\r'`
-  u Git Bash-u to ne vidi; skripte za izmene moraju da čuvaju CRLF (ili koristiti alat Edit).
+  u Git Bash-u to ne vidi; skripte za izmene moraju da čuvaju CRLF (ili koristiti alat Edit). Višelinijski
+  regex u proveri na pokvarenom kodu (`perl -0pi`) piše `\r?\n`, inače se izmena tiho ne primeni (skripta tada
+  javlja „NOCHANGE“, a ne „prolazi“). Vitest iz Git Bash-a radi iz `cd F:/...` (veliko slovo).
 - **Fast-forward spajanje** je jednom obrisalo korisnikov ignorisani fajl
   `pocetne instrukcije za react app.txt` sa diska, jer je bio praćen u starijem commit-u.
   Vraćen je iz istorije. Pre spajanja ili prebacivanja grana proveriti ignorisane fajlove.
