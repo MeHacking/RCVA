@@ -13,7 +13,7 @@ import { completedJob, isLastJobBusy, useLastJob } from '../optimization/lastJob
 import { buildTruckRows, type ReferenceData } from '../optimization/resultRows'
 import { useReferenceData } from '../optimization/useReferenceData'
 import { parseRouteMapParams } from '../route-map/routeMapParams'
-import { placementColor } from './placementColor'
+import { planShipments } from './planShipments'
 import { TruckVisualizer } from './TruckVisualizer'
 
 export function Truck3dPage() {
@@ -117,8 +117,10 @@ function TruckLoad({
   const shipments = new Map(reference.shipments.map((s) => [s.id, s]))
   const locations = new Map(reference.locations.map((l) => [l.id, l.name]))
   const toggle = (id: number) => setSelectedShipmentId((current) => (current === id ? null : id))
-  const chosenIndex = placements.findIndex((p) => p.shipmentId === selectedShipmentId)
-  const chosen = chosenIndex < 0 ? undefined : placements[chosenIndex]
+  // By shipment: a shipment with a layout from smartLoad+ is many pieces.
+  const planned = planShipments(placements)
+  const layouts = new Map((plan.data.layouts ?? []).map((l) => [l.shipmentId, l]))
+  const chosen = planned.find((s) => s.shipmentId === selectedShipmentId)
   // 1 = the first shipment off the truck (it stands at the doors: loading is from the rear).
   const deliveryOrder = new Map(
     (route?.stops ?? []).filter((s) => s.type === 'DELIVERY').map((s, i) => [s.shipmentId, i + 1] as const),
@@ -147,7 +149,7 @@ function TruckLoad({
           selectedInfo={
             chosen && (
               <>
-                <span className="truck-3d__swatch" style={{ background: placementColor(chosenIndex) }} aria-hidden="true" />{' '}
+                <span className="truck-3d__swatch" style={{ background: chosen.color }} aria-hidden="true" />{' '}
                 <strong>{chosenShipment?.externalId ?? `Pošiljka #${chosen.shipmentId}`}</strong>
                 {': '}
                 {[
@@ -155,6 +157,7 @@ function TruckLoad({
                     `${locations.get(chosenShipment.pickupLocationId) ?? '?'} → ${locations.get(chosenShipment.deliveryLocationId) ?? '?'}`,
                   chosenShipment && `${formatLdm(chosenShipment.ldmTenths)} LDM`,
                   formatDimensionsMm(chosen.lengthMm, chosen.widthMm, chosen.heightMm),
+                  layouts.has(chosen.shipmentId) && `${chosen.pieces} komada iz smartLoad+`,
                   chosenShipment?.weightKg != null && `${formatKg(chosenShipment.weightKg)} kg`,
                   chosenUnloaded !== undefined && `istovar ${chosenUnloaded}.`,
                 ]
@@ -166,7 +169,7 @@ function TruckLoad({
         />
         <section className="panel truck-3d__list" aria-labelledby="truck-3d-shipments">
           <h2 id="truck-3d-shipments">
-            {truck.name}: {placements.length} pošiljke
+            {truck.name}: {planned.length} pošiljke
           </h2>
           {route && <LdmBar usedLdmTenths={route.usedLdmTenths} capacityLdmTenths={truck.capacityLdmTenths} />}
           <p className="truck-3d__space">
@@ -174,9 +177,10 @@ function TruckLoad({
             <span className="truck-3d__chip">{formatDimensionsMm(innerLengthMm, innerWidthMm, innerHeightMm)}</span>
           </p>
           <ul className="truck-3d__shipments">
-            {placements.map((p, index) => {
+            {planned.map((p) => {
               const shipment = shipments.get(p.shipmentId)
               const unloaded = deliveryOrder.get(p.shipmentId)
+              const layout = layouts.get(p.shipmentId)
               return (
                 <li key={p.shipmentId}>
                   <button
@@ -186,7 +190,7 @@ function TruckLoad({
                     onClick={() => toggle(p.shipmentId)}
                   >
                     {/* The same colour as the shipment's block in the 3D view. */}
-                    <span className="truck-3d__swatch" style={{ background: placementColor(index) }} aria-hidden="true" />
+                    <span className="truck-3d__swatch" style={{ background: p.color }} aria-hidden="true" />
                     <span className="truck-3d__id">{shipment?.externalId ?? `Pošiljka #${p.shipmentId}`}</span>
                     <span className="truck-3d__ldm">{shipment ? `${formatLdm(shipment.ldmTenths)} LDM` : ''}</span>
                     {shipment && (
@@ -199,6 +203,7 @@ function TruckLoad({
                       {[
                         unloaded !== undefined && `istovar ${unloaded}.`,
                         shipment?.weightKg != null && `${formatKg(shipment.weightKg)} kg`,
+                        layout && `${layout.pieces} komada (smartLoad+)`,
                       ]
                         .filter(Boolean)
                         .join(' · ')}
