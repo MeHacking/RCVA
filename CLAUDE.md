@@ -6,7 +6,7 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 19.11.2026 (ručno uređivanje rasporeda, „Uredi“ na 3D ekranu; pre toga uvoz rasporeda iz
 smartLoad+, teme i animacije, nov 3D prikaz kao u smartLoad-u); videti „Gde smo stali“.
-Push-ovano na `origin/main` 19.11.2026 do uvoza rasporeda iz smartLoad+; „Uredi“ nije push-ovan.
+Sve je push-ovano na `origin/main` 19.11.2026 (i „Uredi“ na 3D ekranu).
 
 ## Gde smo stali (03.11.2026)
 
