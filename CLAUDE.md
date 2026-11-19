@@ -4,11 +4,42 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 18.11.2026 (teme i animacije; pre toga nov 3D prikaz kao u smartLoad-u, ručna preraspodela
-pošiljki, „Traži ponovo“ za mesto, zemlja iz padajućeg menija); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 18.11.2026 (i nov 3D prikaz).
+Poslednje ažuriranje: 19.11.2026 (uvoz rasporeda iz smartLoad+; pre toga teme i animacije, nov 3D prikaz kao u
+smartLoad-u, ručna preraspodela pošiljki); videti „Gde smo stali“.
+Push-ovano na `origin/main` 18.11.2026 do teme i animacija; uvoz rasporeda (19.11.) **nije push-ovan**.
 
 ## Gde smo stali (03.11.2026)
+
+**Uvoz rasporeda iz smartLoad+ (urađeno 19.11.2026)**, na zahtev korisnika: smartLoad+ (korisnikov drugi projekat)
+izvozi raspored jedne optimizacije kao JSON („Izvezi raspored (JSON)“, format `smartload.layout`, verzija 1; opis
+formata korisnik je dao u razgovoru, nije u repozitorijumu), a RCVA njime zamenjuje blok jedne pošiljke. Komadi su u mm
+**od početka utovara**, ose kao `Placement`. Odluke korisnika: raspored se vezuje **za pošiljku** (važi u svakom
+kamionu i rezultatu, i posle nove optimizacije), uvoz **menja LDM i težinu** pošiljke uz pregled pre potvrde, dugme je
+na **3D ekranu**. Uklanjanje vraća blok, a LDM i težina ostaju (predlog, korisnik nije posebno odgovorio).
+- `domain/smartLoadLayout.ts`: `readLayoutFile` (provera polje po polje, roba po id-ju, komad ne sme preći
+  `load.lengthMm` više od 1 mm; širina i visina se mere po komadima, ne po `load`), `layoutLdmTenths` (dužina
+  zaokružena naviše na desetinu). Klijent i adrese se ne čuvaju.
+- API (NOT IN SPEC v2): `checkShipmentLayout` (pregled, ništa ne menja), `applyShipmentLayout` (400, 404, 409),
+  `removeShipmentLayout` (404 i bez rasporeda, 409); mock i `httpClient` 404. `LocalData.shipmentLayouts` po id-ju
+  pošiljke, **odvojeno od pošiljki** (poslovi čuvaju kopije pošiljki); u fajlu sa podacima (proverava se da pošiljka
+  postoji); briše se sa pošiljkom i sa „Ukloni sve pošiljke“.
+- `rearLoadedPlan(..., layouts)`: komadi na mestu bloka, pošiljke iza se pomeraju za dužinu rasporeda; takva pošiljka
+  se računa kao da ima mere. `Placement.piece`, `LoadPlan.layouts`. `getLoadPlan` uzima rasporede kakvi su sada, pa
+  stari rezultat odmah crta komade; upozorenje kada je rezultat računat sa drugim LDM-om („pokrenite optimizaciju
+  ponovo“), i kada je raspored širi ili viši od kamiona ili mu fale komadi (`unplaced`).
+- Prikaz po pošiljci (`features/truck-3d/planShipments.ts`): boja, broj u PDF-u, red u spisku, izbor (klik na bilo koji
+  komad bira celu pošiljku). PDF crta komade redom po dubini (`drawOrder`: ravan koja razdvaja dva kvadra kaže koji je
+  iza), jedan broj po pošiljci preko svih blokova. Ekran: `LayoutImport.tsx` ispod 3D prikaza za izabranu pošiljku.
+  Uputstvo dopunjeno.
+- Testovi: `smartLoadLayout.test.ts` (izmišljen fajl u `tests/unit/layoutFile.ts`, deli ga e2e),
+  `shipmentLayouts.test.ts`, dopune u `loadPlan`, `loadDrawing`, `truck3dScene`; e2e `layoutImport.local.spec.ts`.
+  Provereno na pokvarenom kodu: 32 izmene u logici (2 su prvo prošle, dodati testovi) i 5 na ekranu; sve obaraju testove.
+- **Zamke (e2e na 3D ekranu)**: ukoso visoki blokovi kod vrata sakriju niske palete kod čela, pa klik na komad ide iz
+  pogleda Odozgo; posle rada u panelu ispod prikaza stranica je skrolovana, a klik u ugao prikaza pada na lepljivu
+  gornju traku (prikaz se zato centrira).
+- **Nije probano sa pravim fajlom iz smartLoad+** (izvoz nije u smartLoad repozitorijumu na ovom računaru).
+- Stanje: tsc, lint i build čisti, Vitest 759, e2e 108 (u punom prolazu pao poznati `smoke` logo, sam prolazi 11 od 11).
+  Desktop i serverski e2e nisu pokretani.
 
 **Teme i animacije (urađeno 18.11.2026)**, na zahtev korisnika („da ui menja boju kao smartLoad,
 teget, trula višnja… i neka animacija“; izbori: svih pet tema, izbor u Podešavanjima, sve četiri
@@ -1072,6 +1103,7 @@ Rezultat se prikazuje kao spisak ruta (kasnije mapa) i kao 3D raspored robe u ka
 | Odgovori vlasnika procesa | `docs/odgovori-vlasnika-procesa.md` | stigli 29.10.2026; menjaju model |
 | Tipovi i API koje frontend očekuje | `frontend/src/api/types.ts`, `frontend/src/api/client.ts` | ugovor u kodu |
 | 3D prikaz preuzet iz smartLoad-a | `F:\GitHubProjects\smartLoad` (`frontend/src/editor/`, `truckShape.ts`) | isti vlasnik; TeGo uklonjen 18.11.2026 |
+| Format rasporeda iz smartLoad+ (`smartload.layout` v1) | dat u razgovoru 19.11.2026; čitanje u `frontend/src/domain/smartLoadLayout.ts` | komadi u mm od početka utovara |
 
 Iz Spec v2, važno za rad:
 
@@ -1179,7 +1211,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (18.11.2026, posle tema i animacija): tsc, lint i build čisti, Vitest 716, Playwright 107
+Stanje (19.11.2026, posle uvoza rasporeda iz smartLoad+): tsc, lint i build čisti, Vitest 759, Playwright 108 (pao
+samo poznati nestabilni `smoke` logo, sam prolazi); desktop i serverski e2e nisu pokretani.
+Pre toga (18.11.2026, posle tema i animacija): tsc, lint i build čisti, Vitest 716, Playwright 107
 (videti „Teme i animacije“ u „Gde smo stali“); desktop i serverski e2e nisu ponovo pokretani.
 Pre toga (18.11.2026, posle novog 3D prikaza, Node 24.22.1, iz `F:\`): tsc, lint i build čisti,
 Vitest 593, Playwright 102, desktop 4 i serverski e2e 9 prolaze.
