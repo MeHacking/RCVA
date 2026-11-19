@@ -6,7 +6,7 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 19.11.2026 (uvoz rasporeda iz smartLoad+; pre toga teme i animacije, nov 3D prikaz kao u
 smartLoad-u, ručna preraspodela pošiljki); videti „Gde smo stali“.
-Push-ovano na `origin/main` 18.11.2026 do teme i animacija; uvoz rasporeda (19.11.) **nije push-ovan**.
+Sve je push-ovano na `origin/main` 19.11.2026 (i uvoz rasporeda iz smartLoad+).
 
 ## Gde smo stali (03.11.2026)
 
