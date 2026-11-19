@@ -334,6 +334,15 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         throw notFound('Ručna preraspodela pošiljki postoji samo u aplikaciji na uređaju.')
       }),
 
+    saveLoadPlan: () =>
+      respond(() => {
+        throw notFound('Ručno uređivanje rasporeda postoji samo u aplikaciji na uređaju.')
+      }),
+    resetLoadPlan: () =>
+      respond(() => {
+        throw notFound('Ručno uređivanje rasporeda postoji samo u aplikaciji na uređaju.')
+      }),
+
     restoreRoadPoint: () =>
       respond(() => {
         throw notFound('Najbliži put za kamione postoji samo u aplikaciji na uređaju.')

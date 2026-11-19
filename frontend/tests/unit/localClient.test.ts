@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
 import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
+import { createMockApiClient } from '../../src/api/mock/mockClient'
+import { layoutText } from './layoutFile'
 import {
   createLocalApiClient,
   DEFAULT_SETTINGS,
@@ -311,6 +313,90 @@ describe('local optimization', () => {
       expect(atDoors.shipmentId).toBe(firstUnloaded)
     }
     expect((await rejection(api.getLoadPlan(id, 3))).status).toBe(404)
+  })
+
+  it('keeps a load plan arranged by hand until the truck\'s deliveries change, and gives the computed one back', async () => {
+    const store = createMemoryStore<LocalData>()
+    const api = setup('small', steps, store)
+    const { id } = await api.createOptimizationJob(REQUEST)
+    await settle(api, id)
+    const result = await api.getOptimizationResult(id)
+    const route = result.routes.find((r) => r.stops.length >= 4)!
+    const computed = await api.getLoadPlan(id, route.truckId)
+    expect(computed.manual).toBeUndefined()
+
+    // The first shipment off (at the doors) put on top of the next: allowed, with a warning.
+    const [front, doors] = [computed.placements[0], computed.placements[computed.placements.length - 1]]
+    const arranged = computed.placements.map((p) =>
+      p === doors ? { ...p, xMm: front.xMm, yMm: front.yMm, zMm: front.heightMm + 0.4 } : p,
+    )
+    const saved = await api.saveLoadPlan(id, route.truckId, [...arranged].reverse())
+    expect(saved.manual).toBe(true)
+    // In the computed order (the colours), in whole mm.
+    expect(saved.placements.map((p) => p.shipmentId)).toEqual(computed.placements.map((p) => p.shipmentId))
+    expect(saved.placements.at(-1)).toMatchObject({ xMm: front.xMm, zMm: front.heightMm })
+    expect(saved.warnings.some((w) => w.startsWith('Ručno uređen raspored: '))).toBe(true)
+    expect(await api.getLoadPlan(id, route.truckId)).toEqual(saved)
+    // Other trucks keep theirs.
+    for (const other of result.routes.filter((r) => r !== route)) {
+      expect((await api.getLoadPlan(id, other.truckId)).manual).toBeUndefined()
+    }
+
+    // After a restart and through the data file.
+    expect(await setup('small', steps, store).getLoadPlan(id, route.truckId)).toEqual(saved)
+    const file = (await api.exportDeviceData())!
+    const elsewhere = setup('small')
+    await elsewhere.replaceDeviceData(file.content)
+    expect(await elsewhere.getLoadPlan(id, route.truckId)).toEqual(saved)
+
+    // Not the plan's pieces: refused, nothing changes.
+    expect((await rejection(api.saveLoadPlan(id, route.truckId, arranged.slice(1)))).status).toBe(400)
+    const taller = arranged.map((p, i) => (i === 0 ? { ...p, heightMm: p.heightMm + 100 } : p))
+    expect((await rejection(api.saveLoadPlan(id, route.truckId, taller))).status).toBe(400)
+    expect((await rejection(api.saveLoadPlan(id, 999, arranged))).status).toBe(404)
+    expect((await rejection(api.saveLoadPlan(999, route.truckId, arranged))).status).toBe(404)
+    expect(await api.getLoadPlan(id, route.truckId)).toEqual(saved)
+
+    // Back to the computed plan; then there is nothing to give back.
+    expect(await api.resetLoadPlan(id, route.truckId)).toEqual(computed)
+    expect((await rejection(api.resetLoadPlan(id, route.truckId))).status).toBe(409)
+    expect(await setup('small', steps, store).getLoadPlan(id, route.truckId)).toEqual(computed)
+
+    // A layout from smartLoad+ imported later gives a shipment other pieces: the computed plan,
+    // with a warning; removed again, the hand-made plan fits once more.
+    await api.saveLoadPlan(id, route.truckId, arranged)
+    await api.applyShipmentLayout(front.shipmentId, layoutText())
+    const stale = await api.getLoadPlan(id, route.truckId)
+    expect(stale.manual).toBeUndefined()
+    expect(stale.placements.filter((p) => p.shipmentId === front.shipmentId)).toHaveLength(7)
+    expect(stale.warnings).toContain(
+      'Ručno uređen raspored više ne odgovara pošiljkama kamiona (promenjen je raspored iz smartLoad+); prikazan je izračunat raspored.',
+    )
+    await api.removeShipmentLayout(front.shipmentId)
+    expect((await api.getLoadPlan(id, route.truckId)).manual).toBe(true)
+
+    // A shipment moved off the truck: its plan is dropped; the other truck's stays.
+    const other = result.routes.find((r) => r !== route)!
+    const otherPlan = await api.getLoadPlan(id, other.truckId)
+    await api.saveLoadPlan(id, other.truckId, otherPlan.placements.map((p) => ({ ...p, yMm: p.yMm + 1 })))
+    await api.reassignShipment(id, front.shipmentId, null)
+    expect((await api.getLoadPlan(id, route.truckId)).manual).toBeUndefined()
+    expect((await api.getLoadPlan(id, other.truckId)).manual).toBe(true)
+    // A plan for the changed route, then the optimizer's result again: the first truck's deliveries
+    // change once more, so its plan goes; the other's do not.
+    const shorter = await api.getLoadPlan(id, route.truckId)
+    await api.saveLoadPlan(id, route.truckId, shorter.placements.map((p) => ({ ...p, yMm: p.yMm + 1 })))
+    expect((await api.getLoadPlan(id, route.truckId)).manual).toBe(true)
+    await api.restoreOptimizedResult(id)
+    // Dropped, not merely out of date (which would warn about smartLoad+).
+    expect(await api.getLoadPlan(id, route.truckId)).toEqual(computed)
+    expect((await api.getLoadPlan(id, other.truckId)).manual).toBe(true)
+  })
+
+  it('has no load plans arranged by hand in the mock', async () => {
+    const api = createMockApiClient({ scenario: SCENARIOS.small, latencyMs: 0 })
+    expect((await rejection(api.saveLoadPlan(1, 1, []))).status).toBe(404)
+    expect((await rejection(api.resetLoadPlan(1, 1))).status).toBe(404)
   })
 })
 

@@ -1839,6 +1839,315 @@ button.truck-3d__shipment[aria-pressed='true'] {
   display: none;
 }
 
+/* "Uredi" and "Ceo ekran" side by side, at the right of the 3D card's bar. */
+.truck-view__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Shift+drag in the editor's 3D view: the box that chooses shipments. */
+.truck3d__box {
+  position: absolute;
+  border: 1px dashed var(--accent);
+  background: var(--accent-subtle);
+  pointer-events: none;
+}
+
+/* The layout editor ("Uredi" on the 3D screen, as the Rezultat step of smartLoad): cards with
+   the measures, then one card with the tools, the floor from above and the 3D view on the left
+   and the chosen shipment and the rules on the right. */
+.load-editor {
+  /* it is scrolled to when it opens: not under the sticky top bar */
+  scroll-margin-top: calc(var(--topbar-height) + var(--space-4));
+}
+
+.load-editor__meters .ldm-bar {
+  min-width: 0;
+  margin: var(--space-1) 0;
+}
+
+.load-editor__meters .ldm-bar__track {
+  flex: 1;
+}
+
+.load-editor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.load-editor__head h2 {
+  margin: 0;
+}
+
+.load-editor__actions,
+.load-editor__zoom,
+.load-editor__step {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.load-editor__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-weight: var(--weight-semibold);
+}
+
+.load-editor__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.load-editor__step .text--muted {
+  font-size: var(--text-sm);
+}
+
+.load-editor__zoom {
+  margin-left: auto;
+}
+
+.load-editor__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .load-editor__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.load-editor__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.load-editor__floor {
+  overflow: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--truck3d-stage-border);
+  border-radius: var(--radius-lg);
+  background: var(--truck3d-stage);
+}
+
+.load-editor__floor:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.load-editor__floor svg {
+  display: block;
+  max-width: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.load-editor__deck {
+  fill: var(--truck3d-floor);
+  stroke: var(--truck3d-frame);
+  stroke-width: 2;
+}
+
+.load-editor__tick {
+  stroke: var(--truck3d-frame);
+  stroke-opacity: 0.18;
+  stroke-width: 1;
+}
+
+.load-editor__wall {
+  stroke: var(--truck3d-frame);
+  stroke-width: 5;
+}
+
+.load-editor__end {
+  fill: var(--text-muted);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.load-editor__used {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+}
+
+.load-editor__piece {
+  stroke: var(--truck3d-edge);
+  stroke-opacity: 0.55;
+  stroke-width: 1.5;
+  cursor: grab;
+}
+
+.load-editor__piece.is-group {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+  stroke-dasharray: 6 4;
+  stroke-width: 2.5;
+}
+
+.load-editor__piece.is-selected {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+  stroke-width: 5;
+}
+
+.load-editor__piece.is-bad {
+  stroke: var(--truck3d-bad);
+  stroke-opacity: 1;
+  stroke-width: 4;
+}
+
+.load-editor__label {
+  fill: var(--white);
+  stroke: var(--drawing-line);
+  stroke-width: 4;
+  paint-order: stroke;
+  font-size: 26px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.load-editor__3d {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.load-editor__3d:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.load-editor__stage .truck3d {
+  height: max(22rem, calc(100dvh - 30rem));
+}
+
+.load-editor__3d:fullscreen,
+.load-editor__3d--expanded {
+  padding: var(--space-4);
+  background: var(--bg);
+}
+
+.load-editor__3d--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.load-editor__3d:fullscreen .load-editor__stage,
+.load-editor__3d--expanded .load-editor__stage {
+  flex: 1;
+  min-height: 0;
+}
+
+.load-editor__3d:fullscreen .truck3d,
+.load-editor__3d--expanded .truck3d {
+  height: 100%;
+}
+
+.load-editor__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.load-editor__stats {
+  margin: 0;
+}
+
+.load-editor__stats dt {
+  color: var(--text-muted);
+}
+
+.load-editor__stats dd {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.load-editor__selected h3,
+.load-editor__problems h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+
+.load-editor__selected dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.load-editor__selected dt {
+  color: var(--text-muted);
+}
+
+.load-editor__selected dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.load-editor__selected p,
+.load-editor__hint,
+.load-editor__ok {
+  margin: 0;
+}
+
+.load-editor__ok {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.load-editor__problems h3 .icon {
+  color: var(--danger);
+}
+
+.load-editor__problems ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.load-editor__problems li button {
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  padding: var(--space-2);
+  font-weight: normal;
+  text-align: left;
+  white-space: normal;
+  background: var(--tile-surface);
+  border: 1px solid var(--card-border);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
 .nav-footer {
   margin-top: auto;
   padding: var(--space-3) var(--space-3) var(--space-4);

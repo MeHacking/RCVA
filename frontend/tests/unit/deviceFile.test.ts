@@ -182,6 +182,13 @@ describe('data file of the device', () => {
       [changed((f) => (f.data.truckTypes[1].capacityLdmTenths = '7')), `${broken}fajl.data.truckTypes[1].capacityLdmTenths nije ceo broj.`],
       [changed((f) => (f.data.truckTypes[1].id = f.data.truckTypes[0].id)), `${broken}tip kamiona 1 se ponavlja.`],
       [changed((f) => (f.data.nextTruckTypeId = 2)), `${broken}brojač id-jeva je manji od postojećeg id-ja.`],
+      // Load plans arranged by hand, by truck of the job.
+      [changed((f) => (f.data.jobs[0].loadPlans = { 1: { route: '101@5', placements: 'nije' } })), `${broken}fajl.data.jobs[0].loadPlans["1"].placements nije spisak.`],
+      [
+        changed((f) => (f.data.jobs[0].loadPlans = { 1: { route: '101@5', placements: [{ shipmentId: 101, xMm: 0, yMm: 0, zMm: 0, lengthMm: 1, widthMm: 1, heightMm: 1 }] } })),
+        `${broken}fajl.data.jobs[0].loadPlans["1"].placements[0].rotated nije da/ne.`,
+      ],
+      [changed((f) => (f.data.jobs[0].loadPlans = { 999: { route: '101@5', placements: [] } })), `${broken}ručni raspored posla 1 je za kamion 999, koji nije u tom poslu.`],
     ]
     for (const [text, message] of cases) {
       const error = await rejection(api.checkDeviceData(text))

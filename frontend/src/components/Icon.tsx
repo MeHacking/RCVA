@@ -162,6 +162,47 @@ const PATHS = {
       <path d="M6.5 9h11l2 11h-15z" />
     </>
   ),
+  edit: (
+    <>
+      <path d="M4 20h4L19 9l-4-4L4 16z" />
+      <path d="m13.5 6.5 4 4" />
+    </>
+  ),
+  undo: (
+    <>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </>
+  ),
+  rotate: (
+    <>
+      <path d="M20 12a8 8 0 1 1-2.4-5.7" />
+      <path d="M20 4v5h-5" />
+    </>
+  ),
+  save: (
+    <>
+      <path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" />
+      <path d="M8 4v5h7V4" />
+      <rect x="8" y="13" width="8" height="7" />
+    </>
+  ),
+  minus: <path d="M5 12h14" />,
+  fit: (
+    <>
+      <path d="M4 8V5a1 1 0 0 1 1-1h3" />
+      <path d="M16 4h3a1 1 0 0 1 1 1v3" />
+      <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
+      <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
+      <rect x="8" y="9" width="8" height="6" rx="1" />
+    </>
+  ),
   alert: (
     <>
       <path d="M12 3 2 20h20z" />

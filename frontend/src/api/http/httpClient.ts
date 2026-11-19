@@ -101,6 +101,10 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema ručnu preraspodelu pošiljki.' })),
     restoreOptimizedResult: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema ručnu preraspodelu pošiljki.' })),
+    saveLoadPlan: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema ručno uređivanje rasporeda.' })),
+    resetLoadPlan: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema ručno uređivanje rasporeda.' })),
     restoreRoadPoint: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema pomeranje mesta.' })),
     searchPlaceAgain: () =>

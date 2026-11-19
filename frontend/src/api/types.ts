@@ -278,6 +278,8 @@ export interface LoadPlan {
   warnings: string[]
   /** NOT IN SPEC v2: the shipments in this plan placed by a layout from smartLoad+ */
   layouts?: Array<{ shipmentId: number; name: string; pieces: number }>
+  /** NOT IN SPEC v2: the placements were arranged by hand ("Uredi" on the 3D screen) */
+  manual?: boolean
 }
 
 /** NOT IN SPEC v2: one piece of a shipment's layout from smartLoad+, in mm from the start of the load */

@@ -1,0 +1,212 @@
+import { describe, expect, it } from 'vitest'
+import type { Placement, RoutePlan, RouteStop, Shipment } from '../../src/api/types'
+import {
+  arrangedWarnings,
+  checkLoad,
+  groupOf,
+  moveGroup,
+  occupiedLength,
+  piecesFromPlacements,
+  placementsFromPieces,
+  rotateGroup,
+  routeKey,
+  samePieces,
+  shipmentsAt,
+  snapMove,
+  unloadOrder,
+  type EditPiece,
+} from '../../src/domain/loadEditing'
+import { rearLoadedPlan } from '../../src/domain/optimization/loadPlan'
+
+// Invented cargo space and shipments (cm in the editor, mm in the API).
+const SPACE = { L: 1360, W: 248, H: 270 }
+
+function piece(shipmentId: number, x: number, y: number, z: number, l: number, w: number, h: number, n?: number): EditPiece {
+  return { key: `${shipmentId}#${n ?? 0}`, shipmentId, ...(n ? { piece: n } : {}), color: '#888', x, y, z, l, w, h, rotated: false }
+}
+
+function stop(type: RouteStop['type'], shipmentId: number, locationId: number): RouteStop {
+  return { sequence: 0, type, shipmentId, locationId, loadAfterLdmTenths: 0, legMeters: 0 }
+}
+
+/** Picks up 1, 2, 3; delivers 1 at place 20, then 2 and 3 together at place 30. */
+const ROUTE: RoutePlan = {
+  truckId: 7,
+  usedLdmTenths: 0,
+  totalMeters: 0,
+  stops: [stop('PICKUP', 1, 10), stop('PICKUP', 2, 10), stop('PICKUP', 3, 11), stop('DELIVERY', 1, 20), stop('DELIVERY', 2, 30), stop('DELIVERY', 3, 30)],
+}
+const ORDER = unloadOrder(ROUTE)
+const name = (id: number) => `P${id}`
+
+describe('load plan arranged by hand: pieces and placements', () => {
+  const placements: Placement[] = [
+    { shipmentId: 1, xMm: 0, yMm: 0, zMm: 0, lengthMm: 1200, widthMm: 800, heightMm: 1500, rotated: false },
+    { shipmentId: 2, xMm: 1200, yMm: 0, zMm: 0, lengthMm: 600, widthMm: 400, heightMm: 900, rotated: true, piece: 1 },
+    { shipmentId: 2, xMm: 1200, yMm: 400, zMm: 0, lengthMm: 600, widthMm: 400, heightMm: 900, rotated: false, piece: 2 },
+  ]
+
+  it('goes to cm and back to the same whole mm', () => {
+    const pieces = piecesFromPlacements(placements, new Map([[1, '#111111']]))
+    expect(pieces[0]).toMatchObject({ key: '1#0', x: 0, l: 120, w: 80, h: 150, color: '#111111' })
+    expect(pieces[1]).toMatchObject({ key: '2#1', piece: 1, x: 120, rotated: true, color: '#8899aa' })
+    expect(placementsFromPieces(pieces)).toEqual(placements)
+    // A centimetre and a half is 15 mm, never 14.999…
+    expect(placementsFromPieces([{ ...pieces[0], x: 0.1 + 0.2 }])[0].xMm).toBe(3)
+  })
+
+  it('knows the same pieces wherever they stand, turned or not', () => {
+    const moved = placements.map((p) => ({ ...p, xMm: p.xMm + 500, zMm: 100 }))
+    expect(samePieces(placements, moved)).toBe(true)
+    const turned = [{ ...placements[0], lengthMm: 800, widthMm: 1200 }, ...placements.slice(1)]
+    expect(samePieces(placements, turned)).toBe(true)
+    expect(samePieces(placements, [...placements].reverse())).toBe(true)
+
+    expect(samePieces(placements, placements.slice(1))).toBe(false)
+    expect(samePieces(placements, [placements[0], placements[1], placements[1]])).toBe(false)
+    expect(samePieces(placements, [{ ...placements[0], heightMm: 1600 }, ...placements.slice(1)])).toBe(false)
+    expect(samePieces(placements, [{ ...placements[0], lengthMm: 1000 }, ...placements.slice(1)])).toBe(false)
+    expect(samePieces(placements, [{ ...placements[0], shipmentId: 9 }, ...placements.slice(1)])).toBe(false)
+    expect(samePieces(placements, [{ ...placements[0], xMm: Number.NaN }, ...placements.slice(1)])).toBe(false)
+  })
+
+  it('keys a plan by the deliveries, and numbers them as they come off', () => {
+    expect(routeKey(ROUTE)).toBe('1@20.2@30.3@30')
+    // The pickups do not matter, the order of the deliveries does.
+    expect(routeKey({ ...ROUTE, stops: [ROUTE.stops[1], ROUTE.stops[0], ...ROUTE.stops.slice(2)] })).toBe(routeKey(ROUTE))
+    expect(routeKey({ ...ROUTE, stops: [...ROUTE.stops.slice(0, 3), ROUTE.stops[4], ROUTE.stops[3], ROUTE.stops[5]] })).not.toBe(routeKey(ROUTE))
+    expect([...ORDER.number]).toEqual([
+      [1, 1],
+      [2, 2],
+      [3, 3],
+    ])
+    // 2 and 3 come off at the same stop.
+    expect([...ORDER.visit]).toEqual([
+      [1, 1],
+      [2, 2],
+      [3, 2],
+    ])
+  })
+})
+
+describe('load plan arranged by hand: moves', () => {
+  // 1 is two pieces side by side; 2 stands on 1's first piece; 3 stands alone further back.
+  const pieces = [
+    piece(1, 0, 0, 0, 100, 100, 100, 1),
+    piece(1, 0, 100, 0, 100, 100, 100, 2),
+    piece(2, 0, 0, 100, 80, 80, 50),
+    piece(3, 300, 0, 0, 120, 100, 120),
+  ]
+
+  it('moves a whole shipment with what rests on it', () => {
+    expect([...groupOf(pieces, [1])].sort()).toEqual(['1#1', '1#2', '2#0'])
+    expect([...groupOf(pieces, [2])]).toEqual(['2#0'])
+    expect([...groupOf(pieces, [3])]).toEqual(['3#0'])
+    const moved = moveGroup(pieces, groupOf(pieces, [1]), 500, 20)
+    expect(moved.map((p) => [p.key, p.x, p.y, p.z])).toEqual([
+      ['1#1', 500, 20, 0],
+      ['1#2', 500, 120, 0],
+      ['2#0', 500, 20, 100],
+      ['3#0', 300, 0, 0],
+    ])
+  })
+
+  it('takes every level of a stack along, listed in any order', () => {
+    // 5 on 4 on 3: 5 comes first in the list, so one pass over it is not enough.
+    const stack = [piece(5, 300, 0, 170, 50, 50, 20), piece(4, 300, 0, 120, 100, 100, 50), ...pieces]
+    expect([...groupOf(stack, [3])].sort()).toEqual(['3#0', '4#0', '5#0'])
+    expect([...groupOf(stack, [4])].sort()).toEqual(['4#0', '5#0'])
+  })
+
+  it('puts a shipment down on the highest top under it, and back on the floor', () => {
+    const onThree = moveGroup(pieces, groupOf(pieces, [2]), 300, 0)
+    expect(onThree.find((p) => p.shipmentId === 2)).toMatchObject({ x: 300, z: 120 })
+    const down = moveGroup(onThree, groupOf(onThree, [2]), 200, 0)
+    expect(down.find((p) => p.shipmentId === 2)).toMatchObject({ x: 500, z: 0 })
+  })
+
+  it('picks from above: the highest first', () => {
+    expect(shipmentsAt(pieces, 40, 40)).toEqual([2, 1])
+    expect(shipmentsAt(pieces, 50, 150)).toEqual([1])
+    expect(shipmentsAt(pieces, 200, 50)).toEqual([])
+  })
+
+  it('sticks to walls and neighbours within 5 cm, in whole cm, and stays inside', () => {
+    const three = groupOf(pieces, [3])
+    // Near the doors (L - l = 1240): pulled there.
+    expect(snapMove(pieces, three, 1236.4, 0, SPACE)).toEqual({ dx: 940, dy: 0 })
+    // Near 1's back edge (x = 100): pulled to touch it.
+    expect(snapMove(pieces, three, 103, 40.6, SPACE)).toEqual({ dx: -200, dy: 41 })
+    // Beyond the walls: kept inside.
+    expect(snapMove(pieces, three, 2000, 500, SPACE)).toEqual({ dx: 940, dy: 148 })
+    expect(snapMove(pieces, three, -50, -50, SPACE)).toEqual({ dx: -300, dy: 0 })
+    // With no reach (the arrows), it goes where it is sent.
+    expect(snapMove(pieces, three, 103, 0, SPACE, 0)).toEqual({ dx: -197, dy: 0 })
+  })
+
+  it('turns a shipment by 90° around its middle, with what rests on it', () => {
+    const turned = rotateGroup(pieces, groupOf(pieces, [3]), 3)
+    expect(turned.find((p) => p.shipmentId === 3)).toMatchObject({ x: 310, y: -10, l: 100, w: 120, rotated: true })
+    const both = rotateGroup(pieces, groupOf(pieces, [1]), 1)
+    // 1's footprint was 100 × 200 around (50, 100); turned it is 200 × 100 around the same point.
+    const own = both.filter((p) => p.shipmentId === 1)
+    expect(own.map((p) => [p.x, p.y, p.l, p.w])).toEqual([
+      [50, 50, 100, 100],
+      [-50, 50, 100, 100],
+    ])
+    expect(both.find((p) => p.shipmentId === 2)).toMatchObject({ l: 80, w: 80, z: 100, rotated: true })
+    expect(occupiedLength(turned)).toBe(410)
+  })
+})
+
+describe('load plan arranged by hand: rules', () => {
+  const texts = (pieces: EditPiece[]) => checkLoad(pieces, SPACE, ORDER, name).map((p) => p.text)
+
+  it('has nothing to say about the computed plan', () => {
+    const shipments = [1, 2, 3].map(
+      (id) => ({ id, externalId: name(id), lengthMm: 1200, widthMm: 800, heightMm: 1500, ldmTenths: 5, weightKg: 100 }) as Shipment,
+    )
+    const plan = rearLoadedPlan(1, ROUTE, { innerLengthMm: 13600, innerWidthMm: 2480, innerHeightMm: 2700 }, shipments)
+    expect(texts(piecesFromPlacements(plan.placements, new Map()))).toEqual([])
+  })
+
+  it('says what reaches out, overlaps or does not rest fully', () => {
+    expect(texts([piece(1, 1300, 0, 0, 100, 100, 100)])).toEqual(['P1 izlazi iz tovarnog prostora.'])
+    expect(texts([piece(1, 0, 200, 0, 100, 100, 100)])).toEqual(['P1 izlazi iz tovarnog prostora.'])
+    expect(texts([piece(1, 0, 0, 0, 100, 100, 300)])).toEqual(['P1 izlazi iz tovarnog prostora.'])
+    // 3 is unloaded together with 2, so only the overlap counts here.
+    expect(texts([piece(2, 0, 0, 0, 100, 100, 100), piece(3, 50, 50, 0, 100, 100, 100)])).toEqual(['P2 i P3 se preklapaju.'])
+    // Pieces of one shipment are as smartLoad+ placed them.
+    expect(texts([piece(1, 0, 0, 0, 100, 100, 100, 1), piece(1, 50, 0, 0, 100, 100, 100, 2)])).toEqual([])
+    // Half of 3 hangs in the air (2 and 3 come off together: no order rule).
+    expect(texts([piece(2, 0, 0, 0, 100, 100, 100), piece(3, 50, 0, 100, 100, 100, 100)])).toEqual(['P3 nema pun oslonac (50 % osnove).'])
+    // Fully on two pieces of 2: supported.
+    expect(texts([piece(2, 0, 0, 0, 50, 100, 100, 1), piece(2, 50, 0, 0, 50, 100, 100, 2), piece(3, 0, 0, 100, 100, 100, 50)])).toEqual([])
+  })
+
+  it('warns as the computed plan, except where its row would end, and for every broken rule', () => {
+    const computed = ['Raspored je duži od tovarnog prostora (14000 mm > 13600 mm).', 'Raspored pošiljke P1 iz smartLoad+ je širi…']
+    const problems = checkLoad([piece(1, 1300, 0, 0, 100, 100, 100)], SPACE, ORDER, name)
+    expect(arrangedWarnings(computed, problems)).toEqual([
+      'Raspored pošiljke P1 iz smartLoad+ je širi…',
+      'Ručno uređen raspored: P1 izlazi iz tovarnog prostora.',
+    ])
+  })
+
+  it('wants what comes off earlier free towards the doors and with nothing on it', () => {
+    // 2 comes off after 1 and stands on it.
+    expect(texts([piece(1, 1000, 0, 0, 100, 100, 100), piece(2, 1000, 0, 100, 100, 100, 100)])).toEqual([
+      'P1 (istovar 1.) ne može da izađe: na njoj je P2 (istovar 2.).',
+    ])
+    // 3 stands between 1 and the doors, in its way.
+    expect(texts([piece(1, 1000, 0, 0, 100, 100, 100), piece(3, 1200, 50, 0, 100, 100, 100)])).toEqual([
+      'P1 (istovar 1.) ne može da izađe: ispred nje, ka vratima, je P3 (istovar 3.).',
+    ])
+    // Beside its way, behind it (towards the front wall), or above its height: fine.
+    expect(texts([piece(1, 1000, 0, 0, 100, 100, 100), piece(3, 1200, 120, 0, 100, 100, 100)])).toEqual([])
+    expect(texts([piece(1, 1000, 0, 0, 100, 100, 100), piece(3, 800, 0, 0, 100, 100, 100)])).toEqual([])
+    // 1 on top of 2 (1 comes off first): fine; 2 and 3 in each other's way: they come off together.
+    expect(texts([piece(2, 0, 0, 0, 100, 100, 100), piece(1, 0, 0, 100, 100, 100, 100)])).toEqual([])
+    expect(texts([piece(2, 0, 0, 0, 100, 100, 100), piece(3, 100, 0, 0, 100, 100, 100)])).toEqual([])
+  })
+})

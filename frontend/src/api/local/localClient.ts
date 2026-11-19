@@ -5,6 +5,7 @@ import { provenFindings } from '../../domain/optimization/feasibility'
 import type { JobInput, JobTruck } from '../../domain/optimization/job'
 import { toSolverInput } from '../../domain/optimization/job'
 import { rearLoadedPlan } from '../../domain/optimization/loadPlan'
+import { arrangedWarnings, checkLoad, piecesFromPlacements, routeKey, samePieces, unloadOrder } from '../../domain/loadEditing'
 import { AssignmentError, reassign } from '../../domain/optimization/manualAssignment'
 import { toOptimizationResult } from '../../domain/optimization/result'
 import { OPEN_ROUTE_REAR_LOADING } from '../../domain/optimization/routePlanner'
@@ -38,6 +39,8 @@ import {
   type OrsProfile,
   type OptimizationJobRequest,
   type OptimizationResult,
+  type LoadPlan,
+  type Placement,
   type RouteLine,
   type Shipment,
   type ShipmentLayout,
@@ -139,8 +142,20 @@ export interface LocalJob {
   result: OptimizationResult | null
   /** the optimizer's result, once the shipments were moved by hand (`result` is then the changed one) */
   optimizedResult?: OptimizationResult
+  /**
+   * added 19.11.2026: load plans arranged by hand, by truck id, each with the deliveries it was
+   * made for (`routeKey`); dropped when those change
+   */
+  loadPlans?: Record<number, ArrangedLoadPlan>
   /** missing in jobs stored before road distances existed */
   distanceSource?: DistanceSource
+}
+
+/** A truck's load plan arranged by hand ("Uredi" on the 3D screen). */
+export interface ArrangedLoadPlan {
+  /** routeKey of the truck's route it was made for */
+  route: string
+  placements: Placement[]
 }
 
 /** Everything the store keeps. Fields added later are optional, so older snapshots still load. */
@@ -415,6 +430,66 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   /** The result as the screens get it: with the trucks of the job, for moving shipments by hand. */
   function withFleet(job: LocalJob): OptimizationResult {
     return { ...completedResult(job), fleetTruckIds: job.input.trucks.map((t) => t.id) }
+  }
+
+  /** The truck's plan as rearLoadedPlan makes it, with the route it is for. */
+  function computedLoadPlan(job: LocalJob, truckId: number) {
+    const result = completedResult(job)
+    const truck = job.fleet.get(truckId)
+    if (!truck) throw notFound(`Kamion ${truckId} nije u poslu ${job.id}.`)
+    const route = result.routes.find((r) => r.truckId === truckId)
+    if (!route) throw notFound(`Kamion ${truckId} nema rutu u poslu ${job.id}.`)
+    const { innerLengthMm, innerWidthMm, innerHeightMm } = truck
+    if (innerLengthMm === null || innerWidthMm === null || innerHeightMm === null) {
+      throw new ApiError({
+        title: 'Nedostaju dimenzije kamiona',
+        status: 409,
+        detail: `Kamion „${truck.name}“ nema unete dimenzije tovarnog prostora; 3D raspored nije moguć.`,
+      })
+    }
+    const space = { innerLengthMm, innerWidthMm, innerHeightMm }
+    // The layouts as they are now (by shipment, not kept with the job), where the job's shipment still exists.
+    const layouts = new Map(Object.entries(shipmentLayouts).map(([id, layout]) => [Number(id), layout]))
+    return { computed: rearLoadedPlan(job.id, route, space, job.input.shipments, layouts), route, space }
+  }
+
+  /** The truck's plan: the one arranged by hand while it still fits the route and the pieces. */
+  function loadPlan(job: LocalJob, truckId: number): LoadPlan {
+    const { computed, route, space } = computedLoadPlan(job, truckId)
+    const arranged = job.loadPlans?.[truckId]
+    if (!arranged) return computed
+    if (arranged.route !== routeKey(route) || !samePieces(computed.placements, arranged.placements)) {
+      // A layout from smartLoad+ imported or removed later changes the pieces; the hand-made plan is kept until saved again.
+      return {
+        ...computed,
+        warnings: [
+          ...computed.warnings,
+          'Ručno uređen raspored više ne odgovara pošiljkama kamiona (promenjen je raspored iz smartLoad+); prikazan je izračunat raspored.',
+        ],
+      }
+    }
+    const names = new Map(job.input.shipments.map((s) => [s.id, s.externalId]))
+    const problems = checkLoad(
+      piecesFromPlacements(arranged.placements, new Map()),
+      { L: space.innerLengthMm / 10, W: space.innerWidthMm / 10, H: space.innerHeightMm / 10 },
+      unloadOrder(route),
+      (id) => names.get(id) ?? `#${id}`,
+    )
+    return {
+      ...computed,
+      placements: arranged.placements,
+      manual: true,
+      warnings: arrangedWarnings(computed.warnings, problems),
+    }
+  }
+
+  /** Plans arranged by hand for deliveries that have changed are of no use any more. */
+  function dropStaleLoadPlans(job: LocalJob): void {
+    if (!job.loadPlans || !job.result) return
+    const routes = new Map(job.result.routes.map((r) => [r.truckId, routeKey(r)]))
+    const kept = Object.entries(job.loadPlans).filter(([truckId, plan]) => routes.get(Number(truckId)) === plan.route)
+    if (kept.length > 0) job.loadPlans = Object.fromEntries(kept)
+    else delete job.loadPlans
   }
 
   function completedResult(job: LocalJob): OptimizationResult {
@@ -1011,6 +1086,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           // The advice of one more truck was for the optimizer's result.
           const { openRoute, distanceSource } = result
           job.result = { ...changed, openRoute, distanceSource, manual: { optimizedMeters: job.optimizedResult.totalMeters } }
+          dropStaleLoadPlans(job)
         }
         return withFleet(job)
       }),
@@ -1024,28 +1100,56 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         }
         job.result = job.optimizedResult
         delete job.optimizedResult
+        dropStaleLoadPlans(job)
         return withFleet(job)
       }),
 
-    getLoadPlan: (jobId, truckId) =>
-      respond(() => {
+    getLoadPlan: (jobId, truckId) => respond(() => loadPlan(findJob(jobId), truckId)),
+
+    saveLoadPlan: (jobId, truckId, placements) =>
+      change(() => {
         const job = findJob(jobId)
-        const result = completedResult(job)
-        const truck = job.fleet.get(truckId)
-        if (!truck) throw notFound(`Kamion ${truckId} nije u poslu ${jobId}.`)
-        const route = result.routes.find((r) => r.truckId === truckId)
-        if (!route) throw notFound(`Kamion ${truckId} nema rutu u poslu ${jobId}.`)
-        const { innerLengthMm, innerWidthMm, innerHeightMm } = truck
-        if (innerLengthMm === null || innerWidthMm === null || innerHeightMm === null) {
+        const { computed, route } = computedLoadPlan(job, truckId)
+        if (!Array.isArray(placements) || !samePieces(computed.placements, placements)) {
           throw new ApiError({
-            title: 'Nedostaju dimenzije kamiona',
-            status: 409,
-            detail: `Kamion „${truck.name}“ nema unete dimenzije tovarnog prostora; 3D raspored nije moguć.`,
+            title: 'Raspored ne odgovara kamionu',
+            status: 400,
+            detail: 'Ručni raspored mora imati iste pošiljke i komade kao raspored kamiona; osvežite stranicu i uredite ga ponovo.',
           })
         }
-        // The layouts as they are now (by shipment, not kept with the job), where the job's shipment still exists.
-        const layouts = new Map(Object.entries(shipmentLayouts).map(([id, layout]) => [Number(id), layout]))
-        return rearLoadedPlan(jobId, route, { innerLengthMm, innerWidthMm, innerHeightMm }, job.input.shipments, layouts)
+        // In the computed order (it gives the shipments their colours), in whole mm.
+        const byKey = new Map(placements.map((p) => [`${p.shipmentId}#${p.piece ?? 0}`, p]))
+        const arranged = computed.placements.map((c) => {
+          const p = byKey.get(`${c.shipmentId}#${c.piece ?? 0}`) as Placement
+          const mm = (v: number) => Math.round(v) + 0
+          return {
+            shipmentId: c.shipmentId,
+            xMm: mm(p.xMm),
+            yMm: mm(p.yMm),
+            zMm: mm(p.zMm),
+            lengthMm: mm(p.lengthMm),
+            widthMm: mm(p.widthMm),
+            heightMm: mm(p.heightMm),
+            rotated: Boolean(p.rotated),
+            ...(c.piece !== undefined ? { piece: c.piece } : {}),
+          }
+        })
+        job.loadPlans = { ...job.loadPlans, [truckId]: { route: routeKey(route), placements: arranged } }
+        return loadPlan(job, truckId)
+      }),
+
+    resetLoadPlan: (jobId, truckId) =>
+      change(() => {
+        const job = findJob(jobId)
+        computedLoadPlan(job, truckId)
+        if (!job.loadPlans?.[truckId]) {
+          throw new ApiError({ title: 'Raspored nije ručno uređen', status: 409, detail: `Raspored kamiona ${truckId} u poslu ${jobId} nije ručno uređen.` })
+        }
+        const { [truckId]: _dropped, ...rest } = job.loadPlans
+        void _dropped
+        if (Object.keys(rest).length > 0) job.loadPlans = rest
+        else delete job.loadPlans
+        return loadPlan(job, truckId)
       }),
 
     getRouteLine: (jobId, truckId) => respond(() => routeLine(jobId, truckId)),

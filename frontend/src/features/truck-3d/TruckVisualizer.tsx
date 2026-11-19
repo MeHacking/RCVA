@@ -28,13 +28,15 @@ export interface TruckVisualizerProps {
   onSelect?: (shipmentId: number | null) => void
   /** what the chosen shipment is; without a choice the line says how to use the view */
   selectedInfo?: ReactNode
+  /** NOT IN SPEC v2: "Uredi", left of "Ceo ekran", opens the editor (only on the device) */
+  onEdit?: () => void
 }
 
 /**
  * The 3D view card (as in smartLoad): the views, full screen, the picture and a line about the
  * chosen shipment. Remount with a `key` when the truck changes.
  */
-export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = null, onSelect, selectedInfo }: TruckVisualizerProps) {
+export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = null, onSelect, selectedInfo, onEdit }: TruckVisualizerProps) {
   const pieces = useMemo(() => piecesFromPlan(placements), [placements])
   const { innerLengthMm, innerWidthMm, innerHeightMm } = truck
   const space = useMemo(
@@ -65,16 +67,32 @@ export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = 
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className="truck-view__fullscreen"
-          aria-pressed={full}
-          title={full ? 'Izađi iz prikaza preko celog ekrana (Esc)' : '3D prikaz preko celog ekrana'}
-          onClick={() => void toggle()}
-        >
-          <Icon name={full ? 'collapse' : 'expand'} />
-          Ceo ekran
-        </button>
+        <span className="truck-view__actions">
+          {onEdit && (
+            <button
+              type="button"
+              title="Pomerajte i okrećite pošiljke u 2D i 3D prikazu"
+              onClick={() => {
+                // The editor replaces this card: leave the full screen first.
+                if (full || expanded) void toggle()
+                onEdit()
+              }}
+            >
+              <Icon name="edit" />
+              Uredi
+            </button>
+          )}
+          <button
+            type="button"
+            className="truck-view__fullscreen"
+            aria-pressed={full}
+            title={full ? 'Izađi iz prikaza preko celog ekrana (Esc)' : '3D prikaz preko celog ekrana'}
+            onClick={() => void toggle()}
+          >
+            <Icon name={full ? 'collapse' : 'expand'} />
+            Ceo ekran
+          </button>
+        </span>
       </div>
       {mode === 'ILLUSTRATIVE_LDM' && (
         <p className="truck-view__label">

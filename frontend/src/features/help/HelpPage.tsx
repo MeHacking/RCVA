@@ -396,6 +396,21 @@ function Steps() {
             crtaju komadi, sa jednim brojem za celu pošiljku.
           </li>
         )}
+        {ON_DEVICE && (
+          <li>
+            <strong>Uredi</strong> (3D prikaz, levo od „Ceo ekran“): raspored kamiona se menja rukom, kao u smartLoad-u.
+            Gore su dužina, zapremina, težina i broj pošiljki; ispod je pod kamiona odozgo (čelo levo, vrata desno, broj
+            na pošiljci je redosled istovara) i 3D prikaz, i oba pokazuju isti raspored. Pomera se cela pošiljka, sa onim
+            što stoji na njoj: prevlačenjem na podu ili u 3D, ili strelicama za izabrani korak (1, 5 ili 10 cm). Uz zid i
+            susednu pošiljku se lepi na 5 cm, a puštena preko druge pošiljke staje na nju. R ili dvoklik okreće za 90°,
+            Ctrl + Z i Ctrl + Y poništavaju i ponavljaju, Ctrl + klik dodaje pošiljku u izbor, a Shift + prevlačenje u 3D
+            bira okvirom. Desno se odmah vidi šta je prekršeno: pošiljka izlazi iz tovarnog prostora, preklapa se sa
+            drugom, nema pun oslonac, ili pošiljka koja se ranije istovara ne može da izađe (na njoj je ili ispred nje, ka
+            vratima, stoji ona koja se kasnije istovara; pošiljke istog mesta istovara izlaze zajedno). „Sačuvaj raspored“
+            sa prekršajem prvo pita. Sačuvan raspored koriste 3D prikaz, PDF i Viber, sve dok se pošiljke tog kamiona ne
+            promene (premeštanje pošiljke ili vraćen predlog optimizacije); „Vrati izračunat raspored“ ga briše.
+          </li>
+        )}
         <li>
           <strong>Izvezi ceo rezultat (PDF):</strong> izveštaj sa rezimeom na prvoj strani i svakim kamionom na svojoj
           strani (vozač, stanice redom sa kilometrima, pošiljke na kamionu i raspored tovara: crtež u 3D, gde broj

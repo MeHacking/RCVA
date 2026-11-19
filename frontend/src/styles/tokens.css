@@ -92,6 +92,8 @@
   --truck3d-frame: var(--dark-grey);
   --truck3d-edge: #111111;
   --truck3d-selected: var(--accent);
+  /* the outline of a shipment breaking a loading rule in the editor (2D and 3D) */
+  --truck3d-bad: var(--danger);
   --truck3d-body: #e9eaed;
   --truck3d-trim: #2a2c31;
   --truck3d-steel: #4a4d54;

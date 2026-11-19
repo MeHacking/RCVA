@@ -20,6 +20,9 @@ export interface CargoSpace {
   innerHeightMm: number
 }
 
+/** The start of the warning for a row longer than the cargo space (a plan arranged by hand drops it). */
+export const LONGER_THAN_SPACE = 'Raspored je duži od tovarnog prostora'
+
 export function rearLoadedPlan(
   jobId: number,
   route: RoutePlan,
@@ -70,7 +73,7 @@ export function rearLoadedPlan(
     x += lengthMm
   }
   if (x > space.innerLengthMm) {
-    warnings.push(`Raspored je duži od tovarnog prostora (${x} mm > ${space.innerLengthMm} mm).`)
+    warnings.push(`${LONGER_THAN_SPACE} (${x} mm > ${space.innerLengthMm} mm).`)
   }
   return {
     jobId,

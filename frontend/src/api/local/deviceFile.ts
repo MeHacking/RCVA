@@ -284,6 +284,27 @@ const JOB = object({
   result: nullable(RESULT),
   optimizedResult: optional(RESULT),
   distanceSource: optional(DISTANCE_SOURCE),
+  // Added 19.11.2026: load plans arranged by hand, by truck id.
+  loadPlans: optional(
+    recordOf(
+      object({
+        route: STR,
+        placements: arrayOf(
+          object({
+            shipmentId: INT,
+            xMm: NUM,
+            yMm: NUM,
+            zMm: NUM,
+            lengthMm: NUM,
+            widthMm: NUM,
+            heightMm: NUM,
+            rotated: BOOL,
+            piece: optional(INT),
+          }),
+        ),
+      }),
+    ),
+  ),
 })
 const POINT: Check = (v, p) =>
   (Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n))) ||
@@ -365,6 +386,12 @@ function checkReferences(data: FileData): void {
     }
     if (job.status === 'COMPLETED' && !job.result) {
       throw new DeviceFileError(`Fajl je oštećen ili izmenjen: završeni posao ${job.id} nema rezultat.`)
+    }
+    const fleet = new Set(job.fleet.map((t) => String(t.id)))
+    for (const truckId of Object.keys(job.loadPlans ?? {})) {
+      if (!fleet.has(truckId)) {
+        throw new DeviceFileError(`Fajl je oštećen ili izmenjen: ručni raspored posla ${job.id} je za kamion ${truckId}, koji nije u tom poslu.`)
+      }
     }
   }
   const truckIds = [...data.trucks, ...data.jobs.flatMap((j) => j.fleet)].map((t) => t.id)

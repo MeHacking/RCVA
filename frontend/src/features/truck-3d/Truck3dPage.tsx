@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useApi } from '../../api/apiContext'
 import { apiMode } from '../../api/apiMode'
-import type { OptimizationJob, OptimizationResult, RoutePlan, Shipment, Truck } from '../../api/types'
+import { describeError } from '../../api/client'
+import type { LoadPlan, OptimizationJob, OptimizationResult, RoutePlan, Shipment, Truck } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { LdmBar } from '../../components/LdmBar'
 import { Notice } from '../../components/Notice'
@@ -15,11 +16,12 @@ import { buildTruckRows, type ReferenceData } from '../optimization/resultRows'
 import { useReferenceData } from '../optimization/useReferenceData'
 import { parseRouteMapParams } from '../route-map/routeMapParams'
 import { LayoutImport } from './LayoutImport'
+import { LoadEditor } from './LoadEditor'
 import { planShipments } from './planShipments'
 import { TruckVisualizer } from './TruckVisualizer'
 
-/** Layouts from smartLoad+ are kept only on the device. */
-const CAN_IMPORT_LAYOUT = apiMode() === 'local'
+/** Layouts from smartLoad+ and plans arranged by hand are kept only on the device. */
+const ON_DEVICE = apiMode() === 'local'
 
 export function Truck3dPage() {
   const { state } = useLastJob()
@@ -113,11 +115,20 @@ function TruckLoad({
   // Shipments a layout from smartLoad+ changed here (LDM, weight): the reference data is from before.
   const [changed, setChanged] = useState<ReadonlyMap<number, Shipment>>(new Map())
   const [layoutMessage, setLayoutMessage] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  // The plan the editor saved (or the reset gave), until the reload brings it.
+  const [fresh, setFresh] = useState<{ after: unknown; plan: LoadPlan } | null>(null)
 
   if (plan.status === 'loading') return <LoadingState label="Učitavanje rasporeda…" />
   if (plan.status === 'error') return <ErrorState title="Raspored nije učitan" message={plan.message} onRetry={reload} />
 
-  const { placements, mode, warnings } = plan.data
+  const current = fresh && fresh.after === plan.data ? fresh.plan : plan.data
+  const showPlan = (next: LoadPlan, message: string) => {
+    setFresh({ after: plan.data, plan: next })
+    setLayoutMessage(message)
+    reload()
+  }
+  const { placements, mode, warnings } = current
   const { innerLengthMm, innerWidthMm, innerHeightMm } = truck
   if (innerLengthMm === null || innerWidthMm === null || innerHeightMm === null) {
     return <ErrorState title="Nedostaju dimenzije kamiona" message="Unesite dimenzije tovarnog prostora na ekranu Kamioni." />
@@ -130,7 +141,7 @@ function TruckLoad({
   }
   // By shipment: a shipment with a layout from smartLoad+ is many pieces.
   const planned = planShipments(placements)
-  const layouts = new Map((plan.data.layouts ?? []).map((l) => [l.shipmentId, l]))
+  const layouts = new Map((current.layouts ?? []).map((l) => [l.shipmentId, l]))
   const chosen = planned.find((s) => s.shipmentId === selectedShipmentId)
   // 1 = the first shipment off the truck (it stands at the doors: loading is from the rear).
   const deliveryOrder = new Map(
@@ -139,8 +150,31 @@ function TruckLoad({
   const chosenShipment = chosen ? shipments.get(chosen.shipmentId) : undefined
   const chosenUnloaded = chosen ? deliveryOrder.get(chosen.shipmentId) : undefined
 
+  if (editing) {
+    return (
+      <LoadEditor
+        jobId={jobId}
+        truckName={truck.name}
+        space={{ innerLengthMm, innerWidthMm, innerHeightMm }}
+        capacityKg={truck.capacityKg}
+        plan={current}
+        route={route}
+        names={new Map([...shipments].map(([id, s]) => [id, s.externalId]))}
+        weights={new Map([...shipments].map(([id, s]) => [id, s.weightKg]))}
+        onSaved={(saved) => {
+          setEditing(false)
+          showPlan(saved, 'Ručno uređen raspored je sačuvan; 3D prikaz i PDF ga koriste.')
+        }}
+        onClose={() => setEditing(false)}
+      />
+    )
+  }
+
   return (
     <>
+      {current.manual && ON_DEVICE && (
+        <ManualPlanNotice jobId={jobId} truckId={truck.id} onReset={(computed) => showPlan(computed, 'Vraćen je izračunat raspored.')} />
+      )}
       {warnings.length > 0 && (
         <Notice tone="warning" title="Upozorenja rasporeda">
           <ul className="notice__list">
@@ -157,6 +191,14 @@ function TruckLoad({
           mode={mode}
           selectedShipmentId={selectedShipmentId}
           onSelect={(id) => (id === null ? setSelectedShipmentId(null) : toggle(id))}
+          onEdit={
+            ON_DEVICE
+              ? () => {
+                  setLayoutMessage(null)
+                  setEditing(true)
+                }
+              : undefined
+          }
           selectedInfo={
             chosen && (
               <>
@@ -231,7 +273,7 @@ function TruckLoad({
           {layoutMessage}
         </p>
       )}
-      {CAN_IMPORT_LAYOUT &&
+      {ON_DEVICE &&
         (chosenShipment ? (
           <LayoutImport
             key={chosenShipment.id}
@@ -254,5 +296,37 @@ function TruckLoad({
           </p>
         ))}
     </>
+  )
+}
+
+/** Above a plan arranged by hand: what it is, and the way back to the computed one. */
+function ManualPlanNotice({ jobId, truckId, onReset }: { jobId: number; truckId: number; onReset: (plan: LoadPlan) => void }) {
+  const api = useApi()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const reset = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      onReset(await api.resetLoadPlan(jobId, truckId))
+    } catch (err) {
+      setError(describeError(err))
+      setBusy(false)
+    }
+  }
+  return (
+    <Notice tone="info" title="Raspored je ručno uređen">
+      <p>
+        3D prikaz, PDF i Viber koriste ovaj raspored dok se pošiljke kamiona ne promene (premeštanje pošiljke ili vraćen
+        predlog optimizacije).
+      </p>
+      <p>
+        <button type="button" className="button--small" disabled={busy} onClick={() => void reset()}>
+          <Icon name="undo" />
+          Vrati izračunat raspored
+        </button>
+      </p>
+      {error && <p className="text--error">{error}</p>}
+    </Notice>
   )
 }

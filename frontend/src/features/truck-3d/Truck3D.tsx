@@ -12,11 +12,35 @@ import { boxFor, extentCorners, fitView, usedLength, type Piece, type Space, typ
 // (the TeGo viewer drew into one shared canvas behind the page). It renders only when something
 // changes, and everything is released when it unmounts.
 
+/** A point on the floor in plan cm: x along the cargo space, y across. */
+export interface PlanPoint {
+  x: number
+  y: number
+}
+
 interface Props {
   pieces: Piece[]
   space: Space
-  selected: number | null
-  onSelect: (shipmentId: number | null) => void
+  /** The chosen shipment in the view; the others fade. */
+  selected?: number | null
+  /**
+   * In the editor (user, 19.11.2026: "Uredi", as smartLoad): the chosen shipments, marked
+   * without fading the others.
+   */
+  selection?: readonly number[]
+  /** shipments that break a loading rule: outlined in the danger colour */
+  bad?: ReadonlySet<number>
+  /** A click: the shipment (null beside the load); `additive` with Ctrl, to add or remove it. */
+  onSelect: (shipmentId: number | null, additive: boolean) => void
+  /** Shift+drag: every shipment whose block's middle is inside the box. */
+  onSelectMany?: (shipmentIds: number[], additive: boolean) => void
+  /** Dragging shipments across the floor (the editor); the points are plan cm. */
+  editable?: boolean
+  onDragStart?: (shipmentId: number, at: PlanPoint) => void
+  onDrag?: (at: PlanPoint) => void
+  onDragEnd?: () => void
+  /** A double click on a shipment (the editor): turn it by 90°. */
+  onRotate?: (shipmentId: number) => void
   view: ViewName
   /** Changes whenever a view button is pressed (even the same view twice). */
   viewTick: number
@@ -134,29 +158,131 @@ export function Truck3D(props: Props) {
 
     const ray = new THREE.Raycaster()
     const blocks = () => load.children.filter((o): o is THREE.Mesh => o instanceof THREE.Mesh && o.userData.shipmentId !== undefined)
-    const hitAt = (e: MouseEvent) => {
+    const ndc = (e: { clientX: number; clientY: number }) => {
       const r = renderer.domElement.getBoundingClientRect()
-      ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera)
-      const hit = ray.intersectObjects(blocks(), false)[0]
+      return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+    }
+    const hitAt = (e: { clientX: number; clientY: number }) => {
+      ray.setFromCamera(ndc(e), camera)
+      return ray.intersectObjects(blocks(), false)[0]
+    }
+    const idAt = (e: MouseEvent) => {
+      const hit = hitAt(e)
       return hit ? (hit.object.userData.shipmentId as number) : null
     }
-    // A press that does not move is a click (a drag turns the view).
-    let press: { x: number; y: number } | null = null
+    /** Where the pointer meets the level `height` (scene Y), as plan cm. */
+    const planAt = (e: { clientX: number; clientY: number }, height: number): PlanPoint | null => {
+      ray.setFromCamera(ndc(e), camera)
+      const p = new THREE.Vector3()
+      return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -height), p) ? { x: p.x, y: p.z } : null
+    }
+    // A press that does not move is a click; otherwise it turns the view, or, in the editor and
+    // on a shipment, moves the shipment (from 4 px on, as in smartLoad). Ctrl+click adds or
+    // removes a shipment; Shift+drag draws a box that chooses what is inside.
+    let press: { x: number; y: number; id: number | null; height: number; dragging: boolean; additive: boolean } | null = null
+    let box: { x0: number; y0: number; el: HTMLDivElement; additive: boolean } | null = null
+    const canvas = renderer.domElement
+    const drawBox = (e: PointerEvent) => {
+      if (!box) return
+      const r = el.getBoundingClientRect()
+      Object.assign(box.el.style, {
+        left: `${Math.min(box.x0, e.clientX) - r.left}px`,
+        top: `${Math.min(box.y0, e.clientY) - r.top}px`,
+        width: `${Math.abs(e.clientX - box.x0)}px`,
+        height: `${Math.abs(e.clientY - box.y0)}px`,
+      })
+    }
+    const endBox = (e: PointerEvent) => {
+      const b = box
+      box = null
+      controls.enabled = true
+      if (!b) return
+      b.el.remove()
+      const r = canvas.getBoundingClientRect()
+      const [x0, x1] = [Math.min(b.x0, e.clientX), Math.max(b.x0, e.clientX)]
+      const [y0, y1] = [Math.min(b.y0, e.clientY), Math.max(b.y0, e.clientY)]
+      const ids = new Set<number>()
+      for (const mesh of blocks()) {
+        const v = mesh.position.clone().project(camera)
+        const sx = r.left + ((v.x + 1) / 2) * r.width
+        const sy = r.top + ((1 - v.y) / 2) * r.height
+        if (v.z < 1 && sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) ids.add(mesh.userData.shipmentId as number)
+      }
+      latest.current.onSelectMany?.([...ids], b.additive)
+    }
     const onDown = (e: PointerEvent) => {
-      press = e.button === 0 ? { x: e.clientX, y: e.clientY } : null
+      press = null
+      if (e.button !== 0) return
+      const p = latest.current
+      const additive = e.ctrlKey || e.metaKey
+      if (e.shiftKey && p.onSelectMany) {
+        controls.enabled = false // the box, not the camera
+        canvas.setPointerCapture(e.pointerId)
+        const div = document.createElement('div')
+        div.className = 'truck3d__box'
+        el.appendChild(div)
+        box = { x0: e.clientX, y0: e.clientY, el: div, additive }
+        drawBox(e)
+        return
+      }
+      const hit = hitAt(e)
+      const id = hit ? (hit.object.userData.shipmentId as number) : null
+      press = { x: e.clientX, y: e.clientY, id, height: hit ? hit.point.y : 0, dragging: false, additive }
+      if (p.editable && (id !== null || additive)) {
+        controls.enabled = false // the shipment moves (or is picked), not the camera
+        canvas.setPointerCapture(e.pointerId)
+      }
     }
     const onUp = (e: PointerEvent) => {
+      if (box) {
+        endBox(e)
+        return
+      }
       const was = press
       press = null
-      if (was && Math.hypot(e.clientX - was.x, e.clientY - was.y) <= 4) latest.current.onSelect(hitAt(e))
+      controls.enabled = true
+      if (!was) return
+      if (was.dragging) {
+        canvas.style.cursor = 'grab'
+        latest.current.onDragEnd?.()
+        return
+      }
+      if (Math.hypot(e.clientX - was.x, e.clientY - was.y) <= 4) latest.current.onSelect(was.id, was.additive)
     }
     const onMove = (e: PointerEvent) => {
-      if (!press) renderer.domElement.style.cursor = hitAt(e) === null ? '' : 'pointer'
+      const p = latest.current
+      if (box) {
+        drawBox(e)
+        return
+      }
+      if (!press) {
+        canvas.style.cursor = idAt(e) === null ? '' : p.editable ? 'grab' : 'pointer'
+        return
+      }
+      if (press.id === null || !p.editable || press.additive) return
+      const at = planAt(e, press.height)
+      if (!at) return
+      if (!press.dragging) {
+        if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return
+        press.dragging = true
+        canvas.style.cursor = 'grabbing'
+        // From where the press was, so the shipment does not jump.
+        p.onDragStart?.(press.id, planAt({ clientX: press.x, clientY: press.y }, press.height) ?? at)
+      }
+      p.onDrag?.(at)
     }
-    const canvas = renderer.domElement
-    canvas.addEventListener('pointerdown', onDown)
+    const onDouble = (e: MouseEvent) => {
+      const p = latest.current
+      if (e.button !== 0 || !p.editable || !p.onRotate) return
+      const id = idAt(e)
+      if (id !== null) p.onRotate(id)
+    }
+    // Before OrbitControls' own listener, so a press on a shipment never turns the view.
+    canvas.addEventListener('pointerdown', onDown, { capture: true })
     canvas.addEventListener('pointerup', onUp)
+    canvas.addEventListener('pointercancel', onUp)
     canvas.addEventListener('pointermove', onMove)
+    canvas.addEventListener('dblclick', onDouble)
 
     const probe: Truck3dProbe = {
       memory: renderer.info.memory,
@@ -188,9 +314,12 @@ export function Truck3D(props: Props) {
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
-      canvas.removeEventListener('pointerdown', onDown)
+      canvas.removeEventListener('pointerdown', onDown, { capture: true })
       canvas.removeEventListener('pointerup', onUp)
+      canvas.removeEventListener('pointercancel', onUp)
       canvas.removeEventListener('pointermove', onMove)
+      canvas.removeEventListener('dblclick', onDouble)
+      box?.el.remove()
       controls.removeEventListener('change', render)
       controls.removeEventListener('start', onStart)
       controls.dispose()
@@ -203,7 +332,7 @@ export function Truck3D(props: Props) {
     }
   }, [])
 
-  const { space, pieces, selected, view, viewTick } = props
+  const { space, pieces, selected = null, selection, bad, view, viewTick } = props
 
   // The truck: when the size of the cargo space changes.
   useEffect(() => {
@@ -223,19 +352,22 @@ export function Truck3D(props: Props) {
     disposeGroup(s.load)
     const accent = token(el, '--truck3d-selected')
     const edge = token(el, '--truck3d-edge')
+    const danger = token(el, '--truck3d-bad')
     for (const p of pieces) {
       const b = boxFor(p)
-      const chosen = p.shipmentId === selected
-      // While a shipment is chosen, the others fade, so it stands out whatever its colour
-      // (a tint in the accent alone barely shows on some of the colours).
-      const faded = selected !== null && !chosen
+      const chosen = selection ? selection.includes(p.shipmentId) : p.shipmentId === selected
+      const wrong = bad?.has(p.shipmentId) ?? false
+      // While a shipment is chosen in the view, the others fade, so it stands out whatever its
+      // colour (a tint in the accent alone barely shows on some of the colours). The editor
+      // keeps them all solid, as smartLoad does, since they are moved around each other.
+      const faded = !selection && selected !== null && !chosen
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(b.sx - 0.6, b.sy - 0.6, b.sz - 0.6),
         new THREE.MeshStandardMaterial({
           color: new THREE.Color(p.color),
           roughness: 0.75,
           emissive: chosen ? accent : new THREE.Color(0, 0, 0),
-          emissiveIntensity: chosen ? 0.2 : 0,
+          emissiveIntensity: chosen ? (selection ? 0.35 : 0.2) : 0,
           transparent: faded,
           opacity: faded ? 0.22 : 1,
           depthWrite: !faded,
@@ -244,12 +376,13 @@ export function Truck3D(props: Props) {
       mesh.position.set(b.cx, b.cy, b.cz)
       mesh.userData = { shipmentId: p.shipmentId, selected: chosen }
       s.load.add(mesh)
+      const strong = chosen || wrong
       const edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(mesh.geometry),
         new THREE.LineBasicMaterial({
-          color: chosen ? accent : edge,
-          transparent: !chosen,
-          opacity: chosen ? 1 : faded ? 0.3 : 0.55,
+          color: wrong ? danger : chosen ? accent : edge,
+          transparent: !strong,
+          opacity: strong ? 1 : faded ? 0.3 : 0.55,
         }),
       )
       edges.position.copy(mesh.position)
@@ -267,7 +400,7 @@ export function Truck3D(props: Props) {
       s.load.add(mark)
     }
     s.render()
-  }, [pieces, selected, space.W, space.H])
+  }, [pieces, selected, selection, bad, space.W, space.H])
 
   // The views.
   useEffect(() => {

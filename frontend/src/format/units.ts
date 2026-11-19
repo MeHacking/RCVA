@@ -28,6 +28,22 @@ export function formatDimensionsMm(
   return `${lengthMm} × ${widthMm} × ${heightMm} mm`
 }
 
+/** 12345 mm -> "12,35 m" (two decimals, decimal comma) */
+export function formatMetersMm(mm: number): string {
+  return `${(Math.round(mm / 10) / 100).toFixed(2).replace('.', ',')} m`
+}
+
+/** 45210000000 mm³ -> "45,2 m³" (one decimal) */
+export function formatCubicMetersMm3(mm3: number): string {
+  return `${(Math.round(mm3 / 1e8) / 10).toFixed(1).replace('.', ',')} m³`
+}
+
+/** 123.45 cm -> "123,5 cm" (at most one decimal) */
+export function formatCm(cm: number): string {
+  const tenths = Math.round(cm * 10) + 0
+  return `${Number.isInteger(tenths / 10) ? String(tenths / 10) : (tenths / 10).toFixed(1).replace('.', ',')} cm`
+}
+
 /** Timefold score notation: "0hard/-2medium/-1001489soft" */
 export function formatScore(hard: number, medium: number, soft: number): string {
   return `${hard}hard/${medium}medium/${soft}soft`

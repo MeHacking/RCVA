@@ -11,6 +11,7 @@ import type {
   ImportRow,
   ImportRowPatch,
   LoadPlan,
+  Placement,
   Location,
   PlaceSearchResult,
   OptimizationJob,
@@ -148,6 +149,17 @@ export interface ApiClient {
   getOptimizationResult(id: number): Promise<OptimizationResult>
   /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */
   getLoadPlan(jobId: number, truckId: number): Promise<LoadPlan>
+  /**
+   * NOT IN SPEC v2: the truck's load plan arranged by hand ("Uredi" on the 3D screen): the same
+   * pieces getLoadPlan gives (by shipment and piece, turned or not), placed elsewhere. Kept with
+   * the job and the truck until the truck's deliveries change (a shipment moved by hand, the
+   * optimizer's result restored); getLoadPlan then gives it, with `manual`. Rules are not
+   * enforced (the editor asks first); getLoadPlan warns. 400 when the pieces are not the plan's,
+   * 404, 409 as getLoadPlan; 404 over HTTP and in the mock.
+   */
+  saveLoadPlan(jobId: number, truckId: number, placements: Placement[]): Promise<LoadPlan>
+  /** NOT IN SPEC v2: the computed load plan again. 404; 409 when it was not arranged by hand. */
+  resetLoadPlan(jobId: number, truckId: number): Promise<LoadPlan>
   /**
    * NOT IN SPEC v2: the route of a truck along the roads, for the map. null when there is
    * none: the mock and the backend have no roads, and the application on the device needs
