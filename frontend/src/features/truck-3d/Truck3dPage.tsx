@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useApi } from '../../api/apiContext'
-import type { OptimizationJob, OptimizationResult, RoutePlan, Truck } from '../../api/types'
+import { apiMode } from '../../api/apiMode'
+import type { OptimizationJob, OptimizationResult, RoutePlan, Shipment, Truck } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { LdmBar } from '../../components/LdmBar'
 import { Notice } from '../../components/Notice'
@@ -13,8 +14,12 @@ import { completedJob, isLastJobBusy, useLastJob } from '../optimization/lastJob
 import { buildTruckRows, type ReferenceData } from '../optimization/resultRows'
 import { useReferenceData } from '../optimization/useReferenceData'
 import { parseRouteMapParams } from '../route-map/routeMapParams'
+import { LayoutImport } from './LayoutImport'
 import { planShipments } from './planShipments'
 import { TruckVisualizer } from './TruckVisualizer'
+
+/** Layouts from smartLoad+ are kept only on the device. */
+const CAN_IMPORT_LAYOUT = apiMode() === 'local'
 
 export function Truck3dPage() {
   const { state } = useLastJob()
@@ -105,6 +110,9 @@ function TruckLoad({
   const load = useCallback(() => api.getLoadPlan(jobId, truck.id), [api, jobId, truck.id])
   const [plan, reload] = useAsyncData(load)
   const [selectedShipmentId, setSelectedShipmentId] = useState<number | null>(null)
+  // Shipments a layout from smartLoad+ changed here (LDM, weight): the reference data is from before.
+  const [changed, setChanged] = useState<ReadonlyMap<number, Shipment>>(new Map())
+  const [layoutMessage, setLayoutMessage] = useState<string | null>(null)
 
   if (plan.status === 'loading') return <LoadingState label="Učitavanje rasporeda…" />
   if (plan.status === 'error') return <ErrorState title="Raspored nije učitan" message={plan.message} onRetry={reload} />
@@ -114,9 +122,12 @@ function TruckLoad({
   if (innerLengthMm === null || innerWidthMm === null || innerHeightMm === null) {
     return <ErrorState title="Nedostaju dimenzije kamiona" message="Unesite dimenzije tovarnog prostora na ekranu Kamioni." />
   }
-  const shipments = new Map(reference.shipments.map((s) => [s.id, s]))
+  const shipments = new Map(reference.shipments.map((s) => [s.id, changed.get(s.id) ?? s]))
   const locations = new Map(reference.locations.map((l) => [l.id, l.name]))
-  const toggle = (id: number) => setSelectedShipmentId((current) => (current === id ? null : id))
+  const toggle = (id: number) => {
+    setLayoutMessage(null)
+    setSelectedShipmentId((current) => (current === id ? null : id))
+  }
   // By shipment: a shipment with a layout from smartLoad+ is many pieces.
   const planned = planShipments(placements)
   const layouts = new Map((plan.data.layouts ?? []).map((l) => [l.shipmentId, l]))
@@ -215,6 +226,33 @@ function TruckLoad({
           </ul>
         </section>
       </div>
+      {layoutMessage && (
+        <p role="status" className="text--success layout-import__done">
+          {layoutMessage}
+        </p>
+      )}
+      {CAN_IMPORT_LAYOUT &&
+        (chosenShipment ? (
+          <LayoutImport
+            key={chosenShipment.id}
+            shipment={chosenShipment}
+            current={layouts.get(chosenShipment.id) ?? null}
+            space={{ innerLengthMm, innerWidthMm, innerHeightMm }}
+            onApplied={(shipment, message) => {
+              setChanged((previous) => new Map(previous).set(shipment.id, shipment))
+              setLayoutMessage(message)
+              reload()
+            }}
+            onRemoved={(message) => {
+              setLayoutMessage(message)
+              reload()
+            }}
+          />
+        ) : (
+          <p className="text--muted layout-import__hint">
+            Detaljan raspored iz smartLoad+ uvozi se za izabranu pošiljku: izaberite je u prikazu ili u spisku.
+          </p>
+        ))}
     </>
   )
 }

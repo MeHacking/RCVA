@@ -76,6 +76,18 @@ describe('readLayoutFile', () => {
     expect(readError(layoutText(change))).toContain(message)
   })
 
+  it('counts the pieces left over, not the kinds of goods', () => {
+    const layout = readLayoutFile(
+      layoutText((f) => {
+        f.unplaced = [
+          { goodsId: 'g-2', quantity: 1 },
+          { goodsId: 'g-1', quantity: 3 },
+        ]
+      }),
+    )
+    expect(layout.unplacedPieces).toBe(4)
+  })
+
   it('allows a piece a millimetre past the load (rounding in smartLoad+)', () => {
     expect(readLayoutFile(layoutText((f) => (f.placements[5].xMm = 1201))).pieces).toHaveLength(7)
   })

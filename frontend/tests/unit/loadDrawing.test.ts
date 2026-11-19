@@ -117,6 +117,11 @@ describe('a shipment of many pieces (smartLoad+)', () => {
     ])
   })
 
+  it('takes the room of all its pieces, along the truck too', () => {
+    const [along] = planShipments([piece(1, 1000, 0, 0, 1200, 800, 1100), piece(2, 2200, 400, 0, 1200, 800, 900)])
+    expect(along).toMatchObject({ pieces: 2, xMm: 1000, yMm: 0, lengthMm: 2400, widthMm: 1200, heightMm: 1100 })
+  })
+
   it('has one number and one colour, by its place among the shipments', () => {
     expect([...blockNumbers(PIECES)]).toEqual([
       [30, 1],
