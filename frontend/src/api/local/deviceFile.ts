@@ -45,6 +45,7 @@ export function writeDeviceFile(data: Required<LocalData>, exportedAt: Date): st
       jobLog: data.jobLog,
       truckTypes: data.truckTypes,
       nextTruckTypeId: data.nextTruckTypeId,
+      shipmentLayouts: data.shipmentLayouts,
       jobs: data.jobs.map((job) => ({
         ...job,
         fleet: [...job.fleet.values()],
@@ -202,6 +203,28 @@ const TRUCK_TYPE = object({
   innerWidthMm: nullable(NUM),
   innerHeightMm: nullable(NUM),
 })
+const SHIPMENT_LAYOUT = object({
+  name: STR,
+  exportedAt: STR,
+  lengthMm: NUM,
+  widthMm: NUM,
+  heightMm: NUM,
+  weightKg: NUM,
+  pieces: arrayOf(
+    object({
+      goods: STR,
+      xMm: NUM,
+      yMm: NUM,
+      zMm: NUM,
+      lengthMm: NUM,
+      widthMm: NUM,
+      heightMm: NUM,
+      rotated: BOOL,
+      weightKg: NUM,
+    }),
+  ),
+  unplacedPieces: INT,
+})
 const RESULT = object({
   status: JOB_STATUS,
   feasible: BOOL,
@@ -295,6 +318,8 @@ const FILE = object({
     // Added 04.11.2026; older files have no truck types.
     truckTypes: optional(arrayOf(TRUCK_TYPE)),
     nextTruckTypeId: optional(INT),
+    // Added 19.11.2026: layouts from smartLoad+, by shipment id.
+    shipmentLayouts: optional(recordOf(SHIPMENT_LAYOUT)),
   }),
 })
 
@@ -323,6 +348,10 @@ function checkReferences(data: FileData): void {
     for (const id of [s.pickupLocationId, s.deliveryLocationId]) {
       if (!places.has(id)) throw new DeviceFileError(`Fajl je oštećen ili izmenjen: pošiljka ${s.externalId} vodi do mesta ${id}, koje ne postoji.`)
     }
+  }
+  const shipmentIds = new Set(data.shipments.map((s) => String(s.id)))
+  for (const id of Object.keys(data.shipmentLayouts ?? {})) {
+    if (!shipmentIds.has(id)) throw new DeviceFileError(`Fajl je oštećen ili izmenjen: raspored iz smartLoad+ je za pošiljku ${id}, koja ne postoji.`)
   }
   for (const t of data.trucks) {
     if (t.startLocationId != null && !places.has(t.startLocationId)) {

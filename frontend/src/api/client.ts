@@ -21,6 +21,7 @@ import type {
   RouteLine,
   Shipment,
   ShipmentInput,
+  ShipmentLayoutPreview,
   ShipmentPatch,
   ShipmentUpdateResult,
   Truck,
@@ -72,6 +73,20 @@ export interface ApiClient {
    * job waits or runs.
    */
   deleteShipment(id: number): Promise<void>
+  /**
+   * NOT IN SPEC v2: reads a layout file from smartLoad+ ("smartload.layout") for a shipment and
+   * says what importing it would change; nothing changes. 400 with the reason for a bad file,
+   * 404 for an unknown shipment; 404 over HTTP and in the mock.
+   */
+  checkShipmentLayout(shipmentId: number, content: string): Promise<ShipmentLayoutPreview>
+  /**
+   * NOT IN SPEC v2: the shipment is placed by the layout from now on, in every truck and job
+   * (the pieces where its block stood), and takes its LDM (the occupied length, rounded up) and
+   * weight. Replaces a layout it had. 400, 404, 409 while a job waits or runs.
+   */
+  applyShipmentLayout(shipmentId: number, content: string): Promise<Shipment>
+  /** NOT IN SPEC v2: the shipment is one block again; its LDM and weight stay. 404 (also without a layout), 409. */
+  removeShipmentLayout(shipmentId: number): Promise<void>
 
   listTrucks(): Promise<Truck[]>
   createTruck(input: TruckInput): Promise<Truck>

@@ -1574,6 +1574,29 @@ button.quick-action--primary:hover:not(:disabled) {
   }
 }
 
+/* A layout from smartLoad+ for the chosen shipment, under the view (only on the device). */
+.layout-import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--card-gap);
+}
+
+.layout-import > p,
+.layout-import .notice p {
+  margin: 0;
+}
+
+.layout-import__changes {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
+}
+
+.layout-import__hint,
+.layout-import__done {
+  margin: var(--card-gap) 0 0;
+}
+
 .truck-view {
   display: flex;
   flex-direction: column;

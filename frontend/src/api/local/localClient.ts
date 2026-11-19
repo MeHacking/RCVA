@@ -23,6 +23,7 @@ import { assertValidTruck, assertValidTruckType, cleanTruckInput, toTruckType } 
 import { deviceFileName, DeviceFileError, readDeviceFile, writeDeviceFile } from './deviceFile'
 import { DeviceStoreError, type DeviceStore } from './deviceStore'
 import { shortenIds } from '../../domain/shipmentIds'
+import { layoutLdmTenths, LayoutFileError, readLayoutFile } from '../../domain/smartLoadLayout'
 import { createNominatimGeocoder, GeocodeError, placeKey, type GeocodeAnswer } from './nominatim'
 import { createOrsDistances, createOrsLines, createOrsSnap, pairKey, RoadDistanceError, type RoadPoint } from './openRouteService'
 import { findReachablePoint, placesOutOfReach, worthSearching } from './roadPointSearch'
@@ -39,6 +40,8 @@ import {
   type OptimizationResult,
   type RouteLine,
   type Shipment,
+  type ShipmentLayout,
+  type ShipmentLayoutPreview,
   type Truck,
   type TruckStart,
   type TruckType,
@@ -162,6 +165,11 @@ export interface LocalData {
   /** added 04.11.2026: the truck types the user added, in that order (older data has none) */
   truckTypes?: TruckType[]
   nextTruckTypeId?: number
+  /**
+   * added 19.11.2026: layouts imported from smartLoad+, by shipment id. Apart from the
+   * shipments, so the copies of the shipments every kept job holds stay small.
+   */
+  shipmentLayouts?: Record<number, ShipmentLayout>
 }
 
 /** Coordinates written to 6 decimals (about 10 cm), so a moved place is a new pair. */
@@ -200,6 +208,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   let jobLog: string[] = []
   const truckTypes: TruckType[] = []
   let nextTruckTypeId = 1
+  let shipmentLayouts: Record<number, ShipmentLayout> = {}
   const roadDistances = createOrsDistances(ors)
   const roadLines = createOrsLines(ors)
   const roadSnap = createOrsSnap(ors)
@@ -305,6 +314,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     jobLog = data.jobLog ?? data.jobs.map((j) => j.createdAt).sort()
     truckTypes.splice(0, truckTypes.length, ...(data.truckTypes ?? []))
     nextTruckTypeId = data.nextTruckTypeId ?? Math.max(0, ...truckTypes.map((t) => t.id)) + 1
+    shipmentLayouts = data.shipmentLayouts ?? {}
     jobs.clear()
     let interrupted = false
     for (const job of data.jobs) {
@@ -335,6 +345,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       jobLog,
       truckTypes,
       nextTruckTypeId,
+      shipmentLayouts,
     }
   }
 
@@ -368,6 +379,31 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       await persist()
       return value
     })
+  }
+
+  function findShipment(id: number): Shipment {
+    const shipment = shipments.find((s) => s.id === id)
+    if (!shipment) throw notFound(`Pošiljka ${id} ne postoji.`)
+    return shipment
+  }
+
+  /** What a layout file would do to the shipment; 400 for a bad file, 404 for an unknown shipment. */
+  function layoutPreview(shipmentId: number, content: string): ShipmentLayoutPreview {
+    const shipment = findShipment(shipmentId)
+    let layout: ShipmentLayout
+    try {
+      layout = readLayoutFile(content)
+    } catch (error) {
+      if (!(error instanceof LayoutFileError)) throw error
+      throw new ApiError({ title: 'Neispravan raspored', status: 400, detail: error.message })
+    }
+    return {
+      shipmentId,
+      layout,
+      before: { ldmTenths: shipment.ldmTenths, weightKg: shipment.weightKg },
+      after: { ldmTenths: layoutLdmTenths(layout), weightKg: layout.weightKg },
+      replaces: shipmentLayouts[shipmentId]?.name ?? null,
+    }
   }
 
   function findJob(id: number): LocalJob {
@@ -1007,7 +1043,9 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
             detail: `Kamion „${truck.name}“ nema unete dimenzije tovarnog prostora; 3D raspored nije moguć.`,
           })
         }
-        return rearLoadedPlan(jobId, route, { innerLengthMm, innerWidthMm, innerHeightMm }, job.input.shipments)
+        // The layouts as they are now (by shipment, not kept with the job), where the job's shipment still exists.
+        const layouts = new Map(Object.entries(shipmentLayouts).map(([id, layout]) => [Number(id), layout]))
+        return rearLoadedPlan(jobId, route, { innerLengthMm, innerWidthMm, innerHeightMm }, job.input.shipments, layouts)
       }),
 
     getRouteLine: (jobId, truckId) => respond(() => routeLine(jobId, truckId)),
@@ -1026,12 +1064,38 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         const kept = keptPlaces()
         const before = locations.length
         locations.splice(0, locations.length, ...locations.filter((l) => kept.has(l.id)))
+        shipmentLayouts = {}
         return { shipments: removed, locations: before - locations.length }
       }),
 
     updateShipment: (id, patch) => change(() => editor.update(id, patch)),
     createShipment: (input) => change(() => editor.create(input)),
-    deleteShipment: (id) => change(() => editor.remove(id)),
+    deleteShipment: (id) =>
+      change(() => {
+        editor.remove(id)
+        delete shipmentLayouts[id]
+      }),
+
+    checkShipmentLayout: (shipmentId, content) => respond(() => layoutPreview(shipmentId, content)),
+
+    applyShipmentLayout: (shipmentId, content) =>
+      change(() => {
+        const preview = layoutPreview(shipmentId, content)
+        assertNoActiveJob('raspored se može uvesti')
+        const shipment = findShipment(shipmentId)
+        shipment.ldmTenths = preview.after.ldmTenths
+        shipment.weightKg = preview.after.weightKg
+        shipmentLayouts[shipmentId] = preview.layout
+        return shipment
+      }),
+
+    removeShipmentLayout: (shipmentId) =>
+      change(() => {
+        const shipment = findShipment(shipmentId)
+        if (!shipmentLayouts[shipmentId]) throw notFound(`Pošiljka ${shipment.externalId} nema uvezen raspored.`)
+        assertNoActiveJob('raspored se može ukloniti')
+        delete shipmentLayouts[shipmentId]
+      }),
 
     shortenShipmentIds: () => change(() => ({ renamed: shortenIds(shipments, locations) })),
 

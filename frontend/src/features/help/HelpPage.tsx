@@ -385,6 +385,17 @@ function Steps() {
           piše koja je, odakle i kuda ide i kada se istovara; klik pored kamiona poništava izbor. „Ceo ekran“
           prikazuje 3D preko celog ekrana (Esc izlazi).
         </li>
+        {ON_DEVICE && (
+          <li>
+            <strong>Raspored iz smartLoad+</strong> (3D prikaz, ispod slike, za izabranu pošiljku): fajl koji napravi
+            „Izvezi raspored (JSON)“ u smartLoad+ zamenjuje blok pošiljke stvarnim komadima. Pre izmene se vidi šta se
+            menja: pošiljka dobija LDM po dužini rasporeda (zaokruženo naviše na desetinu) i težinu komada. „Primeni“
+            čuva raspored uz pošiljku: važi u svakom kamionu i rezultatu, i posle nove optimizacije, a pošiljke iza nje se
+            pomeraju za njegovu dužinu. Rezultat napravljen pre uvoza ima stare kilometre i kamione, pa upozorenje traži
+            novu optimizaciju. „Ukloni uvezeni raspored“ vraća blok; LDM i težina ostaju kao posle uvoza. U PDF-u se
+            crtaju komadi, sa jednim brojem za celu pošiljku.
+          </li>
+        )}
         <li>
           <strong>Izvezi ceo rezultat (PDF):</strong> izveštaj sa rezimeom na prvoj strani i svakim kamionom na svojoj
           strani (vozač, stanice redom sa kilometrima, pošiljke na kamionu i raspored tovara: crtež u 3D, gde broj

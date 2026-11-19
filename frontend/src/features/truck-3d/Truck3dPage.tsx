@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useApi } from '../../api/apiContext'
-import type { OptimizationJob, OptimizationResult, RoutePlan, Truck } from '../../api/types'
+import { apiMode } from '../../api/apiMode'
+import type { OptimizationJob, OptimizationResult, RoutePlan, Shipment, Truck } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { LdmBar } from '../../components/LdmBar'
 import { Notice } from '../../components/Notice'
@@ -13,8 +14,12 @@ import { completedJob, isLastJobBusy, useLastJob } from '../optimization/lastJob
 import { buildTruckRows, type ReferenceData } from '../optimization/resultRows'
 import { useReferenceData } from '../optimization/useReferenceData'
 import { parseRouteMapParams } from '../route-map/routeMapParams'
-import { placementColor } from './placementColor'
+import { LayoutImport } from './LayoutImport'
+import { planShipments } from './planShipments'
 import { TruckVisualizer } from './TruckVisualizer'
+
+/** Layouts from smartLoad+ are kept only on the device. */
+const CAN_IMPORT_LAYOUT = apiMode() === 'local'
 
 export function Truck3dPage() {
   const { state } = useLastJob()
@@ -105,6 +110,9 @@ function TruckLoad({
   const load = useCallback(() => api.getLoadPlan(jobId, truck.id), [api, jobId, truck.id])
   const [plan, reload] = useAsyncData(load)
   const [selectedShipmentId, setSelectedShipmentId] = useState<number | null>(null)
+  // Shipments a layout from smartLoad+ changed here (LDM, weight): the reference data is from before.
+  const [changed, setChanged] = useState<ReadonlyMap<number, Shipment>>(new Map())
+  const [layoutMessage, setLayoutMessage] = useState<string | null>(null)
 
   if (plan.status === 'loading') return <LoadingState label="Učitavanje rasporeda…" />
   if (plan.status === 'error') return <ErrorState title="Raspored nije učitan" message={plan.message} onRetry={reload} />
@@ -114,11 +122,16 @@ function TruckLoad({
   if (innerLengthMm === null || innerWidthMm === null || innerHeightMm === null) {
     return <ErrorState title="Nedostaju dimenzije kamiona" message="Unesite dimenzije tovarnog prostora na ekranu Kamioni." />
   }
-  const shipments = new Map(reference.shipments.map((s) => [s.id, s]))
+  const shipments = new Map(reference.shipments.map((s) => [s.id, changed.get(s.id) ?? s]))
   const locations = new Map(reference.locations.map((l) => [l.id, l.name]))
-  const toggle = (id: number) => setSelectedShipmentId((current) => (current === id ? null : id))
-  const chosenIndex = placements.findIndex((p) => p.shipmentId === selectedShipmentId)
-  const chosen = chosenIndex < 0 ? undefined : placements[chosenIndex]
+  const toggle = (id: number) => {
+    setLayoutMessage(null)
+    setSelectedShipmentId((current) => (current === id ? null : id))
+  }
+  // By shipment: a shipment with a layout from smartLoad+ is many pieces.
+  const planned = planShipments(placements)
+  const layouts = new Map((plan.data.layouts ?? []).map((l) => [l.shipmentId, l]))
+  const chosen = planned.find((s) => s.shipmentId === selectedShipmentId)
   // 1 = the first shipment off the truck (it stands at the doors: loading is from the rear).
   const deliveryOrder = new Map(
     (route?.stops ?? []).filter((s) => s.type === 'DELIVERY').map((s, i) => [s.shipmentId, i + 1] as const),
@@ -147,7 +160,7 @@ function TruckLoad({
           selectedInfo={
             chosen && (
               <>
-                <span className="truck-3d__swatch" style={{ background: placementColor(chosenIndex) }} aria-hidden="true" />{' '}
+                <span className="truck-3d__swatch" style={{ background: chosen.color }} aria-hidden="true" />{' '}
                 <strong>{chosenShipment?.externalId ?? `Pošiljka #${chosen.shipmentId}`}</strong>
                 {': '}
                 {[
@@ -155,6 +168,7 @@ function TruckLoad({
                     `${locations.get(chosenShipment.pickupLocationId) ?? '?'} → ${locations.get(chosenShipment.deliveryLocationId) ?? '?'}`,
                   chosenShipment && `${formatLdm(chosenShipment.ldmTenths)} LDM`,
                   formatDimensionsMm(chosen.lengthMm, chosen.widthMm, chosen.heightMm),
+                  layouts.has(chosen.shipmentId) && `${chosen.pieces} komada iz smartLoad+`,
                   chosenShipment?.weightKg != null && `${formatKg(chosenShipment.weightKg)} kg`,
                   chosenUnloaded !== undefined && `istovar ${chosenUnloaded}.`,
                 ]
@@ -166,7 +180,7 @@ function TruckLoad({
         />
         <section className="panel truck-3d__list" aria-labelledby="truck-3d-shipments">
           <h2 id="truck-3d-shipments">
-            {truck.name}: {placements.length} pošiljke
+            {truck.name}: {planned.length} pošiljke
           </h2>
           {route && <LdmBar usedLdmTenths={route.usedLdmTenths} capacityLdmTenths={truck.capacityLdmTenths} />}
           <p className="truck-3d__space">
@@ -174,9 +188,10 @@ function TruckLoad({
             <span className="truck-3d__chip">{formatDimensionsMm(innerLengthMm, innerWidthMm, innerHeightMm)}</span>
           </p>
           <ul className="truck-3d__shipments">
-            {placements.map((p, index) => {
+            {planned.map((p) => {
               const shipment = shipments.get(p.shipmentId)
               const unloaded = deliveryOrder.get(p.shipmentId)
+              const layout = layouts.get(p.shipmentId)
               return (
                 <li key={p.shipmentId}>
                   <button
@@ -186,7 +201,7 @@ function TruckLoad({
                     onClick={() => toggle(p.shipmentId)}
                   >
                     {/* The same colour as the shipment's block in the 3D view. */}
-                    <span className="truck-3d__swatch" style={{ background: placementColor(index) }} aria-hidden="true" />
+                    <span className="truck-3d__swatch" style={{ background: p.color }} aria-hidden="true" />
                     <span className="truck-3d__id">{shipment?.externalId ?? `Pošiljka #${p.shipmentId}`}</span>
                     <span className="truck-3d__ldm">{shipment ? `${formatLdm(shipment.ldmTenths)} LDM` : ''}</span>
                     {shipment && (
@@ -199,6 +214,7 @@ function TruckLoad({
                       {[
                         unloaded !== undefined && `istovar ${unloaded}.`,
                         shipment?.weightKg != null && `${formatKg(shipment.weightKg)} kg`,
+                        layout && `${layout.pieces} komada (smartLoad+)`,
                       ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -210,6 +226,33 @@ function TruckLoad({
           </ul>
         </section>
       </div>
+      {layoutMessage && (
+        <p role="status" className="text--success layout-import__done">
+          {layoutMessage}
+        </p>
+      )}
+      {CAN_IMPORT_LAYOUT &&
+        (chosenShipment ? (
+          <LayoutImport
+            key={chosenShipment.id}
+            shipment={chosenShipment}
+            current={layouts.get(chosenShipment.id) ?? null}
+            space={{ innerLengthMm, innerWidthMm, innerHeightMm }}
+            onApplied={(shipment, message) => {
+              setChanged((previous) => new Map(previous).set(shipment.id, shipment))
+              setLayoutMessage(message)
+              reload()
+            }}
+            onRemoved={(message) => {
+              setLayoutMessage(message)
+              reload()
+            }}
+          />
+        ) : (
+          <p className="text--muted layout-import__hint">
+            Detaljan raspored iz smartLoad+ uvozi se za izabranu pošiljku: izaberite je u prikazu ili u spisku.
+          </p>
+        ))}
     </>
   )
 }

@@ -43,6 +43,21 @@ describe('3D scene from the load plan', () => {
     expect(placementColor(0)).not.toBe(placementColor(1))
   })
 
+  it('gives every piece of a shipment from smartLoad+ the shipment colour, and the next shipment the next one', () => {
+    const pieces = piecesFromPlan([
+      placement(7, 0, 1000),
+      { ...placement(4, 1000, 1200), piece: 1 },
+      { ...placement(4, 2200, 1200), piece: 2 },
+      placement(9, 3400, 600),
+    ])
+    expect(pieces.map((p) => [p.shipmentId, p.color])).toEqual([
+      [7, placementColor(0)],
+      [4, placementColor(1)],
+      [4, placementColor(1)],
+      [9, placementColor(2)],
+    ])
+  })
+
   it('puts a block with plan y (across) on scene Z and plan z (up) on scene Y', () => {
     const [piece] = piecesFromPlan([placement(7, 1000, 1200)])
     expect(boxFor(piece)).toEqual({ cx: 160, cy: 105, cz: 60, sx: 120, sy: 150, sz: 80 })

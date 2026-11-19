@@ -91,7 +91,8 @@ export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = 
             onSelect={(id) => onSelect?.(id)}
             view={view}
             viewTick={viewTick}
-            label={`3D prikaz kamiona: ${formatShipmentCount(placements.length)} u tovarnom prostoru`}
+            // A shipment from smartLoad+ is many pieces.
+            label={`3D prikaz kamiona: ${formatShipmentCount(new Set(placements.map((p) => p.shipmentId)).size)} u tovarnom prostoru`}
           />
         </Suspense>
       </div>

@@ -1,5 +1,5 @@
 import type { Placement } from '../../api/types'
-import { placementColor } from './placementColor'
+import { shipmentColors } from './planShipments'
 import { truckShape } from './truckShape'
 
 // The load plan -> the 3D scene, without three.js (so it can be tested). Taken over from
@@ -22,7 +22,7 @@ export interface Space {
   H: number
 }
 
-/** One shipment's block in cm, as placed (l along, w across, h up). */
+/** One block in cm, as placed (l along, w across, h up): a shipment, or a piece of one from smartLoad+. */
 export interface Piece {
   shipmentId: number
   color: string
@@ -51,11 +51,15 @@ export function spaceOf(truck: CargoSpaceMm): Space {
   return { L: cm(truck.innerLengthMm), W: cm(truck.innerWidthMm), H: cm(truck.innerHeightMm) }
 }
 
-/** The colour is the block's place in the plan, as in the list beside the view and in the PDF. */
+/**
+ * The colour is the shipment's place in the plan, as in the list beside the view and in the
+ * PDF; every piece of a shipment from smartLoad+ has it.
+ */
 export function piecesFromPlan(placements: Placement[]): Piece[] {
-  return placements.map((p, index) => ({
+  const colors = shipmentColors(placements)
+  return placements.map((p) => ({
     shipmentId: p.shipmentId,
-    color: placementColor(index),
+    color: colors.get(p.shipmentId) as string,
     x: cm(p.xMm),
     y: cm(p.yMm),
     z: cm(p.zMm),

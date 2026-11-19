@@ -311,6 +311,19 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
         throw notFound('Izvoz i uvoz podataka postoje samo u aplikaciji na uređaju.')
       }),
 
+    checkShipmentLayout: () =>
+      respond(() => {
+        throw notFound('Uvoz rasporeda iz smartLoad+ postoji samo u aplikaciji na uređaju.')
+      }),
+    applyShipmentLayout: () =>
+      respond(() => {
+        throw notFound('Uvoz rasporeda iz smartLoad+ postoji samo u aplikaciji na uređaju.')
+      }),
+    removeShipmentLayout: () =>
+      respond(() => {
+        throw notFound('Uvoz rasporeda iz smartLoad+ postoji samo u aplikaciji na uređaju.')
+      }),
+
     reassignShipment: () =>
       respond(() => {
         throw notFound('Ručna preraspodela pošiljki postoji samo u aplikaciji na uređaju.')
