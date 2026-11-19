@@ -89,6 +89,9 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema ručni unos pošiljki.' })),
     deleteShipment: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema uklanjanje pošiljke.' })),
+    checkShipmentLayout: () => Promise.reject(noLayouts()),
+    applyShipmentLayout: () => Promise.reject(noLayouts()),
+    removeShipmentLayout: () => Promise.reject(noLayouts()),
     checkDeviceData: () => Promise.reject(noDeviceData()),
     replaceDeviceData: () => Promise.reject(noDeviceData()),
     resetDevice: () => Promise.reject(noDeviceData()),
@@ -105,6 +108,10 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     applyPlaceSearch: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema ponovno traženje mesta.' })),
   }
+}
+
+function noLayouts(): ApiError {
+  return new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema uvoz rasporeda iz smartLoad+.' })
 }
 
 function noDeviceData(): ApiError {
