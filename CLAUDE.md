@@ -1137,7 +1137,7 @@ RCVA/
 
 ```bash
 cd frontend
-npm run dev                          # http://localhost:5173, na uređaju (put B), prazan početak
+npm run dev                          # http://localhost:5180 (od 19.11.2026; 5173 je za smartLoad), na uređaju, prazan početak
 VITE_MOCK_SCENARIO=small npm run dev # na uređaju, probni početni podaci (i: test7, proven, notFound)
 VITE_API_MODE=mock npm run dev       # mock, fiksan ishod po scenariju (podrazumevano "small")
 VITE_API_MODE=server npm run dev     # sve preko backend-a (Vite proxy /api -> :8080)

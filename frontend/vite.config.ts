@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   // VITE_API_MODE=server: /api goes to the Spring Boot backend (backend/, port 8080)
   server: {
+    // Not Vite's default 5173, so smartLoad can run at the same time; strictPort: fail
+    // instead of moving to another port (the data on the device belongs to the address).
+    // Playwright starts its own servers with --port (5174-5178).
+    port: 5180,
+    strictPort: true,
     proxy: { '/api': 'http://localhost:8080' },
   },
   test: {

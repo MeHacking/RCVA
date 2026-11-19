@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 // One dev server per mock scenario (VITE_API_MODE=mock; the default mode is local), and one
 // for the application on the device (VITE_API_MODE=local) starting from "small". Ports differ from a manually started `npm run dev`
-// (5173), so it is never reused by accident.
+// (5180, vite.config.ts), so it is never reused by accident.
 const SERVERS = {
   small: 5174,
   proven: 5175,
