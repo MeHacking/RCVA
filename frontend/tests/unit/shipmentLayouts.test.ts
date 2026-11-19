@@ -4,6 +4,7 @@ import { readDeviceFile } from '../../src/api/local/deviceFile'
 import { createMemoryStore, type DeviceStore } from '../../src/api/local/deviceStore'
 import { createLocalApiClient, type LocalData } from '../../src/api/local/localClient'
 import { createMockApiClient } from '../../src/api/mock/mockClient'
+import { TERMINAL_JOB_STATUSES } from '../../src/api/types'
 import type { SolverRunner } from '../../src/domain/optimization/solverRunner'
 import { runInThread } from '../../src/domain/optimization/solverRunner'
 import { SCENARIOS } from '../../src/fixtures'
@@ -29,6 +30,14 @@ async function rejection(promise: Promise<unknown>): Promise<ApiError> {
   )
   expect(error).toBeInstanceOf(ApiError)
   return error as ApiError
+}
+
+async function settle(api: ApiClient, id: number): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    if (TERMINAL_JOB_STATUSES.includes((await api.getOptimizationJob(id)).status)) return
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+  throw new Error('job did not finish')
 }
 
 async function shipment(api: ApiClient, id = SHIPMENT) {
@@ -146,6 +155,35 @@ describe('layouts from smartLoad+ on the device', () => {
     const parsed = JSON.parse(file!.content) as { data: Record<string, unknown> }
     delete parsed.data.shipmentLayouts
     expect((await api.checkDeviceData(JSON.stringify(parsed))).shipments).toBe(SCENARIOS.small.shipments.length)
+  })
+
+  it('places the shipment by its layout in the load plans of kept results', async () => {
+    const api = client()
+    const { id } = await api.createOptimizationJob(REQUEST)
+    await settle(api, id)
+    const route = (await api.getOptimizationResult(id)).routes.find((r) => r.stops.some((s) => s.shipmentId === SHIPMENT))!
+    const before = await api.getLoadPlan(id, route.truckId)
+    expect(before.placements.filter((p) => p.shipmentId === SHIPMENT)).toHaveLength(1)
+
+    await api.applyShipmentLayout(SHIPMENT, layoutText())
+    const after = await api.getLoadPlan(id, route.truckId)
+    expect(after.placements.filter((p) => p.shipmentId === SHIPMENT)).toHaveLength(7)
+    expect(after.layouts).toEqual([{ shipmentId: SHIPMENT, name: '2,4 LDM - Proba', pieces: 7 }])
+    // The job counted the shipment's earlier 4,0 LDM.
+    expect(after.warnings).toContain(
+      'Pošiljka S-101 je u ovom rezultatu računata sa 4,0 LDM, a po rasporedu iz smartLoad+ zauzima 2,4 LDM; pokrenite optimizaciju ponovo.',
+    )
+
+    // A new job counts the new LDM: no such warning.
+    const next = await api.createOptimizationJob(REQUEST)
+    await settle(api, next.id)
+    const nextRoute = (await api.getOptimizationResult(next.id)).routes.find((r) => r.stops.some((s) => s.shipmentId === SHIPMENT))!
+    const plan = await api.getLoadPlan(next.id, nextRoute.truckId)
+    expect(plan.placements.filter((p) => p.shipmentId === SHIPMENT)).toHaveLength(7)
+    expect(plan.warnings.filter((w) => w.includes('pokrenite optimizaciju ponovo'))).toEqual([])
+
+    await api.removeShipmentLayout(SHIPMENT)
+    expect((await api.getLoadPlan(next.id, nextRoute.truckId)).placements.filter((p) => p.shipmentId === SHIPMENT)).toHaveLength(1)
   })
 
   it('is not in the mock', async () => {

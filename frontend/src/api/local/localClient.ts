@@ -1043,7 +1043,9 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
             detail: `Kamion „${truck.name}“ nema unete dimenzije tovarnog prostora; 3D raspored nije moguć.`,
           })
         }
-        return rearLoadedPlan(jobId, route, { innerLengthMm, innerWidthMm, innerHeightMm }, job.input.shipments)
+        // The layouts as they are now (by shipment, not kept with the job), where the job's shipment still exists.
+        const layouts = new Map(Object.entries(shipmentLayouts).map(([id, layout]) => [Number(id), layout]))
+        return rearLoadedPlan(jobId, route, { innerLengthMm, innerWidthMm, innerHeightMm }, job.input.shipments, layouts)
       }),
 
     getRouteLine: (jobId, truckId) => respond(() => routeLine(jobId, truckId)),
