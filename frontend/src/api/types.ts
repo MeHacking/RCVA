@@ -262,6 +262,11 @@ export interface Placement {
   widthMm: number
   heightMm: number
   rotated: boolean
+  /**
+   * NOT IN SPEC v2: the piece's number (1..n) when the shipment has a layout from smartLoad+;
+   * the shipment is then several placements, one per piece. Missing: one block per shipment.
+   */
+  piece?: number
 }
 
 /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan */
@@ -271,6 +276,54 @@ export interface LoadPlan {
   mode: LoadPlanMode
   placements: Placement[]
   warnings: string[]
+  /** NOT IN SPEC v2: the shipments in this plan placed by a layout from smartLoad+ */
+  layouts?: Array<{ shipmentId: number; name: string; pieces: number }>
+}
+
+/** NOT IN SPEC v2: one piece of a shipment's layout from smartLoad+, in mm from the start of the load */
+export interface LayoutPiece {
+  /** the goods' name in smartLoad+ */
+  goods: string
+  xMm: number
+  yMm: number
+  zMm: number
+  /** after turning, as in Placement */
+  lengthMm: number
+  widthMm: number
+  heightMm: number
+  rotated: boolean
+  weightKg: number
+}
+
+/**
+ * NOT IN SPEC v2: a shipment's detailed layout imported from smartLoad+ (its file format
+ * "smartload.layout", version 1). The pieces are measured from the start of the load, so the
+ * layout goes wherever the shipment stands in a truck.
+ */
+export interface ShipmentLayout {
+  /** the optimization's name in smartLoad+ */
+  name: string
+  /** when smartLoad+ exported it (ISO 8601) */
+  exportedAt: string
+  /** the occupied length (the shipment's LDM comes from it), and how wide and high the pieces reach */
+  lengthMm: number
+  widthMm: number
+  heightMm: number
+  weightKg: number
+  pieces: LayoutPiece[]
+  /** pieces smartLoad+ could not fit */
+  unplacedPieces: number
+}
+
+/** NOT IN SPEC v2: what importing a layout would do to a shipment (nothing changes yet) */
+export interface ShipmentLayoutPreview {
+  shipmentId: number
+  layout: ShipmentLayout
+  /** the shipment now, and with the layout: LDM from the occupied length (rounded up), the weight of the pieces */
+  before: { ldmTenths: number; weightKg: number | null }
+  after: { ldmTenths: number; weightKg: number }
+  /** the name of the layout the shipment has now, which this one replaces */
+  replaces: string | null
 }
 
 // Excel import, Spec v2 section 6: POST /imports/excel, PUT /imports/{id}/mapping,
