@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { collectPageErrors } from '../consoleGuard.ts'
+import { layoutText } from '../../unit/layoutFile.ts'
 
 // "Uredi" on the 3D screen (only on the device; as the Rezultat step of smartLoad): the floor
 // from above and the 3D view, where a whole shipment is dragged, moved by the arrows and turned;
@@ -95,7 +96,7 @@ test('arranges a truck\'s load by hand, keeps it, and gives the computed one bac
   const problems = editor.getByRole('complementary', { name: 'Izabrano i pravila' })
   await expect(problems).toContainText('ne može da izađe: na njoj je')
   await expect(problems).toContainText('Visina dna')
-  await expect(problems).toContainText('(na drugoj pošiljci)')
+  await expect(problems).toContainText(`(na S-${doors.id})`)
   const moved = (await floor(page)).find((p) => p.id === front.id)!
   expect(moved.x).not.toBe(front.x)
   await expect(save).toBeEnabled()
@@ -248,7 +249,7 @@ test('puts a shipment aside on the ground for a while and back with "Ubaci"; the
   await expect(editor.getByRole('button', { name: 'Legenda' })).toHaveAttribute('aria-expanded', 'false')
 
   const aside = editor.getByRole('region', { name: /^Van kamiona/ })
-  await expect(aside).toContainText('Prevucite pošiljku u 3D prikazu')
+  await expect(aside).toContainText('Prevucite pošiljku ili paket u 3D prikazu')
   const start = await floor(page)
   const id = start[0].id
 
@@ -296,6 +297,92 @@ test('puts a shipment aside on the ground for a while and back with "Ubaci"; the
   await expect(legend).toBeHidden()
   await editor.getByRole('button', { name: 'Legenda' }).click()
   await expect(legend).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('moves every package of a shipment from smartLoad+ on its own', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/optimization')
+  await page.getByLabel('Vremensko ograničenje (s)').fill('1')
+  await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('navigation').getByRole('link', { name: '3D prikaz kamiona' }).click()
+  await ready(page)
+  // The invented layout (six pallets, a crate on the first two) for the first shipment of the list.
+  const first = page.locator('.truck-3d__shipments').getByRole('button').first()
+  const name = (await first.locator('.truck-3d__id').textContent())!
+  const id = Number(name.replace(/\D/g, ''))
+  await first.click()
+  await page
+    .getByLabel('Fajl sa rasporedom iz smartLoad+')
+    .setInputFiles({ name: 'raspored.json', mimeType: 'application/json', buffer: Buffer.from(layoutText((f) => (f.load.lengthMm = 2600))) })
+  await page.getByRole('button', { name: 'Primeni' }).click()
+  await expect(first).toContainText('7 komada (smartLoad+)')
+  await ready(page)
+
+  await page.getByRole('button', { name: 'Uredi', exact: true }).click()
+  const editor = page.getByRole('region', { name: /^Uređivanje rasporeda/ })
+  await expect(editor).toBeVisible()
+  await ready(page)
+  const panel = editor.getByRole('complementary', { name: 'Izabrano i pravila' })
+  const at = async (key: string) => {
+    const r = page.locator(`[data-testid=load-editor-floor] rect[data-key="${key}"]`)
+    return { x: Number(await r.getAttribute('x')), y: Number(await r.getAttribute('y')) }
+  }
+  const six = await at(`${id}#6`)
+  const five = await at(`${id}#5`)
+
+  // A click picks one package; the arrows move it alone.
+  await page.locator('.load-editor__floor').evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  await page.locator(`[data-testid=load-editor-floor] rect[data-key="${id}#6"]`).click()
+  await expect(panel.getByRole('heading')).toContainText(`${name}, paket 6`)
+  await expect(panel).toContainText('6. od 7 (iz smartLoad+)')
+  await editor.getByRole('group', { name: 'Korak strelica' }).getByRole('button', { name: '10 cm' }).click()
+  await page.getByRole('application', { name: /Pod kamiona odozgo/ }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(() => at(`${id}#6`)).toEqual({ x: six.x + 10, y: six.y })
+  expect(await at(`${id}#5`)).toEqual(five)
+  await expect(editor.getByText('Sva pravila su ispunjena.')).toBeVisible()
+  // Pushed onto its neighbour it climbs on it, and the rules are per package.
+  await page.keyboard.press('ArrowUp')
+  await expect(panel).toContainText(`Visina dna110 cm (na ${name}, paket 5)`)
+  await expect(panel).toContainText(`${name}, paket 6 nema pun oslonac`)
+  await page.keyboard.press('Control+z')
+  await page.keyboard.press('Control+z')
+  await expect.poll(() => at(`${id}#6`)).toEqual(six)
+  // R turns it alone too (120 × 80 becomes 80 × 120); the other packages stay as they were.
+  const size = (key: string) =>
+    page.locator(`[data-testid=load-editor-floor] rect[data-key="${key}"]`).evaluate((r) => [r.getAttribute('width'), r.getAttribute('height')])
+  const before = await page.locator('[data-testid=load-editor-floor] rect[data-key]').evaluateAll((l) => l.map((r) => r.outerHTML))
+  await page.keyboard.press('r')
+  await expect.poll(() => size(`${id}#6`)).toEqual(['80', '120'])
+  const after = await page.locator('[data-testid=load-editor-floor] rect[data-key]').evaluateAll((l) => l.map((r) => r.outerHTML))
+  expect(after.filter((html) => !before.includes(html))).toHaveLength(1)
+  await page.keyboard.press('Control+z')
+  await expect.poll(() => size(`${id}#6`)).toEqual(['120', '80'])
+
+  // Two packages put on the ground in 3D: one row for the shipment, "× 2"; "Ubaci" one at a time.
+  await editor.getByRole('group', { name: 'Pogled' }).getByRole('button', { name: 'Odozgo' }).click()
+  const canvas = editor.locator('.truck3d canvas')
+  await canvas.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  const screenOf = (key: string) =>
+    canvas.evaluate((c, k) => (c as HTMLCanvasElement & { rcvaProbe: { screenOfKey: (key: string) => { x: number; y: number } | null } }).rcvaProbe.screenOfKey(k), key)
+  const aside = editor.getByRole('region', { name: /^Van kamiona/ })
+  for (const n of [6, 5]) {
+    await expect.poll(async () => (await screenOf(`${id}#${n}`)) !== null).toBe(true)
+    const from = (await screenOf(`${id}#${n}`))!
+    const box = (await canvas.boundingBox())!
+    await dragTo(page, from, { x: from.x, y: box.y + box.height - 8 })
+    await expect(page.locator(`[data-testid=load-editor-floor] rect[data-key="${id}#${n}"]`)).toHaveCount(0)
+  }
+  await expect(aside.getByRole('heading')).toHaveText('Van kamiona (2)')
+  await expect(aside.getByRole('listitem')).toHaveCount(1)
+  await expect(aside.getByRole('listitem')).toContainText(`${name}× 2`)
+  await aside.getByRole('button', { name: `Ubaci jedan paket ${name} u kamion (od 2)` }).click()
+  await expect(aside.getByRole('heading')).toHaveText('Van kamiona (1)')
+  await aside.getByRole('button', { name: /^Ubaci .*, paket \d u kamion$/ }).click()
+  await expect(aside.getByRole('heading')).toHaveText('Van kamiona')
+  await expect(editor.getByText('Sva pravila su ispunjena.')).toBeVisible()
   expect(errors).toEqual([])
 })
 

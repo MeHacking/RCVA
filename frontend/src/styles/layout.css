@@ -2181,6 +2181,24 @@ button.truck-3d__shipment[aria-pressed='true'] {
   font-size: var(--text-xs);
 }
 
+/* The shipment's name, and how many of its packages are on the ground (the count always shows). */
+.load-editor__aside-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.load-editor__aside-title strong {
+  min-width: 0;
+}
+
+.load-editor__aside-count {
+  flex: none;
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+}
+
 /* the colour of the shipment, as in the list beside the 3D view (without its grid place) */
 .load-editor__aside-item .truck-3d__swatch {
   grid-area: auto;

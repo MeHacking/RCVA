@@ -19,8 +19,9 @@ import {
   putOnGround,
   rotateGroup,
   samePlaces,
-  shipmentsAside,
-  shipmentsAt,
+  asideRows,
+  piecesAt,
+  pieceLabel,
   snapMove,
   unloadOrder,
   type EditPiece,
@@ -80,7 +81,7 @@ interface Drag {
 }
 
 interface FloorPress extends Drag {
-  base: number
+  base: string
   moved: boolean
   px: number
   py: number
@@ -116,10 +117,11 @@ export function LoadEditor(props: LoadEditorProps) {
   const [pieces, setPieces] = useState<EditPiece[]>(original)
   const [past, setPast] = useState<EditPiece[][]>([])
   const [future, setFuture] = useState<EditPiece[][]>([])
-  // Several shipments may be chosen (Ctrl+click, Shift+drag in 3D); the last one leads.
-  const [selection, setSelection] = useState<number[]>([])
+  // Several bodies may be chosen (Ctrl+click, Shift+drag in 3D); the last one leads. A body is a
+  // shipment's block, or one package of a shipment from smartLoad+ (EditPiece.key).
+  const [selection, setSelection] = useState<string[]>([])
   const selected = selection.length > 0 ? selection[selection.length - 1] : null
-  const choose = (id: number | null) => setSelection(id === null ? [] : [id])
+  const choose = (key: string | null) => setSelection(key === null ? [] : [key])
   const [step, setStep] = useState<(typeof STEPS)[number]>(1)
   const [zoom, setZoom] = useState(1)
   const [view, setView] = useState<ViewName>('iso')
@@ -142,17 +144,24 @@ export function LoadEditor(props: LoadEditorProps) {
   const scene = useMemo(() => ({ ...space, yard: true }), [space])
   const order = useMemo(() => (props.route ? unloadOrder(props.route) : { number: new Map(), visit: new Map() }), [props.route])
   const name = (id: number) => names.get(id) ?? `#${id}`
+  const byKey = useMemo(() => new Map(pieces.map((p) => [p.key, p])), [pieces])
+  /** "S-103", or "S-103, paket 4" for a package from smartLoad+ */
+  const label = (key: string) => {
+    const p = byKey.get(key)
+    return p ? pieceLabel(name)(p) : key
+  }
   // The rules, the cards and the floor from above are about what is in the truck.
   const inside = useMemo(() => inTruck(pieces), [pieces])
-  const aside = useMemo(() => shipmentsAside(pieces), [pieces])
-  const isOut = (id: number) => aside.includes(id)
-  /** The chosen shipments on the same side as `lead` (in the truck, or on the ground): they move together. */
-  const sameSide = (ids: number[], lead: number) => ids.filter((id) => isOut(id) === isOut(lead))
+  const aside = useMemo(() => asideRows(pieces), [pieces])
+  const asideCount = pieces.length - inside.length
+  const isOut = (key: string) => Boolean(byKey.get(key)?.out)
+  /** The chosen bodies on the same side as `lead` (in the truck, or on the ground): they move together. */
+  const sameSide = (keys: string[], lead: string) => keys.filter((key) => isOut(key) === isOut(lead))
   const problems = useMemo(
     () => checkLoad(inside, space, order, (id) => names.get(id) ?? `#${id}`),
     [inside, space, order, names],
   )
-  const bad = useMemo(() => new Set(problems.flatMap((p) => p.shipmentIds)), [problems])
+  const bad = useMemo(() => new Set(problems.flatMap((p) => p.keys)), [problems])
   const group = groupOf(pieces, selection)
   const changed = past.length > 0
   const [notice, setNotice] = useState<string | null>(null)
@@ -189,11 +198,11 @@ export function LoadEditor(props: LoadEditorProps) {
     setPast((h) => [...h, pieces])
     setPieces(next)
   }
-  function rotate(id: number | null = selected) {
-    if (id === null) return
-    const g = groupOf(pieces, selection.includes(id) ? sameSide(selection, id) : [id])
-    let next = rotateGroup(pieces, g, id, yard.groundZ)
-    if (isOut(id)) {
+  function rotate(key: string | null = selected) {
+    if (key === null) return
+    const g = groupOf(pieces, selection.includes(key) ? sameSide(selection, key) : [key])
+    let next = rotateGroup(pieces, g, key, yard.groundZ)
+    if (isOut(key)) {
       // On the ground it stays on the ground, off the truck.
       const e = extentOf(next.filter((p) => g.has(p.key)))
       next = putOnGround(next, g, e.minX, e.minY, yard)
@@ -228,21 +237,21 @@ export function LoadEditor(props: LoadEditorProps) {
     }
     setPieces(d.last)
   }
-  function startDrag(start: EditPiece[], ids: number[], x: number, y: number, free: boolean): Drag {
-    const g = groupOf(start, ids)
+  function startDrag(start: EditPiece[], keys: string[], x: number, y: number, free: boolean): Drag {
+    const g = groupOf(start, keys)
     const e = extentOf(start.filter((p) => g.has(p.key)))
     return { start, group: g, minX: e.minX, minY: e.minY, fromX: x, fromY: y, last: null, free }
   }
   /** "Ubaci": from the ground back into the truck, at the first place from the front that breaks no rule. */
-  function insert(id: number) {
-    const next = placeFromFront(pieces, id, space, order, yard)
+  function insert(key: string) {
+    const next = placeFromFront(pieces, key, space, order, yard)
     if (!next) {
-      setNotice(`${name(id)}: u kamionu nema mesta na kome ne bi kršila pravila. Prevucite je u 3D prikazu gde treba.`)
+      setNotice(`${label(key)}: u kamionu nema mesta na kome ne bi kršila pravila. Prevucite je u 3D prikazu gde treba.`)
       return
     }
     setNotice(null)
     commit(next)
-    choose(id)
+    choose(key)
   }
 
   // ---- The floor from above ----
@@ -255,17 +264,17 @@ export function LoadEditor(props: LoadEditorProps) {
   function onDown(e: PointerEvent<SVGSVGElement>) {
     if (e.button !== 0) return
     const p = toCm(e)
-    const hits = shipmentsAt(inside, p.x, p.y)
+    const hits = piecesAt(inside, p.x, p.y)
     if (e.ctrlKey || e.metaKey) {
-      const id = hits[0]
-      if (id !== undefined) setSelection((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+      const key = hits[0]
+      if (key !== undefined) setSelection((s) => (s.includes(key) ? s.filter((x) => x !== key) : [...s, key]))
       return
     }
     if (hits.length === 0) {
       choose(null)
       return
     }
-    // Pressing on a chosen shipment keeps the choice; several chosen move together.
+    // Pressing on a chosen body keeps the choice; several chosen move together.
     const already = hits.find((h) => selection.includes(h))
     const base = already ?? hits[0]
     const many = already !== undefined && selection.length > 1
@@ -298,19 +307,19 @@ export function LoadEditor(props: LoadEditorProps) {
       return
     }
     if (d.cycle) {
-      // The same spot again: the next shipment down (then back to the top).
+      // The same spot again: the next body down (then back to the top).
       const p = toCm(e)
-      const hits = shipmentsAt(inside, p.x, p.y)
+      const hits = piecesAt(inside, p.x, p.y)
       const next = hits[(hits.indexOf(d.base) + 1) % hits.length]
       if (next !== undefined) choose(next)
     }
   }
 
   // ---- The 3D view: the same moves, in plan cm ----
-  function start3d(id: number, at: { x: number; y: number }) {
-    const many = selection.includes(id) && selection.length > 1
-    if (!many) choose(id)
-    drag3d.current = startDrag(pieces, many ? sameSide(selection, id) : [id], at.x, at.y, true)
+  function start3d(key: string, at: { x: number; y: number }) {
+    const many = selection.includes(key) && selection.length > 1
+    if (!many) choose(key)
+    drag3d.current = startDrag(pieces, many ? sameSide(selection, key) : [key], at.x, at.y, true)
   }
   function move3d(at: { x: number; y: number }) {
     const d = drag3d.current
@@ -362,22 +371,30 @@ export function LoadEditor(props: LoadEditorProps) {
 
   // Lowest first, so the top of every stack is drawn last (what is seen from above).
   const drawOrder = [...inside].sort((a, b) => a.z + a.h - (b.z + b.h))
-  const labels = shipmentIds.map((id) => {
-    const e = extentOf(inside.filter((p) => p.shipmentId === id))
-    const cx = (e.minX + e.maxX) / 2
-    const cy = (e.minY + e.maxY) / 2
-    // Only where the shipment is the one seen from above.
-    return { id, cx, cy, onTop: shipmentsAt(inside, cx, cy)[0] === id, raised: inside.some((p) => p.shipmentId === id && p.z > 0.05) }
+  // The unload number on every body, where it is the one seen from above (packages each have it).
+  const labels = inside.map((p) => {
+    const cx = p.x + p.l / 2
+    const cy = p.y + p.w / 2
+    return { key: p.key, shipmentId: p.shipmentId, cx, cy, onTop: piecesAt(inside, cx, cy)[0] === p.key, raised: p.z > 0.05 }
   })
-  // What goes along with the one chosen shipment (it rests on it).
-  const riders =
-    selected !== null && selection.length === 1
-      ? new Set(pieces.filter((p) => group.has(p.key) && p.shipmentId !== selected).map((p) => p.shipmentId)).size
-      : 0
+  // What goes along with the one chosen body (it rests on it).
+  const riders = selected !== null && selection.length === 1 ? group.size - 1 : 0
   const vbW = space.L + 2 * MARGIN
   const vbH = space.W + 2 * MARGIN
-  const sel = selected !== null ? pieces.filter((p) => p.shipmentId === selected) : []
+  const chosen = selected !== null ? byKey.get(selected) : undefined
+  const sel = chosen ? [chosen] : []
   const selExtent = sel.length > 0 ? extentOf(sel) : null
+  /** What the chosen body stands on (the one under the most of its base), if anything. */
+  const under =
+    chosen && chosen.z > 0.05
+      ? inside
+          .filter((p) => p !== chosen && Math.abs(p.z + p.h - chosen.z) < 0.05)
+          .map((p) => ({ p, area: Math.max(0, Math.min(p.x + p.l, chosen.x + chosen.l) - Math.max(p.x, chosen.x)) * Math.max(0, Math.min(p.y + p.w, chosen.y + chosen.w) - Math.max(p.y, chosen.y)) }))
+          .filter((s) => s.area > 0)
+          .sort((a, b) => b.area - a.area)[0]?.p
+      : undefined
+  /** How many bodies the chosen one's shipment has (a shipment from smartLoad+ is its packages). */
+  const packages = chosen ? pieces.filter((p) => p.shipmentId === chosen.shipmentId).length : 0
 
   return (
     <div ref={top} className="load-editor">
@@ -466,9 +483,16 @@ export function LoadEditor(props: LoadEditorProps) {
         {confirm === 'aside' && aside.length > 0 && (
           <div className="load-editor__confirm" role="alert">
             <span>
-              Van kamiona {aside.length === 1 ? 'je pošiljka' : 'su pošiljke'} {aside.map(name).join(', ')}. Raspored se
-              čuva kada je sve u kamionu: vratite {aside.length === 1 ? 'je' : 'ih'} sa „Ubaci“ u spisku „Van kamiona“ ili
-              prevlačenjem u 3D.
+              Van kamiona {asideCount === 1 ? 'je' : 'su'}{' '}
+              {aside
+                .map((row) =>
+                  row.keys.length > 1 || byKey.get(row.keys[0])?.piece !== undefined
+                    ? `${name(row.shipmentId)} (${row.keys.length} ${plural(row.keys.length, 'paket', 'paketa', 'paketa')})`
+                    : name(row.shipmentId),
+                )
+                .join(', ')}
+              . Raspored se čuva kada je sve u kamionu: vratite {asideCount === 1 ? 'ga' : 'ih'} sa „Ubaci“ u spisku „Van
+              kamiona“ ili prevlačenjem u 3D.
             </span>
             <button type="button" onClick={() => setConfirm(null)}>
               U redu
@@ -550,13 +574,13 @@ export function LoadEditor(props: LoadEditorProps) {
                 onPointerUp={onUp}
                 onPointerCancel={() => (press.current = null)}
                 onDoubleClick={(e) => {
-                  // As in the 3D view, a double click turns the shipment.
+                  // As in the 3D view, a double click turns the body.
                   if (e.ctrlKey || e.metaKey) return
                   const p = toCm(e)
-                  const id = shipmentsAt(inside, p.x, p.y)[0]
-                  if (id === undefined) return
-                  if (!selection.includes(id)) choose(id)
-                  rotate(id)
+                  const key = piecesAt(inside, p.x, p.y)[0]
+                  if (key === undefined) return
+                  if (!selection.includes(key)) choose(key)
+                  rotate(key)
                 }}
               >
                 <rect className="load-editor__deck" x={0} y={0} width={space.L} height={space.W} rx={4} />
@@ -572,13 +596,14 @@ export function LoadEditor(props: LoadEditorProps) {
                 </text>
                 <line className="load-editor__used" x1={usedMm / 10} y1={-6} x2={usedMm / 10} y2={space.W + 6} />
                 {drawOrder.map((p) => {
-                  const isSel = selection.includes(p.shipmentId)
+                  const isSel = selection.includes(p.key)
                   const inGroup = !isSel && group.has(p.key)
                   return (
                     <rect
                       key={p.key}
-                      className={`load-editor__piece${isSel ? ' is-selected' : ''}${inGroup ? ' is-group' : ''}${bad.has(p.shipmentId) ? ' is-bad' : ''}`}
+                      className={`load-editor__piece${isSel ? ' is-selected' : ''}${inGroup ? ' is-group' : ''}${bad.has(p.key) ? ' is-bad' : ''}`}
                       data-shipment={p.shipmentId}
+                      data-key={p.key}
                       x={p.x}
                       y={p.y}
                       width={p.l}
@@ -591,8 +616,8 @@ export function LoadEditor(props: LoadEditorProps) {
                 {labels
                   .filter((l) => l.onTop)
                   .map((l) => (
-                    <text key={l.id} className="load-editor__label" x={l.cx} y={l.cy} textAnchor="middle" dominantBaseline="central">
-                      {order.number.get(l.id) ?? ''}
+                    <text key={l.key} className="load-editor__label" x={l.cx} y={l.cy} textAnchor="middle" dominantBaseline="central">
+                      {order.number.get(l.shipmentId) ?? ''}
                       {l.raised ? ' ▲' : ''}
                     </text>
                   ))}
@@ -645,56 +670,65 @@ export function LoadEditor(props: LoadEditorProps) {
                     space={scene}
                     selection={selection}
                     bad={bad}
-                    onSelect={(id, additive) =>
-                      setSelection((s) =>
-                        id === null ? (additive ? s : []) : additive ? (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]) : [id],
-                      )
+                    onSelect={(hit, additive) =>
+                      setSelection((s) => {
+                        if (hit === null) return additive ? s : []
+                        const key = hit.key
+                        return additive ? (s.includes(key) ? s.filter((x) => x !== key) : [...s, key]) : [key]
+                      })
                     }
-                    onSelectMany={(ids, additive) => setSelection((s) => (additive ? [...new Set([...s, ...ids])] : ids))}
+                    onSelectMany={(keys, additive) => setSelection((s) => (additive ? [...new Set([...s, ...keys])] : keys))}
                     editable
                     onDragStart={start3d}
                     onDrag={move3d}
                     onDragEnd={end3d}
-                    onRotate={(id) => {
-                      if (!selection.includes(id)) choose(id)
-                      rotate(id)
+                    onRotate={(key) => {
+                      if (!selection.includes(key)) choose(key)
+                      rotate(key)
                     }}
                     view={view}
                     viewTick={viewTick}
-                    label="3D prikaz rasporeda koji se uređuje: pošiljka se prevlači mišem (i na pod oko kamiona), strelice je pomeraju, R okreće"
+                    label="3D prikaz rasporeda koji se uređuje: pošiljka ili paket se prevlači mišem (i na pod oko kamiona), strelice ga pomeraju, R okreće"
                   />
                 </Suspense>
                 {legend && <Legend onClose={() => setLegend(false)} />}
               </div>
               {/* What is on the ground beside the truck; "Ubaci" puts it back at the first place from the front. */}
               <section className="load-editor__aside" aria-labelledby="load-editor-aside">
-                <h3 id="load-editor-aside">Van kamiona{aside.length > 0 ? ` (${aside.length})` : ''}</h3>
+                <h3 id="load-editor-aside">Van kamiona{asideCount > 0 ? ` (${asideCount})` : ''}</h3>
                 {aside.length === 0 ? (
                   <p className="text--muted load-editor__hint">
-                    Prevucite pošiljku u 3D prikazu iz kamiona na pod oko njega da je privremeno sklonite. Raspored se
-                    čuva kada je sve u kamionu.
+                    Prevucite pošiljku ili paket u 3D prikazu iz kamiona na pod oko njega da ga privremeno sklonite.
+                    Raspored se čuva kada je sve u kamionu.
                   </p>
                 ) : (
                   <ul>
-                    {aside.map((id) => {
-                      const own = pieces.filter((p) => p.shipmentId === id)
-                      const e = extentOf(own)
-                      const tall = Math.max(...own.map((p) => p.z + p.h)) - Math.min(...own.map((p) => p.z))
+                    {aside.map(({ shipmentId: id, keys }) => {
+                      // One row per shipment; "Ubaci" puts the first of its bodies on the ground back.
+                      const first = byKey.get(keys[0]) as EditPiece
+                      const many = keys.length > 1
                       return (
                         <li key={id}>
                           <button
                             type="button"
-                            className={`load-editor__aside-item${selection.includes(id) ? ' is-selected' : ''}`}
-                            aria-label={`Ubaci ${name(id)} u kamion`}
-                            title="Ubaci u kamion, na prvo mesto od čela gde ne krši pravila"
-                            onClick={() => insert(id)}
+                            className={`load-editor__aside-item${keys.some((k) => selection.includes(k)) ? ' is-selected' : ''}`}
+                            aria-label={many ? `Ubaci jedan paket ${name(id)} u kamion (od ${keys.length})` : `Ubaci ${label(first.key)} u kamion`}
+                            title={
+                              many
+                                ? `Ubaci jedan paket u kamion (od ${keys.length}), na prvo mesto od čela gde ne krši pravila`
+                                : 'Ubaci u kamion, na prvo mesto od čela gde ne krši pravila'
+                            }
+                            onClick={() => insert(first.key)}
                           >
                             <span className="truck-3d__swatch" style={{ background: colors.get(id) }} aria-hidden="true" />
                             <span className="load-editor__aside-text">
-                              <strong>{name(id)}</strong>
+                              <span className="load-editor__aside-title">
+                                <strong>{many ? name(id) : label(first.key)}</strong>
+                                {many && <span className="load-editor__aside-count">× {keys.length}</span>}
+                              </span>
                               <small>
                                 {[
-                                  `${formatCm(e.maxX - e.minX)} × ${formatCm(e.maxY - e.minY)} × ${formatCm(tall)}`,
+                                  many ? 'paketi' : `${formatCm(first.l)} × ${formatCm(first.w)} × ${formatCm(first.h)}`,
                                   order.number.has(id) && `istovar ${order.number.get(id)}.`,
                                 ]
                                   .filter(Boolean)
@@ -731,13 +765,14 @@ export function LoadEditor(props: LoadEditorProps) {
             </dl>
             {selection.length > 1 ? (
               <div className="load-editor__selected" aria-live="polite">
-                <h3>{selection.length} {plural(selection.length, 'pošiljka izabrana', 'pošiljke izabrane', 'pošiljki izabrano')}</h3>
+                <h3>{selection.length} izabrano</h3>
                 <p>Prevlačenje, strelice i R (ili dvoklik) pomeraju ih i okreću zajedno, sa onim što stoji na njima.</p>
               </div>
-            ) : selected !== null && selExtent ? (
+            ) : selected !== null && chosen && selExtent ? (
               <div className="load-editor__selected" aria-live="polite">
                 <h3>
-                  <span className="truck-3d__swatch" style={{ background: colors.get(selected) }} aria-hidden="true" /> {name(selected)}
+                  <span className="truck-3d__swatch" style={{ background: colors.get(chosen.shipmentId) }} aria-hidden="true" />{' '}
+                  {label(selected)}
                 </h3>
                 {isOut(selected) && (
                   <p className="load-editor__hint">
@@ -760,36 +795,37 @@ export function LoadEditor(props: LoadEditorProps) {
                       <dt>Visina dna</dt>
                       <dd>
                         {formatCm(Math.min(...sel.map((p) => p.z)))}
-                        {sel.some((p) => p.z > 0.05) ? ' (na drugoj pošiljci)' : ' (na podu)'}
+                        {under ? ` (na ${label(under.key)})` : chosen.z > 0.05 ? ' (ne stoji ni na čemu)' : ' (na podu)'}
                       </dd>
                     </>
                   )}
                   {riders > 0 && (
                     <>
                       <dt>Pomera se sa</dt>
-                      <dd>
-                        još {riders} {plural(riders, 'pošiljkom', 'pošiljke', 'pošiljki')} na njoj
-                      </dd>
+                      <dd>još {riders} na njoj</dd>
                     </>
                   )}
-                  {order.number.has(selected) && (
+                  {order.number.has(chosen.shipmentId) && (
                     <>
                       <dt>Istovar</dt>
-                      <dd>{order.number.get(selected)}.</dd>
+                      <dd>{order.number.get(chosen.shipmentId)}.</dd>
                     </>
                   )}
-                  {sel.length > 1 && (
+                  {chosen.piece !== undefined && (
                     <>
-                      <dt>Komada</dt>
-                      <dd>{sel.length} (iz smartLoad+)</dd>
+                      <dt>Paket</dt>
+                      <dd>
+                        {chosen.piece}. od {packages} (iz smartLoad+)
+                      </dd>
                     </>
                   )}
                 </dl>
               </div>
             ) : (
               <p className="text--muted load-editor__hint">
-                Kliknite pošiljku da je izaberete. Ponovni klik na isto mesto bira pošiljku ispod. Ctrl + klik dodaje
-                pošiljku u izbor, a Shift + prevlačenje u 3D bira okvirom. Brojevi na podu su redosled istovara.
+                Kliknite pošiljku da je izaberete (pošiljka iz smartLoad+ se pomera paket po paket). Ponovni klik na isto
+                mesto bira ono ispod. Ctrl + klik dodaje u izbor, a Shift + prevlačenje u 3D bira okvirom. Brojevi na podu
+                su redosled istovara.
               </p>
             )}
             <div className="load-editor__problems" aria-live="polite">
@@ -806,8 +842,8 @@ export function LoadEditor(props: LoadEditorProps) {
                   </h3>
                   <ul>
                     {problems.slice(0, 30).map((p) => (
-                      <li key={`${p.kind}:${p.shipmentIds.join(',')}`}>
-                        <button type="button" onClick={() => choose(p.shipmentIds[0])}>
+                      <li key={`${p.kind}:${p.keys.join(',')}`}>
+                        <button type="button" onClick={() => choose(p.keys[0])}>
                           {p.text}
                         </button>
                       </li>

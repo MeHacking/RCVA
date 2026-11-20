@@ -3,8 +3,10 @@ import { LONGER_THAN_SPACE } from './optimization/loadPlan'
 
 // A truck's load plan arranged by hand (user, 19.11.2026: "Uredi" on the 3D screen, as the
 // layout editor of smartLoad, F:\GitHubProjects\smartLoad, frontend/src/editor/plan.ts). The
-// moves are taken over from there; here a whole shipment moves (its block, or all its pieces
-// from smartLoad+), with whatever rests on it.
+// moves are taken over from there. What moves is one body, with whatever rests on it: a
+// shipment's block, or one package of a shipment whose layout came from smartLoad+ (user,
+// 20.11.2026: "svaki paket nakon importa treba da bude posebno telo"; until then the whole
+// shipment moved).
 // All lengths in cm, as the 3D scene (scene.ts): x along the cargo space from the front wall
 // (the doors are at x = L), y across from the right side, z up. The API keeps mm.
 
@@ -45,12 +47,19 @@ export interface LoadProblem {
   text: string
   /** the shipments involved, the first is the one to look at */
   shipmentIds: number[]
+  /** the bodies involved (EditPiece.key), the first is the one to look at */
+  keys: string[]
 }
 
 /** Below this, two lengths are the same (cm). */
 const EPS = 0.05
 
 const keyOf = (p: Pick<Placement, 'shipmentId' | 'piece'>) => `${p.shipmentId}#${p.piece ?? 0}`
+
+/** How a body is called: the shipment, and for a package from smartLoad+ its number ("S-103, paket 4"). */
+export function pieceLabel(name: (shipmentId: number) => string): (p: Pick<EditPiece, 'shipmentId' | 'piece'>) => string {
+  return (p) => (p.piece !== undefined ? `${name(p.shipmentId)}, paket ${p.piece}` : name(p.shipmentId))
+}
 
 /** The plan's placements (mm) as pieces to edit (cm); `colors` by shipment. */
 export function piecesFromPlacements(placements: Placement[], colors: ReadonlyMap<number, string>): EditPiece[] {
@@ -161,10 +170,9 @@ export function occupiedLength(pieces: EditPiece[]): number {
   return pieces.reduce((m, p) => Math.max(m, p.x + p.l), 0)
 }
 
-/** Every piece of the shipments, and everything resting on them, directly or higher up. */
-export function groupOf(pieces: EditPiece[], shipmentIds: Iterable<number>): Set<string> {
-  const ids = new Set(shipmentIds)
-  const group = new Set(pieces.filter((p) => ids.has(p.shipmentId)).map((p) => p.key))
+/** The bodies (by key), and everything resting on them, directly or higher up. */
+export function groupOf(pieces: EditPiece[], keys: Iterable<string>): Set<string> {
+  const group = new Set(keys)
   let grew = true
   while (grew) {
     grew = false
@@ -172,8 +180,7 @@ export function groupOf(pieces: EditPiece[], shipmentIds: Iterable<number>): Set
       if (group.has(p.key)) continue
       for (const q of pieces) {
         if (group.has(q.key) && Math.abs(p.z - (q.z + q.h)) < EPS && footprintOverlap(p, q) > EPS) {
-          // A shipment goes as a whole: all its pieces join.
-          for (const r of pieces) if (r.shipmentId === p.shipmentId) group.add(r.key)
+          group.add(p.key)
           grew = true
           break
         }
@@ -183,12 +190,12 @@ export function groupOf(pieces: EditPiece[], shipmentIds: Iterable<number>): Set
   return group
 }
 
-/** The shipments whose footprint covers the point, the highest first (picking from above). */
-export function shipmentsAt(pieces: EditPiece[], x: number, y: number): number[] {
-  const hits = pieces
+/** The bodies whose footprint covers the point, the highest first (picking from above). */
+export function piecesAt(pieces: EditPiece[], x: number, y: number): string[] {
+  return pieces
     .filter((p) => x >= p.x && x <= p.x + p.l && y >= p.y && y <= p.y + p.w)
     .sort((a, b) => b.z + b.h - (a.z + a.h))
-  return [...new Set(hits.map((p) => p.shipmentId))]
+    .map((p) => p.key)
 }
 
 /** The footprint of a group (cm). */
@@ -228,14 +235,14 @@ export function moveGroup(pieces: EditPiece[], group: Set<string>, dx: number, d
 }
 
 /**
- * Turns a group by 90° around the middle of the chosen shipment's footprint, then lets it down
+ * Turns a group by 90° around the middle of the chosen body's footprint, then lets it down
  * again. What then reaches out of the cargo space shows as a problem, as in smartLoad. The plan
  * is kept in whole mm: with an odd size the middle is on half a millimetre, so the turned group
  * is shifted by that half (all of it the same way), or saving would round each piece on its own
  * and two shipments put edge to edge could overlap by a millimetre.
  */
-export function rotateGroup(pieces: EditPiece[], group: Set<string>, shipmentId: number, groundZ = 0): EditPiece[] {
-  const own = pieces.filter((p) => p.shipmentId === shipmentId)
+export function rotateGroup(pieces: EditPiece[], group: Set<string>, key: string, groundZ = 0): EditPiece[] {
+  const own = pieces.filter((p) => p.key === key)
   if (own.length === 0) return pieces
   const e = extentOf(own)
   const cx = (e.minX + e.maxX) / 2
@@ -248,7 +255,7 @@ export function rotateGroup(pieces: EditPiece[], group: Set<string>, shipmentId:
     const ny = cy + px
     return { ...p, l: p.w, w: p.l, x: nx - p.w / 2, y: ny - p.l / 2, rotated: !p.rotated }
   })
-  const t = extentOf(turned.filter((p) => p.shipmentId === shipmentId))
+  const t = extentOf(turned.filter((p) => p.key === key))
   const sx = roundMm(t.minX) - t.minX
   const sy = roundMm(t.minY) - t.minY
   return settle(
@@ -346,9 +353,14 @@ export function inTruck(pieces: EditPiece[]): EditPiece[] {
   return pieces.some((p) => p.out) ? pieces.filter((p) => !p.out) : pieces
 }
 
-/** The shipments on the ground beside the truck, in the order of the plan. */
-export function shipmentsAside(pieces: EditPiece[]): number[] {
-  return [...new Set(pieces.filter((p) => p.out).map((p) => p.shipmentId))]
+/**
+ * What is on the ground beside the truck, one row per shipment (its packages from smartLoad+
+ * together, as smartLoad puts the same goods in one row with a count), in the order of the plan.
+ */
+export function asideRows(pieces: EditPiece[]): { shipmentId: number; keys: string[] }[] {
+  const rows = new Map<number, string[]>()
+  for (const p of pieces) if (p.out) rows.set(p.shipmentId, [...(rows.get(p.shipmentId) ?? []), p.key])
+  return [...rows].map(([shipmentId, keys]) => ({ shipmentId, keys }))
 }
 
 /**
@@ -400,30 +412,30 @@ export function putOnGround(pieces: EditPiece[], group: Set<string>, x: number, 
 }
 
 /**
- * A shipment from the ground back into the truck ("Ubaci"), at the first place from the front
- * wall where it breaks no rule (smartLoad: "najbliže čelu"): on the floor or on what is there, as
- * it is or turned by 90°. The rules include the order of unloading, so a shipment that comes off
+ * A body from the ground back into the truck ("Ubaci"), at the first place from the front wall
+ * where it breaks no rule (smartLoad: "najbliže čelu"): on the floor or on what is there, as it
+ * is or turned by 90°. The rules include the order of unloading, so a shipment that comes off
  * early ends up nearer the doors by itself. Null when there is no such place. What stood on it on
  * the ground comes down.
  */
 export function placeFromFront(
   pieces: EditPiece[],
-  shipmentId: number,
+  key: string,
   space: EditSpace,
   order: UnloadOrder,
   yard: Yard,
 ): EditPiece[] | null {
-  const own = pieces.filter((p) => p.shipmentId === shipmentId)
+  const own = pieces.filter((p) => p.key === key)
   if (own.length === 0) return null
-  const inside = pieces.filter((p) => !p.out && p.shipmentId !== shipmentId)
+  const inside = pieces.filter((p) => !p.out && p.key !== key)
   const label = (id: number) => String(id)
-  const keys = new Set(own.map((p) => p.key))
+  const keys = new Set([key])
   const xs = [...new Set([0, ...inside.map((o) => o.x + o.l)])].sort((a, b) => a - b)
   let best: { x: number; y: number; z: number; placed: EditPiece[] } | null = null
   for (const turned of [false, true]) {
-    // The shipment's shape on the floor, its footprint from (0, 0).
+    // The body on the floor, its footprint from (0, 0).
     const level = own.map((p) => ({ ...p, out: false }))
-    const shape = turned ? rotateGroup(level, keys, shipmentId) : settle(level, keys)
+    const shape = turned ? rotateGroup(level, keys, key) : settle(level, keys)
     const e = extentOf(shape)
     const l = e.maxX - e.minX
     const w = e.maxY - e.minY
@@ -440,9 +452,9 @@ export function placeFromFront(
         if (placed.some((p) => p.z + p.h > space.H + EPS)) continue
         const z = Math.min(...placed.map((p) => p.z))
         if (best && Math.abs(x - best.x) <= EPS && (z > best.z + EPS || (Math.abs(z - best.z) <= EPS && y >= best.y))) continue
-        // Every problem a new shipment brings names it (and it cannot take one away: it is put on top).
+        // Every problem a new body brings names it (and it cannot take one away: it is put on top).
         const after = checkLoad([...inside, ...placed], space, order, label)
-        if (!after.some((p) => p.shipmentIds.includes(shipmentId))) best = { x, y, z, placed }
+        if (!after.some((p) => p.keys.includes(key))) best = { x, y, z, placed }
       }
     }
   }
@@ -470,10 +482,12 @@ function dropDown(pieces: EditPiece[], key: string, groundZ: number): EditPiece[
 }
 
 /**
- * Everything that breaks a loading rule, by shipment: it reaches out of the cargo space, two
- * shipments overlap, a shipment above the floor does not rest fully on what is below it (the
- * rules of smartLoad), and loading from the rear (D2): a shipment that comes off earlier must not
- * have one that comes off later on it or between it and the doors.
+ * Everything that breaks a loading rule, by body (a shipment's block, or one of its packages
+ * from smartLoad+): it reaches out of the cargo space, two bodies overlap (two packages of one
+ * shipment too, since each moves on its own), a body above the floor does not rest fully on what
+ * is below it (the rules of smartLoad), and loading from the rear (D2): a shipment that comes off
+ * earlier must not have one that comes off later on it or between it and the doors (said once
+ * per pair of shipments, with all the bodies in the way).
  */
 export function checkLoad(
   pieces: EditPiece[],
@@ -481,37 +495,38 @@ export function checkLoad(
   order: UnloadOrder,
   name: (shipmentId: number) => string,
 ): LoadProblem[] {
+  const label = pieceLabel(name)
   const out: LoadProblem[] = []
-  const reported = new Set<string>()
-  const add = (kind: ProblemKind, ids: number[], text: string) => {
-    const key = `${kind}:${ids.join(',')}`
-    if (reported.has(key)) return
-    reported.add(key)
-    out.push({ kind, text, shipmentIds: ids })
+  const reported = new Map<string, LoadProblem>()
+  const add = (kind: ProblemKind, id: string, involved: EditPiece[], text: string) => {
+    const seen = reported.get(`${kind}:${id}`)
+    if (seen) {
+      for (const p of involved) if (!seen.keys.includes(p.key)) seen.keys.push(p.key)
+      return
+    }
+    const problem = { kind, text, shipmentIds: [...new Set(involved.map((p) => p.shipmentId))], keys: involved.map((p) => p.key) }
+    reported.set(`${kind}:${id}`, problem)
+    out.push(problem)
   }
   for (const a of pieces) {
     if (a.x < -EPS || a.y < -EPS || a.z < -EPS || a.x + a.l > space.L + EPS || a.y + a.w > space.W + EPS || a.z + a.h > space.H + EPS) {
-      add('outside', [a.shipmentId], `${name(a.shipmentId)} izlazi iz tovarnog prostora.`)
+      add('outside', a.key, [a], `${label(a)} izlazi iz tovarnog prostora.`)
     }
   }
   for (let i = 0; i < pieces.length; i++) {
     for (let j = i + 1; j < pieces.length; j++) {
       const a = pieces[i]
       const b = pieces[j]
-      // The pieces of one shipment are as smartLoad+ placed them.
-      if (a.shipmentId === b.shipmentId) continue
       if (
         overlapLength(a.x, a.x + a.l, b.x, b.x + b.l) > EPS &&
         overlapLength(a.y, a.y + a.w, b.y, b.y + b.w) > EPS &&
         overlapLength(a.z, a.z + a.h, b.z, b.z + b.h) > EPS
       ) {
-        const ids = [a.shipmentId, b.shipmentId].sort((p, q) => p - q)
-        add('overlap', ids, `${name(ids[0])} i ${name(ids[1])} se preklapaju.`)
+        add('overlap', `${a.key},${b.key}`, [a, b], `${label(a)} i ${label(b)} se preklapaju.`)
       }
     }
   }
-  // Support, per shipment: the share of the base of its pieces above the floor that rests on something.
-  const base = new Map<number, { area: number; covered: number }>()
+  // Support: the share of the base of a body above the floor that rests on something.
   for (const a of pieces) {
     if (a.z <= EPS) continue
     let covered = 0
@@ -519,14 +534,9 @@ export function checkLoad(
       if (b === a || Math.abs(b.z + b.h - a.z) > EPS) continue
       covered += footprintOverlap(a, b)
     }
-    const s = base.get(a.shipmentId) ?? { area: 0, covered: 0 }
-    s.area += a.l * a.w
-    s.covered += Math.min(covered, a.l * a.w)
-    base.set(a.shipmentId, s)
-  }
-  for (const [id, s] of base) {
-    if (s.covered < s.area - 1) {
-      add('unsupported', [id], `${name(id)} nema pun oslonac (${Math.round((100 * s.covered) / s.area)} % osnove).`)
+    const area = a.l * a.w
+    if (covered < area - 1) {
+      add('unsupported', a.key, [a], `${label(a)} nema pun oslonac (${Math.round((100 * Math.min(covered, area)) / area)} % osnove).`)
     }
   }
   // Loading from the rear: what comes off earlier (a) must get out through the doors.
@@ -545,7 +555,8 @@ export function checkLoad(
         const nb = order.number.get(b.shipmentId)
         add(
           'order',
-          [a.shipmentId, b.shipmentId],
+          `${a.shipmentId},${b.shipmentId}`,
+          [a, b],
           `${name(a.shipmentId)} (istovar ${na}.) ne može da izađe: ${onTop ? 'na njoj je' : 'ispred nje, ka vratima, je'} ${name(b.shipmentId)} (istovar ${nb}.).`,
         )
       }

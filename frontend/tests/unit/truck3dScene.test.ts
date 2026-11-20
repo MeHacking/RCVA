@@ -37,8 +37,8 @@ describe('3D scene from the load plan', () => {
   it('keeps the plan order, and colours each block by its place, as the list and the PDF do', () => {
     const pieces = piecesFromPlan([placement(7, 1000, 1200), placement(3, 2200, 600)])
     expect(pieces).toEqual([
-      { shipmentId: 7, color: placementColor(0), x: 100, y: 20, z: 30, l: 120, w: 80, h: 150 },
-      { shipmentId: 3, color: placementColor(1), x: 220, y: 20, z: 30, l: 60, w: 80, h: 150 },
+      { key: '7#0', shipmentId: 7, color: placementColor(0), x: 100, y: 20, z: 30, l: 120, w: 80, h: 150 },
+      { key: '3#0', shipmentId: 3, color: placementColor(1), x: 220, y: 20, z: 30, l: 60, w: 80, h: 150 },
     ])
     expect(placementColor(0)).not.toBe(placementColor(1))
   })
@@ -50,6 +50,8 @@ describe('3D scene from the load plan', () => {
       { ...placement(4, 2200, 1200), piece: 2 },
       placement(9, 3400, 600),
     ])
+    // Each package is its own body in the editor (its key), with the colour of its shipment.
+    expect(pieces.map((p) => p.key)).toEqual(['7#0', '4#1', '4#2', '9#0'])
     expect(pieces.map((p) => [p.shipmentId, p.color])).toEqual([
       [7, placementColor(0)],
       [4, placementColor(1)],

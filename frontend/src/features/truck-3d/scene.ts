@@ -27,6 +27,8 @@ export interface Space {
 
 /** One block in cm, as placed (l along, w across, h up): a shipment, or a piece of one from smartLoad+. */
 export interface Piece {
+  /** unique in the plan: the shipment and its piece ("103#4"; "103#0" for a shipment's block) */
+  key: string
   shipmentId: number
   color: string
   x: number
@@ -63,6 +65,7 @@ export function spaceOf(truck: CargoSpaceMm): Space {
 export function piecesFromPlan(placements: Placement[]): Piece[] {
   const colors = shipmentColors(placements)
   return placements.map((p) => ({
+    key: `${p.shipmentId}#${p.piece ?? 0}`,
     shipmentId: p.shipmentId,
     color: colors.get(p.shipmentId) as string,
     x: cm(p.xMm),

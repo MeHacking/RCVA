@@ -400,8 +400,10 @@ function Steps() {
           <li>
             <strong>Uredi</strong> (3D prikaz, levo od „Ceo ekran“): raspored kamiona se menja rukom, kao u smartLoad-u.
             Gore su dužina, zapremina, težina i broj pošiljki; ispod je pod kamiona odozgo (čelo levo, vrata desno, broj
-            na pošiljci je redosled istovara) i 3D prikaz, i oba pokazuju isti raspored. Pomera se cela pošiljka, sa onim
-            što stoji na njoj: prevlačenjem na podu ili u 3D, ili strelicama za izabrani korak (1, 5 ili 10 cm). Uz zid i
+            na pošiljci je redosled istovara) i 3D prikaz, i oba pokazuju isti raspored. Pomera se pošiljka, a pošiljka sa
+            rasporedom iz smartLoad+ paket po paket (svaki paket je posebno telo; pakete iste pošiljke takođe ne sme da
+            preklapaju i svaki mora imati pun oslonac), uvek sa onim što stoji na njoj: prevlačenjem na podu ili u 3D, ili
+            strelicama za izabrani korak (1, 5 ili 10 cm). U običnom 3D prikazu klik i dalje bira celu pošiljku. Uz zid i
             susednu pošiljku se lepi na 5 cm, a puštena preko druge pošiljke staje na nju. R ili dvoklik okreće za 90°,
             Ctrl + Z i Ctrl + Y poništavaju i ponavljaju, Ctrl + klik dodaje pošiljku u izbor, a Shift + prevlačenje u 3D
             bira okvirom. Desno se odmah vidi šta je prekršeno: pošiljka izlazi iz tovarnog prostora, preklapa se sa

@@ -106,7 +106,9 @@ export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = 
             pieces={pieces}
             space={space}
             selected={selectedShipmentId}
-            onSelect={(id) => onSelect?.(id)}
+            // Here a click picks the whole shipment, also on one of its packages from smartLoad+
+            // (the list beside it and the import are by shipment); the editor moves packages one by one.
+            onSelect={(hit) => onSelect?.(hit?.shipmentId ?? null)}
             view={view}
             viewTick={viewTick}
             // A shipment from smartLoad+ is many pieces.

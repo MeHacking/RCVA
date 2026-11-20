@@ -18,29 +18,35 @@ export interface PlanPoint {
   y: number
 }
 
+/** What a click hit: the shipment, and the body (its block, or one of its packages from smartLoad+). */
+export interface Hit {
+  shipmentId: number
+  key: string
+}
+
 interface Props {
   pieces: Piece[]
   space: Space
-  /** The chosen shipment in the view; the others fade. */
+  /** The chosen shipment in the view (all its blocks); the others fade. */
   selected?: number | null
   /**
-   * In the editor (user, 19.11.2026: "Uredi", as smartLoad): the chosen shipments, marked
-   * without fading the others.
+   * In the editor (user, 19.11.2026: "Uredi", as smartLoad): the chosen bodies (Piece.key; each
+   * package from smartLoad+ is one, user, 20.11.2026), marked without fading the others.
    */
-  selection?: readonly number[]
-  /** shipments that break a loading rule: outlined in the danger colour */
-  bad?: ReadonlySet<number>
-  /** A click: the shipment (null beside the load); `additive` with Ctrl, to add or remove it. */
-  onSelect: (shipmentId: number | null, additive: boolean) => void
-  /** Shift+drag: every shipment whose block's middle is inside the box. */
-  onSelectMany?: (shipmentIds: number[], additive: boolean) => void
-  /** Dragging shipments across the floor (the editor); the points are plan cm. */
+  selection?: readonly string[]
+  /** bodies (Piece.key) that break a loading rule: outlined in the danger colour */
+  bad?: ReadonlySet<string>
+  /** A click: what it hit (null beside the load); `additive` with Ctrl, to add or remove it. */
+  onSelect: (hit: Hit | null, additive: boolean) => void
+  /** Shift+drag: every body whose middle is inside the box (Piece.key). */
+  onSelectMany?: (keys: string[], additive: boolean) => void
+  /** Dragging bodies across the floor (the editor); the points are plan cm. */
   editable?: boolean
-  onDragStart?: (shipmentId: number, at: PlanPoint) => void
+  onDragStart?: (key: string, at: PlanPoint) => void
   onDrag?: (at: PlanPoint) => void
   onDragEnd?: () => void
-  /** A double click on a shipment (the editor): turn it by 90°. */
-  onRotate?: (shipmentId: number) => void
+  /** A double click on a body (the editor): turn it by 90°. */
+  onRotate?: (key: string) => void
   view: ViewName
   /** Changes whenever a view button is pressed (even the same view twice). */
   viewTick: number
@@ -58,6 +64,8 @@ export interface Truck3dProbe {
   aside: () => number[]
   /** where the middle of a block's top is on the screen (client px) */
   screenOf: (shipmentId: number) => { x: number; y: number } | null
+  /** the same for one body (Piece.key: a package of a shipment from smartLoad+) */
+  screenOfKey: (key: string) => { x: number; y: number } | null
   /** where the corners of the whole truck are in the picture (-1..1 is inside) */
   truckOnScreen: () => { left: number; right: number; bottom: number; top: number }
   /** where the camera stands (scene cm: X along the truck, Y up, Z across) */
@@ -168,9 +176,10 @@ export function Truck3D(props: Props) {
       ray.setFromCamera(ndc(e), camera)
       return ray.intersectObjects(blocks(), false)[0]
     }
-    const idAt = (e: MouseEvent) => {
+    const toHit = (o: THREE.Object3D): Hit => ({ shipmentId: o.userData.shipmentId as number, key: o.userData.key as string })
+    const idAt = (e: MouseEvent): Hit | null => {
       const hit = hitAt(e)
-      return hit ? (hit.object.userData.shipmentId as number) : null
+      return hit ? toHit(hit.object) : null
     }
     /** Where the pointer meets the level `height` (scene Y), as plan cm. */
     const planAt = (e: { clientX: number; clientY: number }, height: number): PlanPoint | null => {
@@ -181,7 +190,7 @@ export function Truck3D(props: Props) {
     // A press that does not move is a click; otherwise it turns the view, or, in the editor and
     // on a shipment, moves the shipment (from 4 px on, as in smartLoad). Ctrl+click adds or
     // removes a shipment; Shift+drag draws a box that chooses what is inside.
-    let press: { x: number; y: number; id: number | null; height: number; dragging: boolean; additive: boolean } | null = null
+    let press: { x: number; y: number; id: Hit | null; height: number; dragging: boolean; additive: boolean } | null = null
     let box: { x0: number; y0: number; el: HTMLDivElement; additive: boolean } | null = null
     const canvas = renderer.domElement
     const drawBox = (e: PointerEvent) => {
@@ -203,14 +212,14 @@ export function Truck3D(props: Props) {
       const r = canvas.getBoundingClientRect()
       const [x0, x1] = [Math.min(b.x0, e.clientX), Math.max(b.x0, e.clientX)]
       const [y0, y1] = [Math.min(b.y0, e.clientY), Math.max(b.y0, e.clientY)]
-      const ids = new Set<number>()
+      const keys: string[] = []
       for (const mesh of blocks()) {
         const v = mesh.position.clone().project(camera)
         const sx = r.left + ((v.x + 1) / 2) * r.width
         const sy = r.top + ((1 - v.y) / 2) * r.height
-        if (v.z < 1 && sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) ids.add(mesh.userData.shipmentId as number)
+        if (v.z < 1 && sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) keys.push(mesh.userData.key as string)
       }
-      latest.current.onSelectMany?.([...ids], b.additive)
+      latest.current.onSelectMany?.(keys, b.additive)
     }
     const onDown = (e: PointerEvent) => {
       press = null
@@ -228,7 +237,7 @@ export function Truck3D(props: Props) {
         return
       }
       const hit = hitAt(e)
-      const id = hit ? (hit.object.userData.shipmentId as number) : null
+      const id = hit ? toHit(hit.object) : null
       press = { x: e.clientX, y: e.clientY, id, height: hit ? hit.point.y : 0, dragging: false, additive }
       if (p.editable && (id !== null || additive)) {
         controls.enabled = false // the shipment moves (or is picked), not the camera
@@ -268,8 +277,8 @@ export function Truck3D(props: Props) {
         if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return
         press.dragging = true
         canvas.style.cursor = 'grabbing'
-        // From where the press was, so the shipment does not jump.
-        p.onDragStart?.(press.id, planAt({ clientX: press.x, clientY: press.y }, press.height) ?? at)
+        // From where the press was, so the body does not jump.
+        p.onDragStart?.(press.id.key, planAt({ clientX: press.x, clientY: press.y }, press.height) ?? at)
       }
       p.onDrag?.(at)
     }
@@ -277,7 +286,7 @@ export function Truck3D(props: Props) {
       const p = latest.current
       if (e.button !== 0 || !p.editable || !p.onRotate) return
       const id = idAt(e)
-      if (id !== null) p.onRotate(id)
+      if (id !== null) p.onRotate(id.key)
     }
     // Before OrbitControls' own listener, so a press on a shipment never turns the view.
     canvas.addEventListener('pointerdown', onDown, { capture: true })
@@ -291,8 +300,9 @@ export function Truck3D(props: Props) {
       pieces: () => blocks().map((m) => m.userData.shipmentId as number),
       selected: () => blocks().filter((m) => m.userData.selected).map((m) => m.userData.shipmentId as number),
       aside: () => [...new Set(blocks().filter((m) => m.userData.out).map((m) => m.userData.shipmentId as number))],
-      screenOf: (id) => {
-        const mesh = blocks().find((m) => m.userData.shipmentId === id)
+      screenOf: (id) => probe.screenOfKey(blocks().find((m) => m.userData.shipmentId === id)?.userData.key ?? ''),
+      screenOfKey: (key) => {
+        const mesh = blocks().find((m) => m.userData.key === key)
         if (!mesh) return null
         const box = new THREE.Box3().setFromObject(mesh)
         const p = new THREE.Vector3((box.min.x + box.max.x) / 2, box.max.y, (box.min.z + box.max.z) / 2).project(camera)
@@ -358,8 +368,8 @@ export function Truck3D(props: Props) {
     const danger = token(el, '--truck3d-bad')
     for (const p of pieces) {
       const b = boxFor(p)
-      const chosen = selection ? selection.includes(p.shipmentId) : p.shipmentId === selected
-      const wrong = bad?.has(p.shipmentId) ?? false
+      const chosen = selection ? selection.includes(p.key) : p.shipmentId === selected
+      const wrong = bad?.has(p.key) ?? false
       // While a shipment is chosen in the view, the others fade, so it stands out whatever its
       // colour (a tint in the accent alone barely shows on some of the colours). The editor
       // keeps them all solid, as smartLoad does, since they are moved around each other.
@@ -377,7 +387,7 @@ export function Truck3D(props: Props) {
         }),
       )
       mesh.position.set(b.cx, b.cy, b.cz)
-      mesh.userData = { shipmentId: p.shipmentId, selected: chosen, out: Boolean(p.out) }
+      mesh.userData = { shipmentId: p.shipmentId, key: p.key, selected: chosen, out: Boolean(p.out) }
       s.load.add(mesh)
       const strong = chosen || wrong
       const edges = new THREE.LineSegments(

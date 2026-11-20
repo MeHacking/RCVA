@@ -67,10 +67,10 @@ export function Legend({ onClose }: { onClose: () => void }) {
 
       <h4>Uređivanje</h4>
       <dl>
-        <dt>Prevlačenje pošiljke</dt>
+        <dt>Prevlačenje pošiljke ili paketa</dt>
         <dd>
-          na podu odozgo ili u 3D; ide zajedno sa onim što stoji na njoj, lepi se uz zid i susede do 5 cm, puštena iznad
-          druge pošiljke staje na nju
+          na podu odozgo ili u 3D; pošiljka iz smartLoad+ se pomera paket po paket; ide zajedno sa onim što stoji na
+          njoj, lepi se uz zid i susede do 5 cm, puštena iznad druge staje na nju
         </dd>
         <dt>Van kamiona</dt>
         <dd>
