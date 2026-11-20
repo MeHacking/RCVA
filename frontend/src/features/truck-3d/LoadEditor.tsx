@@ -163,7 +163,9 @@ export function LoadEditor(props: LoadEditorProps) {
   )
   const bad = useMemo(() => new Set(problems.flatMap((p) => p.keys)), [problems])
   const group = groupOf(pieces, selection)
-  const changed = past.length > 0
+  // Back at the layout the editor opened with (Poništi all the way, "Vrati početni raspored", or moved
+  // back by hand): nothing to save, nothing to ask about (as in smartLoad, 19.11.2026).
+  const changed = pieces !== original && !samePlaces(pieces, original)
   const [notice, setNotice] = useState<string | null>(null)
   const [legend, setLegend] = useLegend()
   // Another screen while there are changes: asks first (in the card, as "Otkaži" does).
@@ -197,6 +199,13 @@ export function LoadEditor(props: LoadEditorProps) {
     setFuture((f) => f.slice(1))
     setPast((h) => [...h, pieces])
     setPieces(next)
+  }
+  /** "Vrati početni raspored": the layout the editor opened with, as one step (Poništi brings the edits back). */
+  function reset() {
+    if (!changed) return
+    commit(original)
+    setSelection([])
+    setNotice(null)
   }
   function rotate(key: string | null = selected) {
     if (key === null) return
@@ -529,6 +538,11 @@ export function LoadEditor(props: LoadEditorProps) {
             <Icon name="rotate" />
             Okreni 90°
           </button>
+          {/* As in smartLoad (19.11.2026): back to the layout the editor opened with. */}
+          <button type="button" onClick={reset} disabled={!changed}>
+            <Icon name="restart" />
+            Vrati početni raspored
+          </button>
           <span className="load-editor__step">
             <span className="text--muted">Korak strelica</span>
             <span className="view-switch" role="group" aria-label="Korak strelica">
@@ -656,9 +670,10 @@ export function LoadEditor(props: LoadEditorProps) {
                 </div>
                 <span className="truck-view__actions">
                   <LegendButton open={legend} onToggle={() => setLegend(!legend)} />
-                  <button type="button" aria-pressed={full} onClick={() => void toggle()}>
+                  {/* As in smartLoad (20.11.2026): in full screen the button says "Normalan prikaz". */}
+                  <button type="button" onClick={() => void toggle()}>
                     <Icon name={full ? 'collapse' : 'expand'} />
-                    Ceo ekran
+                    {full ? 'Normalan prikaz' : 'Ceo ekran'}
                   </button>
                 </span>
               </div>

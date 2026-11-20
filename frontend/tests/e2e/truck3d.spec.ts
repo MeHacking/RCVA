@@ -197,7 +197,7 @@ test('the 3D view goes full screen and back, and fills the page where the browse
   const errors = collectPageErrors(page)
   await page.setViewportSize({ width: 1200, height: 800 })
   await openTruck3d(page)
-  const button = page.getByRole('button', { name: 'Ceo ekran' })
+  const button = page.locator('.truck-view__fullscreen')
   const card = page.locator('.truck-view')
   const size = async () => {
     const b = (await card.boundingBox())!
@@ -213,14 +213,14 @@ test('the 3D view goes full screen and back, and fills the page where the browse
   const before = await size()
 
   await button.click()
-  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  await expect(button).toHaveText('Normalan prikaz')
   expect(await page.evaluate(() => document.fullscreenElement?.className)).toContain('truck-view')
   await expect.poll(size).toEqual([1200, 800])
   await expect.poll(canvasFits).toBe(true)
   // The picture changed shape: the camera fitted the truck to it again.
   await expectTruckFitted(page, 'full screen')
   await button.click()
-  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await expect(button).toHaveText('Ceo ekran')
   await expect.poll(size).toEqual(before)
   await expect.poll(canvasFits).toBe(true)
   await expectTruckFitted(page, 'back from full screen')
@@ -228,12 +228,12 @@ test('the 3D view goes full screen and back, and fills the page where the browse
   // Without it (some phones): spread over the page, above the bars; Esc closes.
   await page.evaluate(() => Object.defineProperty(document, 'fullscreenEnabled', { value: false }))
   await button.click()
-  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  await expect(button).toHaveText('Normalan prikaz')
   expect(await page.evaluate(() => document.fullscreenElement)).toBeNull()
   await expect.poll(size).toEqual([1200, 800])
   await expect.poll(canvasFits).toBe(true)
   await page.keyboard.press('Escape')
-  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await expect(button).toHaveText('Ceo ekran')
   await expect.poll(size).toEqual(before)
   expect(errors).toEqual([])
 })

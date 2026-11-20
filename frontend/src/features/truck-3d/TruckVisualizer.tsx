@@ -85,12 +85,12 @@ export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = 
           <button
             type="button"
             className="truck-view__fullscreen"
-            aria-pressed={full}
             title={full ? 'Izađi iz prikaza preko celog ekrana (Esc)' : '3D prikaz preko celog ekrana'}
             onClick={() => void toggle()}
           >
             <Icon name={full ? 'collapse' : 'expand'} />
-            Ceo ekran
+            {/* As in smartLoad (20.11.2026): in full screen the button says "Normalan prikaz". */}
+            {full ? 'Normalan prikaz' : 'Ceo ekran'}
           </button>
         </span>
       </div>

@@ -232,6 +232,53 @@ test('keeps a quick drag in 3D, and a drag let go where it started changes nothi
   await expect(save).toBeEnabled()
   await editor.getByRole('button', { name: 'Poništi' }).click()
   expect(await floor(page)).toEqual(start)
+  // Back where it opened: nothing to save.
+  await expect(save).toBeDisabled()
+  expect(errors).toEqual([])
+})
+
+test('"Vrati početni raspored" brings back the layout the editor opened with, as one step', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const editor = await openEditor(page)
+  const save = editor.getByRole('button', { name: 'Sačuvaj raspored' })
+  const reset = editor.getByRole('button', { name: 'Vrati početni raspored' })
+  const start = await floor(page)
+  await expect(reset).toBeDisabled()
+
+  // Two moves and a turn of the shipment at the doors (three steps).
+  const doors = start[start.length - 1]
+  await page.locator('.load-editor__floor').evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  await rectOf(page, doors.id).click()
+  await editor.getByRole('group', { name: 'Korak strelica' }).getByRole('button', { name: '10 cm' }).click()
+  await page.getByRole('application', { name: /Pod kamiona odozgo/ }).focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect.poll(async () => (await floor(page)).find((p) => p.id === doors.id)!.x).toBe(doors.x - 10)
+  await page.keyboard.press('ArrowLeft')
+  await expect.poll(async () => (await floor(page)).find((p) => p.id === doors.id)!.x).toBe(doors.x - 20)
+  await page.keyboard.press('r')
+  await expect.poll(async () => (await floor(page)).find((p) => p.id === doors.id)!.w).toBe(doors.h)
+  const edited = await floor(page)
+  await expect(save).toBeEnabled()
+  await expect(reset).toBeEnabled()
+
+  await reset.click()
+  expect(await floor(page)).toEqual(start)
+  await expect(save).toBeDisabled()
+  await expect(reset).toBeDisabled()
+
+  // One step: Poništi brings the edits back.
+  await editor.getByRole('button', { name: 'Poništi' }).click()
+  expect(await floor(page)).toEqual(edited)
+  await expect(save).toBeEnabled()
+  await expect(reset).toBeEnabled()
+
+  // Back by hand to where it opened: nothing to save either, and it closes without asking.
+  for (let i = 0; i < 3; i++) await editor.getByRole('button', { name: 'Poništi' }).click()
+  expect(await floor(page)).toEqual(start)
+  await expect(save).toBeDisabled()
+  await expect(reset).toBeDisabled()
+  await editor.getByRole('button', { name: 'Otkaži' }).click()
+  await expect(editor).toBeHidden()
   expect(errors).toEqual([])
 })
 
