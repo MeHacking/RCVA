@@ -9,7 +9,11 @@ Poslednje ažuriranje: 20.11.2026 (ispravke uređivača rasporeda, „Van kamion
 Sve je push-ovano na `origin/main` 20.11.2026 (i ispravke uređivača, „Van kamiona“, „Legenda“ i paketi kao posebna
 tela).
 
-## Zajednički sistem RCVA + smartLoad (razgovor 20.11.2026, PREDLOG, čeka potvrdu korisnika)
+## Zajednički sistem RCVA + smartLoad (razgovor 20.11.2026, predlog ODOBREN, ali kasnije)
+
+**Odluka korisnika 20.11.2026:** predlog je odobren, ali se spajanje (jedan repo, prijava, baza,
+komunikacija) radi **tek kada RCVA i smartLoad+ budu razvijeni do kraja**. Do tada samo merenje
+i smanjenje potrošnje algoritama.
 
 Korisnik želi da RCVA i smartLoad+ (`../smartLoad+`) budu jedan sistem na internetu, jer se
 telefon koristi van kancelarijske Wi-Fi mreže: prijava sa dodeljenim nalogom (uloge admin i
