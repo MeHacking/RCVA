@@ -4,12 +4,28 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 20.11.2026 (ispravke uređivača rasporeda, „Van kamiona“ i „Legenda“; pre toga „Uredi“ na
-3D ekranu, uvoz rasporeda iz smartLoad+, teme i animacije); videti „Gde smo stali“.
+Poslednje ažuriranje: 20.11.2026 („Vrati početni raspored“ i „Normalan prikaz“ iz smartLoad-a; pre toga ispravke
+uređivača rasporeda, „Van kamiona“ i „Legenda“, „Uredi“ na 3D ekranu, uvoz rasporeda iz smartLoad+, teme i animacije);
+videti „Gde smo stali“.
 Sve je push-ovano na `origin/main` 20.11.2026 (i ispravke uređivača, „Van kamiona“, „Legenda“ i paketi kao posebna
-tela).
+tela); „Vrati početni raspored“ i „Normalan prikaz“ još nisu.
 
 ## Gde smo stali (03.11.2026)
+
+**Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad
+`63cc134`, `18ffc8b`):
+- Uređivač: „Vrati početni raspored“ (alatke, posle „Okreni 90°“, ikonica `restart`) vraća raspored sa kojim je
+  uređivač otvoren, kao jedan korak (Poništi ga vraća); izbor i poruka se brišu. „Sačuvaj raspored“, pitanje pri
+  „Otkaži“ i pri izlasku sa ekrana važe samo kad se raspored razlikuje od početnog (`changed` = `samePlaces` sa
+  početnim, ranije „ima koraka za poništavanje“), pa i posle Poništi do kraja ili ručnog vraćanja nema šta da se čuva.
+- „Ceo ekran“ (3D prikaz i 3D deo uređivača) u celom ekranu piše „Normalan prikaz“; `aria-pressed` je izbačen jer se
+  natpis menja. Dugme mape je samo ikonica i ostalo je isto. Uputstvo dopunjeno.
+- Ostalo iz smartLoad-a nije preneto (filteri i pretraga Istorije, zaključavanje stare robe posle „Uredi“ iz
+  Istorije, „Nazad“/„Dalje“ u tonu akcenta): to su njegovi ekrani, RCVA ih nema u tom obliku.
+- Testovi: e2e „Vrati početni raspored“ u `loadEditor.local.spec.ts` (obara ga stari `changed`), dopuna testa za brzo
+  prevlačenje, `truck3d.spec.ts` proverava natpis umesto `aria-pressed`. tsc i lint čisti, Vitest 783, e2e ova dva
+  fajla 10 od 10 (prvi prolaz `truck3d` pao na hladnom Vite-u: „Failed to fetch dynamically imported module“, drugi
+  prošao). Pun e2e nije pokretan.
 
 **Uređivač rasporeda, ispravke i „Van kamiona“ (urađeno 20.11.2026)**, na zahtev korisnika (drugar je prijavio
 bagove i „Van kamiona“ iz smartLoad-a). Poređenje sa smartLoad-om (`editor/plan.ts`, `LayoutEditor.tsx`, `Truck3D.tsx`,
