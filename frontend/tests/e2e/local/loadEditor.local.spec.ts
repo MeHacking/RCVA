@@ -10,6 +10,7 @@ interface Probe {
   pieces: () => number[]
   selected: () => number[]
   screenOf: (shipmentId: number) => { x: number; y: number } | null
+  aside: () => number[]
 }
 
 async function ready(page: Page) {
@@ -230,6 +231,71 @@ test('keeps a quick drag in 3D, and a drag let go where it started changes nothi
   await expect(save).toBeEnabled()
   await editor.getByRole('button', { name: 'Poništi' }).click()
   expect(await floor(page)).toEqual(start)
+  expect(errors).toEqual([])
+})
+
+test('puts a shipment aside on the ground for a while and back with "Ubaci"; the legend', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const editor = await openEditor(page)
+  const save = editor.getByRole('button', { name: 'Sačuvaj raspored' })
+
+  // The legend is open the first time; closed, it stays closed the next time.
+  const legend = editor.getByRole('complementary', { name: 'Legenda' })
+  await expect(legend).toBeVisible()
+  await expect(legend).toContainText('Van kamiona')
+  await legend.getByRole('button', { name: 'Zatvori legendu' }).click()
+  await expect(legend).toBeHidden()
+  await expect(editor.getByRole('button', { name: 'Legenda' })).toHaveAttribute('aria-expanded', 'false')
+
+  const aside = editor.getByRole('region', { name: /^Van kamiona/ })
+  await expect(aside).toContainText('Prevucite pošiljku u 3D prikazu')
+  const start = await floor(page)
+  const id = start[0].id
+
+  // Dragged in 3D (from above) down to the edge of the picture: onto the ground beside the truck.
+  await editor.getByRole('group', { name: 'Pogled' }).getByRole('button', { name: 'Odozgo' }).click()
+  const canvas = editor.locator('.truck3d canvas')
+  await canvas.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  const screenOf = () => canvas.evaluate((c, shipmentId) => (c as HTMLCanvasElement & { rcvaProbe: Probe }).rcvaProbe.screenOf(shipmentId), id)
+  const onGround = () => canvas.evaluate((c) => (c as HTMLCanvasElement & { rcvaProbe: Probe }).rcvaProbe.aside())
+  await expect.poll(async () => (await screenOf()) !== null).toBe(true)
+  const from = (await screenOf())!
+  const box = (await canvas.boundingBox())!
+  await dragTo(page, from, { x: from.x, y: box.y + box.height - 8 })
+  await expect.poll(onGround).toEqual([id])
+  // Not on the floor from above, in the list, and not counted as loaded.
+  expect((await floor(page)).map((p) => p.id)).not.toContain(id)
+  await expect(aside.getByRole('heading')).toHaveText('Van kamiona (1)')
+  const ubaci = aside.getByRole('button', { name: /^Ubaci .* u kamion$/ })
+  await expect(ubaci).toHaveCount(1)
+  await expect(page.getByRole('group', { name: 'Mere rasporeda' })).toContainText('van kamiona: 1')
+  await expect(editor.getByRole('complementary', { name: 'Izabrano i pravila' })).toContainText('Van kamiona, na podu pored njega')
+  // The rules are about the truck: on the ground it breaks none.
+  await expect(editor.getByText('Sva pravila su ispunjena.')).toBeVisible()
+
+  // Not saved while something is on the ground.
+  await save.click()
+  await expect(editor.getByRole('alert')).toContainText('Raspored se čuva kada je sve u kamionu')
+  await editor.getByRole('button', { name: 'U redu' }).click()
+  await expect(editor.getByRole('alert')).toBeHidden()
+
+  // "Ubaci": back at the first place from the front (where it was: the front wall).
+  await ubaci.click()
+  await expect.poll(onGround).toEqual([])
+  expect(await floor(page)).toEqual(start)
+  await expect(aside.getByRole('heading')).toHaveText('Van kamiona')
+  // Undo puts it on the ground again.
+  await editor.getByRole('button', { name: 'Poništi' }).click()
+  await expect.poll(onGround).toEqual([id])
+
+  // The legend stays closed when the editor opens again.
+  await editor.getByRole('button', { name: 'Otkaži' }).click()
+  await editor.getByRole('button', { name: 'Da, odbaci' }).click()
+  await page.getByRole('button', { name: 'Uredi', exact: true }).click()
+  await expect(editor).toBeVisible()
+  await expect(legend).toBeHidden()
+  await editor.getByRole('button', { name: 'Legenda' }).click()
+  await expect(legend).toBeVisible()
   expect(errors).toEqual([])
 })
 

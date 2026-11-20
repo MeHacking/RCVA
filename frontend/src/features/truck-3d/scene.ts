@@ -1,4 +1,5 @@
 import type { Placement } from '../../api/types'
+import type { Yard } from '../../domain/loadEditing'
 import { shipmentColors } from './planShipments'
 import { truckShape } from './truckShape'
 
@@ -20,6 +21,8 @@ export interface Space {
   L: number
   W: number
   H: number
+  /** the editor: the ground around the truck is drawn, and is in the picture (yardOf) */
+  yard?: boolean
 }
 
 /** One block in cm, as placed (l along, w across, h up): a shipment, or a piece of one from smartLoad+. */
@@ -32,6 +35,8 @@ export interface Piece {
   l: number
   w: number
   h: number
+  /** on the ground beside the truck (the editor) */
+  out?: boolean
 }
 
 export interface Box {
@@ -73,14 +78,35 @@ export function boxFor(p: Pick<Piece, 'x' | 'y' | 'z' | 'l' | 'w' | 'h'>): Box {
   return { cx: p.x + p.l / 2, cy: p.z + p.h / 2, cz: p.y + p.w / 2, sx: p.l, sy: p.h, sz: p.w }
 }
 
-/** The occupied length of the cargo space (cm): where the furthest block ends. */
+/** The occupied length of the cargo space (cm): where the furthest block in the truck ends. */
 export function usedLength(pieces: Piece[]): number {
-  return pieces.reduce((end, p) => Math.max(end, p.x + p.l), 0)
+  return pieces.reduce((end, p) => (p.out ? end : Math.max(end, p.x + p.l)), 0)
+}
+
+/**
+ * The ground around the truck where the editor puts shipments aside (as smartLoad's yardOf): 1.5 m
+ * in front of the cab, 4.5 m behind the doors and 3.2 m to each side, in plan cm.
+ */
+export function yardOf(s: Pick<Space, 'L' | 'W'>): Yard {
+  const t = truckShape(s.L)
+  return {
+    minX: -t.x0 - 150,
+    maxX: s.L + 450,
+    minY: -320,
+    maxY: s.W + 320,
+    truck: { minX: -t.x0, maxX: s.L + 15, minY: -t.wheelOut, maxY: s.W + t.wheelOut },
+    groundZ: -t.deck,
+  }
 }
 
 /** The whole truck in scene units: cab front to rear bumper, ground to the highest top. */
 export function truckExtent(s: Space) {
   const t = truckShape(s.L)
+  if (s.yard) {
+    // The editor: the ground around the truck is in the picture too (shipments put aside there).
+    const y = yardOf(s)
+    return { minX: y.minX, maxX: y.maxX, minY: -t.deck, maxY: Math.max(s.H, t.cabH - t.deck), minZ: y.minY, maxZ: y.maxY }
+  }
   return {
     minX: -t.x0,
     maxX: s.L + 15,

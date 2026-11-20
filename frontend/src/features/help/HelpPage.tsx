@@ -409,6 +409,14 @@ function Steps() {
             vratima, stoji ona koja se kasnije istovara; pošiljke istog mesta istovara izlaze zajedno). „Sačuvaj raspored“
             sa prekršajem prvo pita. Sačuvan raspored koriste 3D prikaz, PDF i Viber, sve dok se pošiljke tog kamiona ne
             promene (premeštanje pošiljke ili vraćen predlog optimizacije); „Vrati izračunat raspored“ ga briše.
+            <br />
+            <strong>Van kamiona:</strong> u 3D prikazu se pošiljka prevuče iz kamiona na pod oko njega, da se privremeno
+            skloni (na primer da dve pošiljke zamene mesta). Tada je u spisku „Van kamiona“ pored prikaza, a pravila i
+            mere gore se tiču samo onoga što je u kamionu. „Ubaci“ u spisku je vraća na prvo mesto od čela gde ne krši
+            nijedno pravilo (i redosled istovara), po potrebi okrenutu; ako takvog mesta nema, prevucite je sami. Raspored
+            se čuva tek kada je sve u kamionu; pošiljka se iz kamiona izbacuje sa „Premesti u…“ na Rezultatima.
+            „Legenda“ pored 3D prikaza objašnjava miš, tastere i oznake. Dok se uređuje, ostali kamioni se ne nude, a
+            izlazak sa ekrana sa nesačuvanim izmenama prvo pita.
           </li>
         )}
         <li>

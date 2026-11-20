@@ -3,12 +3,17 @@ import type { Placement, RoutePlan, RouteStop, Shipment } from '../../src/api/ty
 import {
   arrangedWarnings,
   checkLoad,
+  dragTo,
   groupOf,
+  inTruck,
   moveGroup,
   occupiedLength,
   piecesFromPlacements,
+  placeFromFront,
   placementsFromPieces,
+  putOnGround,
   rotateGroup,
+  shipmentsAside,
   routeKey,
   samePieces,
   samePlaces,
@@ -18,6 +23,7 @@ import {
   type EditPiece,
 } from '../../src/domain/loadEditing'
 import { rearLoadedPlan } from '../../src/domain/optimization/loadPlan'
+import { truckExtent, usedLength, yardOf } from '../../src/features/truck-3d/scene'
 
 // Invented cargo space and shipments (cm in the editor, mm in the API).
 const SPACE = { L: 1360, W: 248, H: 270 }
@@ -199,6 +205,94 @@ describe('load plan arranged by hand: moves', () => {
     expect(samePlaces(pieces, back)).toBe(true)
     expect(samePlaces(pieces, moveGroup(pieces, groupOf(pieces, [3]), 1, 0))).toBe(false)
     expect(samePlaces(pieces, rotateGroup(pieces, groupOf(pieces, [3]), 3))).toBe(false)
+  })
+})
+
+describe('load plan arranged by hand: on the ground beside the truck', () => {
+  // A semi-trailer of 13.6 m: the cab is 275 cm in front of the front wall, the floor 115 cm up.
+  const YARD = yardOf(SPACE)
+  const three = [piece(3, 300, 0, 0, 120, 100, 120)]
+
+  it('knows the ground around the truck', () => {
+    expect(YARD).toEqual({
+      minX: -425,
+      maxX: 1810,
+      minY: -320,
+      maxY: 568,
+      truck: { minX: -275, maxX: 1375, minY: -16, maxY: 264 },
+      groundZ: -115,
+    })
+    // The editor's 3D view has it in the picture.
+    expect(truckExtent({ ...SPACE, yard: true })).toMatchObject({ minX: -425, maxX: 1810, minZ: -320, maxZ: 568 })
+    expect(truckExtent(SPACE)).toMatchObject({ minX: -275, maxX: 1375 })
+    // The occupied length in 3D is the truck's.
+    expect(usedLength([piece(1, 0, 0, 0, 300, 100, 100), { ...piece(2, 1500, 0, -115, 200, 100, 100), out: true }])).toBe(300)
+  })
+
+  it('puts a shipment dragged off the truck on the ground, off the truck and inside the edge', () => {
+    // Behind the doors.
+    const down = dragTo(three, groupOf(three, [3]), 1500, 0, SPACE, YARD)
+    expect(down[0]).toMatchObject({ out: true, x: 1500, y: 0, z: -115 })
+    expect(inTruck(down)).toEqual([])
+    expect(shipmentsAside(down)).toEqual([3])
+    expect(checkLoad(inTruck(down), SPACE, ORDER, name)).toEqual([])
+    // Half over the truck's side: out the shortest way (to the left side, 10 cm off the wheels).
+    expect(putOnGround(three, groupOf(three, [3]), 600, 200, YARD)[0]).toMatchObject({ out: true, x: 600, y: 274 })
+    // Beyond the edge: kept inside it.
+    expect(putOnGround(three, groupOf(three, [3]), 5000, 5000, YARD)[0]).toMatchObject({ x: 1690, y: 468 })
+    // Back over the truck: in it again, on the floor, stuck to the wall within 5 cm.
+    const back = dragTo(down, groupOf(down, [3]), 3, 40, SPACE, YARD)
+    expect(back[0]).toMatchObject({ out: false, x: 0, y: 40, z: 0 })
+  })
+
+  it('stacks on the ground, and what stands there goes along', () => {
+    const one = putOnGround([...three, piece(4, 0, 0, 0, 60, 60, 50)], new Set(['3#0']), 1500, 0, YARD)
+    const both = putOnGround(one, new Set(['4#0']), 1510, 10, YARD)
+    expect(both.find((p) => p.shipmentId === 4)).toMatchObject({ out: true, z: -115 + 120 })
+    expect([...groupOf(both, [3])].sort()).toEqual(['3#0', '4#0'])
+    // What is on the ground is no wall or neighbour in the truck.
+    const four = new Set(['4#0'])
+    expect(snapMove([piece(4, 0, 0, 0, 60, 60, 50), { ...three[0], out: true, x: 63 }], four, 2, 0, SPACE)).toEqual({ dx: 0, dy: 0 })
+    expect(samePlaces(three, [{ ...three[0], out: true }])).toBe(false)
+  })
+
+  it('puts a shipment back at the first place from the front that breaks no rule, turned if need be', () => {
+    // 2 at the front wall, 1 (comes off first) at the doors, a gap of 1 m between them; 3 on the
+    // ground with 4 on it. 3 is 2 m long: only turned does it fit the gap.
+    const plan = [
+      piece(2, 0, 0, 0, 500, 248, 270),
+      piece(1, 600, 0, 0, 760, 248, 270),
+      { ...piece(3, 1500, 0, -115, 200, 100, 100), out: true },
+      { ...piece(4, 1500, 0, -15, 50, 50, 50), out: true },
+    ]
+    const placed = placeFromFront(plan, 3, SPACE, ORDER, YARD)
+    expect(placed?.find((p) => p.shipmentId === 3)).toMatchObject({ out: false, x: 500, y: 0, z: 0, l: 100, w: 200, rotated: true })
+    expect(checkLoad(inTruck(placed!), SPACE, ORDER, name)).toEqual([])
+    // 4 has nothing under it any more.
+    expect(placed?.find((p) => p.shipmentId === 4)).toMatchObject({ out: true, z: -115 })
+  })
+
+  it('keeps to the order of unloading, and says when there is no place', () => {
+    // Only 2 in the truck: 1 goes right behind it (it comes off first, nothing is behind it).
+    const plan = [
+      piece(2, 0, 0, 0, 400, 248, 270),
+      { ...piece(1, 1500, 0, -115, 200, 248, 270), out: true },
+      { ...piece(3, 1500, 300, -115, 200, 248, 270), out: true },
+    ]
+    const withOne = placeFromFront(plan, 1, SPACE, ORDER, YARD)!
+    expect(withOne.find((p) => p.shipmentId === 1)).toMatchObject({ out: false, x: 400 })
+    // The nearest to the front of all the places that would do (behind 5 there is room too).
+    const five = [...plan, piece(5, 900, 0, 0, 100, 248, 270)]
+    expect(placeFromFront(five, 1, SPACE, ORDER, YARD)?.find((p) => p.shipmentId === 1)).toMatchObject({ x: 400 })
+    // Nothing breaks a rule, whatever was there before: 5 sticking out of the doors stays its own problem.
+    const out = [...plan, piece(5, 1300, 0, 0, 100, 248, 270)]
+    expect(placeFromFront(out, 1, SPACE, ORDER, YARD)?.find((p) => p.shipmentId === 1)).toMatchObject({ x: 400 })
+    // 3 comes off after 1, so it may not stand between 1 and the doors: no place that breaks no rule.
+    expect(placeFromFront(withOne, 3, SPACE, ORDER, YARD)).toBeNull()
+    // 3 first, then 1 behind it towards the doors: both fit.
+    const withThree = placeFromFront(plan, 3, SPACE, ORDER, YARD)!
+    expect(withThree.find((p) => p.shipmentId === 3)).toMatchObject({ out: false, x: 400 })
+    expect(placeFromFront(withThree, 1, SPACE, ORDER, YARD)?.find((p) => p.shipmentId === 1)).toMatchObject({ out: false, x: 600 })
   })
 })
 

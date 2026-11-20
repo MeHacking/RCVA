@@ -203,14 +203,16 @@ export function extentOf(members: EditPiece[]) {
 
 /**
  * Puts a group down: its lowest pieces on the highest top under them (or the floor); the rest
- * keep their offsets.
+ * keep their offsets. A group on the ground beside the truck lands on the ground (`groundZ`, from
+ * the truck's floor) or on what else is on the ground there.
  */
-export function settle(pieces: EditPiece[], group: Set<string>): EditPiece[] {
+export function settle(pieces: EditPiece[], group: Set<string>, groundZ = 0): EditPiece[] {
   const members = pieces.filter((p) => group.has(p.key))
   if (members.length === 0) return pieces
-  const others = pieces.filter((p) => !group.has(p.key))
+  const outside = members.some((p) => p.out)
+  const others = pieces.filter((p) => !group.has(p.key) && Boolean(p.out) === outside)
   const bottom = Math.min(...members.map((p) => p.z))
-  let floor = 0
+  let floor = outside ? groundZ : 0
   for (const m of members) {
     if (m.z - bottom > EPS) continue // only the bottom layer of the group decides
     for (const o of others) if (footprintOverlap(m, o) > EPS) floor = Math.max(floor, o.z + o.h)
@@ -220,9 +222,9 @@ export function settle(pieces: EditPiece[], group: Set<string>): EditPiece[] {
 }
 
 /** Moves a group by (dx, dy) and lets it down onto what is under its new footprint. */
-export function moveGroup(pieces: EditPiece[], group: Set<string>, dx: number, dy: number): EditPiece[] {
+export function moveGroup(pieces: EditPiece[], group: Set<string>, dx: number, dy: number, groundZ = 0): EditPiece[] {
   const moved = pieces.map((p) => (group.has(p.key) ? { ...p, x: p.x + dx, y: p.y + dy } : p))
-  return settle(moved, group)
+  return settle(moved, group, groundZ)
 }
 
 /**
@@ -232,7 +234,7 @@ export function moveGroup(pieces: EditPiece[], group: Set<string>, dx: number, d
  * is shifted by that half (all of it the same way), or saving would round each piece on its own
  * and two shipments put edge to edge could overlap by a millimetre.
  */
-export function rotateGroup(pieces: EditPiece[], group: Set<string>, shipmentId: number): EditPiece[] {
+export function rotateGroup(pieces: EditPiece[], group: Set<string>, shipmentId: number, groundZ = 0): EditPiece[] {
   const own = pieces.filter((p) => p.shipmentId === shipmentId)
   if (own.length === 0) return pieces
   const e = extentOf(own)
@@ -252,6 +254,7 @@ export function rotateGroup(pieces: EditPiece[], group: Set<string>, shipmentId:
   return settle(
     turned.map((p) => (group.has(p.key) ? { ...p, x: round(p.x + sx), y: round(p.y + sy) } : p)),
     group,
+    groundZ,
   )
 }
 
@@ -301,7 +304,8 @@ export function snapMove(
   const e = extentOf(members)
   const l = e.maxX - e.minX
   const w = e.maxY - e.minY
-  const others = pieces.filter((p) => !group.has(p.key))
+  // In the truck: what is on the ground beside it is no wall or neighbour.
+  const others = pieces.filter((p) => !group.has(p.key) && !p.out)
   const xs = [0, space.L - l, ...others.flatMap((o) => [o.x + o.l, o.x - l, o.x, o.x + o.l - l])]
   const ys = [0, space.W - w, ...others.flatMap((o) => [o.y + o.w, o.y - w, o.y, o.y + o.w - w])]
   const pick = (v: number, candidates: number[]) => {
@@ -320,6 +324,149 @@ export function snapMove(
   const nx = Math.max(0, Math.min(pick(x, xs), space.L - l))
   const ny = Math.max(0, Math.min(pick(y, ys), space.W - w))
   return { dx: round(nx - e.minX), dy: round(ny - e.minY) }
+}
+
+/**
+ * The ground around the truck in plan cm, where shipments may be put aside while the plan is
+ * being arranged (user, 19.11.2026: "Van kamiona" as in smartLoad): where it ends, the truck's
+ * own footprint that stays clear (cab to bumper, wheels), and the ground below the truck's floor.
+ * The 3D view knows the truck's shape, so it gives these (yardOf in features/truck-3d/scene.ts).
+ */
+export interface Yard {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+  truck: { minX: number; maxX: number; minY: number; maxY: number }
+  groundZ: number
+}
+
+/** The pieces in the truck (not those on the ground beside it). */
+export function inTruck(pieces: EditPiece[]): EditPiece[] {
+  return pieces.some((p) => p.out) ? pieces.filter((p) => !p.out) : pieces
+}
+
+/** The shipments on the ground beside the truck, in the order of the plan. */
+export function shipmentsAside(pieces: EditPiece[]): number[] {
+  return [...new Set(pieces.filter((p) => p.out).map((p) => p.shipmentId))]
+}
+
+/**
+ * Dragging in the 3D view: a group whose footprint's middle is over the truck goes into it
+ * (stuck to walls and neighbours and kept inside, as before); over the ground around it, it is
+ * put down on the ground. (x, y) is where the group's footprint should start.
+ */
+export function dragTo(pieces: EditPiece[], group: Set<string>, x: number, y: number, space: EditSpace, yard: Yard): EditPiece[] {
+  const members = pieces.filter((p) => group.has(p.key))
+  if (members.length === 0) return pieces
+  const e = extentOf(members)
+  const cx = x + (e.maxX - e.minX) / 2
+  const cy = y + (e.maxY - e.minY) / 2
+  const t = yard.truck
+  if (cx >= t.minX && cx <= t.maxX && cy >= t.minY && cy <= t.maxY) {
+    const into = pieces.map((p) => (group.has(p.key) && p.out ? { ...p, out: false } : p))
+    const at = snapMove(into, group, x, y, space)
+    return moveGroup(into, group, at.dx, at.dy)
+  }
+  return putOnGround(pieces, group, x, y, yard)
+}
+
+/**
+ * The group on the ground with its footprint starting near (x, y), in whole cm: inside the
+ * ground's edge and off the truck (out the shortest way: front, rear or a side).
+ */
+export function putOnGround(pieces: EditPiece[], group: Set<string>, x: number, y: number, yard: Yard): EditPiece[] {
+  const members = pieces.filter((p) => group.has(p.key))
+  if (members.length === 0) return pieces
+  const e = extentOf(members)
+  const l = e.maxX - e.minX
+  const w = e.maxY - e.minY
+  let nx = Math.round(Math.min(Math.max(x, yard.minX), yard.maxX - l))
+  let ny = Math.round(Math.min(Math.max(y, yard.minY), yard.maxY - w))
+  const t = yard.truck
+  const gap = 10
+  if (nx + l > t.minX && nx < t.maxX && ny + w > t.minY && ny < t.maxY) {
+    const ways = [
+      { d: nx + l - (t.minX - gap), x: t.minX - gap - l, y: ny },
+      { d: t.maxX + gap - nx, x: t.maxX + gap, y: ny },
+      { d: ny + w - (t.minY - gap), x: nx, y: t.minY - gap - w },
+      { d: t.maxY + gap - ny, x: nx, y: t.maxY + gap },
+    ].sort((a, b) => a.d - b.d)
+    nx = ways[0].x
+    ny = ways[0].y
+  }
+  const outside = pieces.map((p) => (group.has(p.key) && !p.out ? { ...p, out: true } : p))
+  return moveGroup(outside, group, nx - e.minX, ny - e.minY, yard.groundZ)
+}
+
+/**
+ * A shipment from the ground back into the truck ("Ubaci"), at the first place from the front
+ * wall where it breaks no rule (smartLoad: "najbliže čelu"): on the floor or on what is there, as
+ * it is or turned by 90°. The rules include the order of unloading, so a shipment that comes off
+ * early ends up nearer the doors by itself. Null when there is no such place. What stood on it on
+ * the ground comes down.
+ */
+export function placeFromFront(
+  pieces: EditPiece[],
+  shipmentId: number,
+  space: EditSpace,
+  order: UnloadOrder,
+  yard: Yard,
+): EditPiece[] | null {
+  const own = pieces.filter((p) => p.shipmentId === shipmentId)
+  if (own.length === 0) return null
+  const inside = pieces.filter((p) => !p.out && p.shipmentId !== shipmentId)
+  const label = (id: number) => String(id)
+  const keys = new Set(own.map((p) => p.key))
+  const xs = [...new Set([0, ...inside.map((o) => o.x + o.l)])].sort((a, b) => a - b)
+  let best: { x: number; y: number; z: number; placed: EditPiece[] } | null = null
+  for (const turned of [false, true]) {
+    // The shipment's shape on the floor, its footprint from (0, 0).
+    const level = own.map((p) => ({ ...p, out: false }))
+    const shape = turned ? rotateGroup(level, keys, shipmentId) : settle(level, keys)
+    const e = extentOf(shape)
+    const l = e.maxX - e.minX
+    const w = e.maxY - e.minY
+    const ys = [...new Set([0, space.W - w, ...inside.flatMap((o) => [o.y + o.w, o.y - w])])]
+      .filter((y) => y >= -EPS && y + w <= space.W + EPS)
+      .sort((a, b) => a - b)
+    for (const x of xs) {
+      if (best && x > best.x + EPS) break // further back can no longer be nearer the front
+      if (x + l > space.L + EPS) break
+      for (const y of ys) {
+        const moved = shape.map((p) => ({ ...p, x: round(p.x - e.minX + x), y: round(p.y - e.minY + y) }))
+        const placed = settle([...inside, ...moved], keys).filter((p) => keys.has(p.key))
+        // Too high on what is there: no need for all the rules.
+        if (placed.some((p) => p.z + p.h > space.H + EPS)) continue
+        const z = Math.min(...placed.map((p) => p.z))
+        if (best && Math.abs(x - best.x) <= EPS && (z > best.z + EPS || (Math.abs(z - best.z) <= EPS && y >= best.y))) continue
+        // Every problem a new shipment brings names it (and it cannot take one away: it is put on top).
+        const after = checkLoad([...inside, ...placed], space, order, label)
+        if (!after.some((p) => p.shipmentIds.includes(shipmentId))) best = { x, y, z, placed }
+      }
+    }
+  }
+  if (!best) return null
+  const byKey = new Map(best.placed.map((p) => [p.key, p]))
+  let out = pieces.map((p) => byKey.get(p.key) ?? p)
+  // What stood on it on the ground comes down (lowest first, each onto what is below it).
+  for (const p of out.filter((q) => q.out).sort((a, b) => a.z - b.z)) out = dropDown(out, p.key, yard.groundZ)
+  return out
+}
+
+/**
+ * One piece on the ground falls onto what is really below it (the ground, or a piece under it).
+ * Unlike settle, what is above it does not count: a piece carrying another stays where it is.
+ */
+function dropDown(pieces: EditPiece[], key: string, groundZ: number): EditPiece[] {
+  const p = pieces.find((q) => q.key === key)
+  if (!p) return pieces
+  let floor = groundZ
+  for (const o of pieces) {
+    if (o === p || !o.out) continue
+    if (o.z + o.h <= p.z + EPS && footprintOverlap(p, o) > EPS) floor = Math.max(floor, o.z + o.h)
+  }
+  return Math.abs(floor - p.z) <= EPS ? pieces : pieces.map((q) => (q === p ? { ...q, z: floor } : q))
 }
 
 /**

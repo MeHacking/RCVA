@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { truckShape } from './truckShape'
-import { boxFor, extentCorners, fitView, usedLength, type Piece, type Space, type ViewName } from './scene'
+import { boxFor, extentCorners, fitView, usedLength, yardOf, type Piece, type Space, type ViewName } from './scene'
 
 // The 3D view of one truck's load, taken over from smartLoad (editor/Truck3D.tsx, 17.11.2026)
 // at the user's request; it replaces the TeGo viewer. three.js only (MIT), bundled, so it works
@@ -54,6 +54,8 @@ export interface Truck3dProbe {
   pieces: () => number[]
   /** the shipments drawn as chosen */
   selected: () => number[]
+  /** the shipments drawn on the ground beside the truck (the editor) */
+  aside: () => number[]
   /** where the middle of a block's top is on the screen (client px) */
   screenOf: (shipmentId: number) => { x: number; y: number } | null
   /** where the corners of the whole truck are in the picture (-1..1 is inside) */
@@ -288,6 +290,7 @@ export function Truck3D(props: Props) {
       memory: renderer.info.memory,
       pieces: () => blocks().map((m) => m.userData.shipmentId as number),
       selected: () => blocks().filter((m) => m.userData.selected).map((m) => m.userData.shipmentId as number),
+      aside: () => [...new Set(blocks().filter((m) => m.userData.out).map((m) => m.userData.shipmentId as number))],
       screenOf: (id) => {
         const mesh = blocks().find((m) => m.userData.shipmentId === id)
         if (!mesh) return null
@@ -342,7 +345,7 @@ export function Truck3D(props: Props) {
     disposeGroup(s.truck)
     buildTruck(s.truck, space, el)
     s.render()
-  }, [space.L, space.W, space.H]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [space.L, space.W, space.H, space.yard]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The blocks: when the plan or the choice changes.
   useEffect(() => {
@@ -374,7 +377,7 @@ export function Truck3D(props: Props) {
         }),
       )
       mesh.position.set(b.cx, b.cy, b.cz)
-      mesh.userData = { shipmentId: p.shipmentId, selected: chosen }
+      mesh.userData = { shipmentId: p.shipmentId, selected: chosen, out: Boolean(p.out) }
       s.load.add(mesh)
       const strong = chosen || wrong
       const edges = new THREE.LineSegments(
@@ -405,7 +408,7 @@ export function Truck3D(props: Props) {
   // The views.
   useEffect(() => {
     stage.current?.fit(view)
-  }, [view, viewTick, space.L, space.W, space.H])
+  }, [view, viewTick, space.L, space.W, space.H, space.yard])
 
   return <div ref={host} className="truck3d" data-testid="truck-visualizer" role="img" aria-label={props.label} />
 }
@@ -449,6 +452,38 @@ function buildTruck(g: THREE.Group, s: Space, el: Element) {
   const wallMat = new THREE.MeshStandardMaterial({ color: frameColor, transparent: true, opacity: 0.12 })
   const W = s.W
   const zc = W / 2
+
+  // The editor's ground around the truck (as smartLoad): a pale floor with a line every metre and
+  // a dashed edge, where shipments can be put aside.
+  if (s.yard) {
+    const y = yardOf(s)
+    const w = y.maxX - y.minX
+    const d = y.maxY - y.minY
+    const pad = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, d),
+      new THREE.MeshBasicMaterial({ color: frameColor, transparent: true, opacity: 0.05, depthWrite: false }),
+    )
+    pad.rotation.x = -Math.PI / 2
+    pad.position.set(y.minX + w / 2, ground + 0.3, y.minY + d / 2)
+    g.add(pad)
+    const grid: number[] = []
+    for (let x = Math.ceil(y.minX / 100) * 100; x <= y.maxX; x += 100) grid.push(x, ground + 0.4, y.minY, x, ground + 0.4, y.maxY)
+    for (let z = Math.ceil(y.minY / 100) * 100; z <= y.maxY; z += 100) grid.push(y.minX, ground + 0.4, z, y.maxX, ground + 0.4, z)
+    g.add(
+      new THREE.LineSegments(
+        new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(grid, 3)),
+        new THREE.LineBasicMaterial({ color: frameColor, transparent: true, opacity: 0.08 }),
+      ),
+    )
+    const edge = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.PlaneGeometry(w, d)),
+      new THREE.LineDashedMaterial({ color: frameColor, transparent: true, opacity: 0.35, dashSize: 20, gapSize: 14 }),
+    )
+    edge.rotation.x = -Math.PI / 2
+    edge.position.copy(pad.position)
+    edge.computeLineDistances()
+    g.add(edge)
+  }
 
   // A soft shadow on the ground.
   const shadow = new THREE.Mesh(
