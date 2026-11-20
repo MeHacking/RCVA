@@ -6,7 +6,8 @@ svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
 Poslednje ažuriranje: 20.11.2026 (ispravke uređivača rasporeda, „Van kamiona“ i „Legenda“; pre toga „Uredi“ na
 3D ekranu, uvoz rasporeda iz smartLoad+, teme i animacije); videti „Gde smo stali“.
-Push-ovano na `origin/main` 19.11.2026 (do „Uredi“); izmene od 20.11. nisu push-ovane.
+Sve je push-ovano na `origin/main` 20.11.2026 (i ispravke uređivača, „Van kamiona“, „Legenda“ i paketi kao posebna
+tela).
 
 ## Gde smo stali (03.11.2026)
 
