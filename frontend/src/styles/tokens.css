@@ -51,8 +51,7 @@
   --card-surface-solid: var(--white);
   --card-border: rgba(255, 255, 255, 0.9);
   --card-blur: blur(14px) saturate(140%);
-  /* The top bar is the same glass, in the light cream; its facts are small white chips */
-  --topbar-surface: rgba(255, 252, 247, 0.75);
+  /* The facts of the job in the top bar are small chips */
   --chip-surface: rgba(255, 255, 255, 0.7);
   --chip-border: var(--gray-200);
   --chip-hover: rgba(94, 26, 46, 0.06);
@@ -128,25 +127,34 @@
   --text-muted: var(--gray-500);
   --focus-ring: 0 0 0 3px rgba(94, 26, 46, 0.3);
 
-  /* Sidebar (dark grey, cream text, cherry marks) */
-  --nav-bg: var(--dark-grey);
-  --nav-text: #c9c1b6;
-  --nav-text-active: var(--cream);
-  --nav-hover: rgba(245, 239, 230, 0.06);
-  --nav-active: rgba(245, 239, 230, 0.1);
-  --nav-divider: rgba(245, 239, 230, 0.08);
-  --nav-accent: #b3475f;
-  --nav-tile: rgba(245, 239, 230, 0.06);
-  --nav-tile-hover: rgba(245, 239, 230, 0.12);
+  /* The shell as in smartLoad+ (owner, 20.11.2026). The menu: frosted glass in the page's tone
+     with a faint grain, text in the ink, the open screen a dark pill. */
+  --nav-bg: rgba(255, 252, 247, 0.6);
+  --nav-text: var(--text);
+  --nav-muted: var(--text-muted);
+  --nav-edge: rgba(43, 42, 44, 0.15);
+  --nav-hover: rgba(43, 42, 44, 0.09);
+  --nav-inner: rgba(43, 42, 44, 0.045);
+  --chosen-bg: var(--dark-grey);
+  --chosen-text: var(--cream);
+  --shell-shadow: 0 20px 50px rgba(40, 40, 30, 0.12);
+  --frost: blur(26px) saturate(140%);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* The top bars: dark, like a toolbar over the work, in every theme; on them the light ink of
+     the dark cards (--on-dark-*). Their popups (notifications, user) are solid: on a see-through one the page showed through. */
+  --bar: rgba(43, 42, 44, 0.95);
+  --bar-edge: rgba(255, 255, 255, 0.07);
+  --bar-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
+  --pop: #2b2a2c;
 
-  /* Typography */
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --text-xs: 0.75rem; /* 12px */
-  --text-sm: 0.8125rem; /* 13px */
-  --text-md: 0.875rem; /* 14px, base */
-  --text-lg: 1rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
+  /* Typography: Figtree and 16px text, as in smartLoad+ (owner, 20.11.2026) */
+  --font-sans: 'Figtree Variable', 'Segoe UI', system-ui, sans-serif;
+  --text-xs: 0.8rem; /* 12.8px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-md: 1rem; /* 16px, base */
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
@@ -176,8 +184,12 @@
 
   /* Sizes */
   --control-height: 2rem;
-  --sidebar-width: 13.5rem;
-  --topbar-height: 3.25rem;
+  /* The shell: the room around the menu and the bars, the menu's width, and the room the top
+     bars take from the top of the window (gap + a 76px bar; sticky things go under it). */
+  --shell-gap: 1rem;
+  --sidebar-width: 16.25rem;
+  --bar-height: 4.75rem;
+  --topbar-height: 5.75rem;
 
   /* Routes on the map, one per truck in result order (read by Leaflet through getComputedStyle):
      dark enough to read on the map tiles, the first is the brand cherry. */
@@ -260,14 +272,17 @@
     --wave-3: #e9e3d7;
     --wave-4: #e0d8c9;
     --wave-shadow: rgba(20, 33, 61, 0.13);
-    --topbar-surface: rgba(255, 253, 249, 0.75);
     --card-cherry-surface: rgba(158, 57, 8, 0.94);
     --card-dark-surface: rgba(20, 33, 61, 0.94);
     --dark-hover: #263659;
     --on-dark-accent: #ffa36b;
     --focus-ring: 0 0 0 3px rgba(184, 67, 11, 0.32);
-    --nav-text: #b6bdcc;
-    --nav-accent: #e85d12;
+    --nav-bg: rgba(255, 253, 249, 0.6);
+    --nav-edge: rgba(20, 33, 61, 0.15);
+    --nav-hover: rgba(20, 33, 61, 0.09);
+    --nav-inner: rgba(20, 33, 61, 0.045);
+    --bar: rgba(20, 33, 61, 0.96);
+    --pop: #14213d;
     --shadow-card: 0 1px 2px rgba(20, 33, 61, 0.08), 0 6px 12px -2px rgba(20, 33, 61, 0.11),
       0 18px 32px -10px rgba(20, 33, 61, 0.2);
     --shadow-card-raised: 0 2px 4px rgba(20, 33, 61, 0.1), 0 12px 24px -6px rgba(20, 33, 61, 0.17),
@@ -301,14 +316,17 @@
     --wave-3: #e7dcc7;
     --wave-4: #ddd0b7;
     --wave-shadow: rgba(60, 70, 40, 0.15);
-    --topbar-surface: rgba(255, 251, 243, 0.75);
     --card-cherry-surface: rgba(150, 42, 20, 0.94);
     --card-dark-surface: rgba(29, 74, 53, 0.94);
     --dark-hover: #2a5c45;
     --on-dark-accent: #ff9b85;
     --focus-ring: 0 0 0 3px rgba(184, 54, 27, 0.3);
-    --nav-text: #b8cabd;
-    --nav-accent: #d8432a;
+    --nav-bg: rgba(255, 251, 243, 0.55);
+    --nav-edge: rgba(29, 74, 53, 0.15);
+    --nav-hover: rgba(29, 74, 53, 0.09);
+    --nav-inner: rgba(29, 74, 53, 0.045);
+    --bar: rgba(29, 74, 53, 0.96);
+    --pop: #1d4a35;
     --shadow-card: 0 1px 2px rgba(29, 50, 35, 0.08), 0 6px 12px -2px rgba(29, 50, 35, 0.11),
       0 18px 32px -10px rgba(29, 50, 35, 0.2);
     --shadow-card-raised: 0 2px 4px rgba(29, 50, 35, 0.1), 0 12px 24px -6px rgba(29, 50, 35, 0.17),
@@ -348,6 +366,11 @@
     --truck3d-stage-glow: rgba(255, 255, 255, 0.04);
     --truck3d-stage-border: rgba(255, 255, 255, 0.1);
     --truck3d-frame: var(--gray-700);
+    --nav-edge: rgba(255, 255, 255, 0.15);
+    --nav-hover: rgba(255, 255, 255, 0.11);
+    --nav-inner: rgba(255, 255, 255, 0.045);
+    --shell-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    --bar-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
   }
 
   /* Grafit: slate #262b34 / white / light blue #7cc4ff */
@@ -372,17 +395,17 @@
     --wave-2: #2a2f38;
     --wave-3: #282d35;
     --wave-4: #252a32;
-    --topbar-surface: rgba(30, 34, 41, 0.78);
     --chip-hover: rgba(124, 196, 255, 0.12);
     --card-cherry-surface: rgba(28, 74, 122, 0.92);
     --card-dark-surface: rgba(14, 16, 21, 0.82);
     --dark-hover: #262b34;
     --on-dark-accent: #7cc4ff;
     --focus-ring: 0 0 0 3px rgba(124, 196, 255, 0.45);
-    --nav-bg: #1a1e25;
-    --nav-text: #a9b1bd;
-    --nav-text-active: #f3f5f8;
-    --nav-accent: #2b7fcc;
+    --nav-bg: rgba(255, 255, 255, 0.065);
+    --chosen-bg: #f5f5f6;
+    --chosen-text: #45474c;
+    --bar: rgba(12, 14, 18, 0.62);
+    --pop: #3e4045;
     --truck3d-stage: #20242b;
     --truck3d-floor: #3b414c;
   }
@@ -409,17 +432,17 @@
     --wave-2: #202023;
     --wave-3: #1e1e21;
     --wave-4: #1b1b1e;
-    --topbar-surface: rgba(22, 22, 24, 0.8);
     --chip-hover: rgba(255, 45, 120, 0.12);
     --card-cherry-surface: rgba(112, 12, 50, 0.9);
     --card-dark-surface: rgba(6, 6, 8, 0.82);
     --dark-hover: #222225;
     --on-dark-accent: #ff7aa8;
     --focus-ring: 0 0 0 3px rgba(255, 45, 120, 0.45);
-    --nav-bg: #131315;
-    --nav-text: #a3a5ab;
-    --nav-text-active: #f2f2f4;
-    --nav-accent: #d4115c;
+    --nav-bg: rgba(255, 255, 255, 0.05);
+    --chosen-bg: #d5d7db;
+    --chosen-text: #1c1c1e;
+    --bar: rgba(12, 12, 14, 0.78);
+    --pop: #28282c;
     --truck3d-stage: #19191b;
     --truck3d-floor: #36363b;
   }

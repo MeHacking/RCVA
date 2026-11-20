@@ -1,9 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { apiMode, apiModeLabel } from '../api/apiMode'
 import { BackgroundWaves } from '../components/BackgroundWaves'
 import { Icon, type IconName } from '../components/Icon'
+import { AccountTray } from './AccountTray'
 import { TopBar } from './TopBar'
+import { RESULTS_PATH, useJobNotices } from './useJobNotices'
 
 const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: IconName }> = [
   { to: '/', label: 'Pregled', icon: 'dashboard' },
@@ -17,19 +19,28 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: IconName }> = 
   { to: '/help', label: 'Uputstvo', icon: 'info' },
 ]
 
+/*
+ * The shell as in smartLoad+ (owner, 20.11.2026): a floating frosted menu on the left, and above
+ * the page two dark bars that stay at the top, the job's (status and "Pokreni optimizaciju") and
+ * a small one with the notifications and the user.
+ */
 export function AppLayout() {
+  const navigate = useNavigate()
+  const notices = useJobNotices()
   return (
     <div className="app">
       <BackgroundWaves />
       <nav className="app__nav" aria-label="Glavna navigacija">
         <div className="brand">
-          <img className="brand__logo" src="/logo.png" alt="" width={32} height={32} />
+          <img className="brand__logo" src="/logo.png" alt="" width={40} height={40} />
           <span className="brand__name">
             RCVA
             <span className="brand__tagline">Rutiranje i Vizualizacija</span>
           </span>
         </div>
-        <NavList />
+        <div className="app__nav-scroll">
+          <NavList />
+        </div>
         <div className="nav-footer">
           <span className="nav-footer__chip">
             {/* Where the data is: this computer (on the device, or the sample data in the browser), or the server. */}
@@ -38,12 +49,28 @@ export function AppLayout() {
           </span>
         </div>
       </nav>
-      <header className="app__top">
-        <TopBar />
-      </header>
-      <main className="app__main">
-        <Outlet />
-      </main>
+      <div className="app__workspace">
+        <div className="app__top">
+          {/* The page's own background over the strip above the bars, so no card shows there
+              while the page scrolls (as in smartLoad+): the same fixed waves, cut to that strip. */}
+          <div className="app__top-cover" aria-hidden="true">
+            <BackgroundWaves />
+          </div>
+          <header className="bar">
+            <TopBar />
+          </header>
+          <div className="bar bar--tray">
+            <AccountTray
+              notices={notices}
+              openNotice={() => void navigate(RESULTS_PATH)}
+              openSettings={apiMode() === 'local' ? () => void navigate('/settings') : null}
+            />
+          </div>
+        </div>
+        <main className="app__main">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

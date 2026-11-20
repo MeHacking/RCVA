@@ -38,6 +38,29 @@ jednu optimizaciju odjednom (`newSingleThreadExecutor`). Nije mereno na većem p
 
 ## Gde smo stali (03.11.2026)
 
+**Bočna i gornja traka, font i veličina slova kao u smartLoad+ (urađeno 21.11.2026)**, na zahtev
+korisnika. Odluke korisnika: u glavnoj gornjoj traci ostaju status poslednjeg posla i „Pokreni
+optimizaciju“; zvonce javlja samo kraj optimizacije (kao smartLoad+: posao završen na drugom ekranu,
+klik vodi na Rezultate, otvaranje Rezultata ih briše). Profil: „Niste prijavljeni“ + „Podešavanja“
+(samo u režimu `local`).
+- `@fontsource-variable/figtree` **5.3.0** (OFL-1.1, 19.07.2026, isti kao smartLoad+, `--save-exact`),
+  osnovni tekst 16px (`--text-*` u `tokens.css`); plutajući stakleni meni (`--nav-*`, izabrani ekran
+  „pilula“ `--chosen-bg/-text`), dve tamne trake (`.bar`, `--bar`; `--pop` je puna boja, jer je kroz
+  providnu (98 %) prozorčić puštao stranicu), traka iznad njih pokriva stranicu kopijom talasa
+  (`.app__top-cover`); `--topbar-height` je sada prostor od vrha prozora (5.75rem), `--bar-height` sama
+  traka. Novo: `src/app/AccountTray.tsx`, `jobNotices.ts` (čista logika: samo posao viđen dok radi;
+  posle osvežavanja završen posao se ne javlja), `useJobNotices.ts`, ikonice `bell`, `bell-off`, `user`.
+  Zatvoren prozorčić ima `visibility: hidden` posle animacije (inače ga vide čitači ekrana, a
+  `getByRole('dialog')` nalazi i zatvorene). Uputstvo dopunjeno (Pokretanje optimizacije).
+- Testovi: `theme.test.ts` (novi parovi: meni, traka, zvonce, prozorčići), `jobNotices.test.ts` (11),
+  e2e `notices.local.spec.ts` (2). Provereno na pokvarenom kodu: bez brisanja na Rezultatima test pada;
+  uslov `!onResults` pri dodavanju je ekvivalentna izmena (na Rezultatima se ionako odmah briše).
+  Vitest 829; pun e2e (portovi +100, jer 5174 zauzima smartLoad) 104 od 116 u prvom prolazu od 10 min,
+  padovi su bili isticanja pod opterećenjem i moj test; ponovo sa 2 radnika 10 od 12, preostala 2
+  (`geocoding` razmak 1 s, `loadEditor`) sama prolaze. Desktop i serverski e2e nisu pokretani.
+- Nije rađeno: sličice tema u Podešavanjima još imaju tamni meni (`--swatch-*-nav`); uski prozori
+  (telefon) nisu prilagođeni novom rasporedu.
+
 **Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad
 `63cc134`, `18ffc8b`):
 - Uređivač: „Vrati početni raspored“ (alatke, posle „Okreni 90°“, ikonica `restart`) vraća raspored sa kojim je

@@ -217,6 +217,27 @@ const PATHS = {
       <path d="M12 17v.5" />
     </>
   ),
+  // The top bar's notifications and profile (as in smartLoad+).
+  bell: (
+    <>
+      <path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </>
+  ),
+  'bell-off': (
+    <>
+      <path d="M8.5 5.6A6 6 0 0 1 18 11v3.5M18 18H4.5L6 16v-5c0-1 .25-2 .7-2.8" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+      <path d="M3 3l18 18" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M6.6 18.4a6.5 6.5 0 0 1 10.8 0" />
+    </>
+  ),
 } as const
 
 export type IconName = keyof typeof PATHS

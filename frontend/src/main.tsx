@@ -1,5 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+// Figtree, as in smartLoad+ (owner, 20.11.2026): bundled with the app, so it works offline and in
+// the desktop app; it has č ć š ž đ.
+import '@fontsource-variable/figtree'
 import './index.css'
 import { ApiProvider } from './api/ApiProvider'
 import { createApiClient } from './api/createApiClient'

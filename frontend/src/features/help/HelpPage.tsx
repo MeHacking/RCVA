@@ -337,6 +337,11 @@ function Steps() {
         vremensko ograničenje i pokrenite odatle. Optimizacija traži najbolje rešenje dok ne istekne zadato vreme
         (sa gornje trake 60 sekundi).
       </p>
+      <p>
+        Dok optimizacija radi, možete raditi na drugim ekranima. Kada se završi, a niste na ekranu Rezultati, zvonce
+        gore desno dobija broj; klik na obaveštenje vodi na Rezultate, a otvaranjem Rezultata obaveštenja se brišu.
+        Dugme pored zvonca (korisnik) za sada samo kaže da prijava još ne postoji i, na uređaju, vodi na Podešavanja.
+      </p>
       {ON_DEVICE && (
         <ul>
           <li>
