@@ -9,6 +9,22 @@ Poslednje ažuriranje: 20.11.2026 (ispravke uređivača rasporeda, „Van kamion
 Sve je push-ovano na `origin/main` 20.11.2026 (i ispravke uređivača, „Van kamiona“, „Legenda“ i paketi kao posebna
 tela).
 
+## Zajednički sistem RCVA + smartLoad (razgovor 20.11.2026, PREDLOG, čeka potvrdu korisnika)
+
+Korisnik želi da RCVA i smartLoad+ (`../smartLoad+`) budu jedan sistem na internetu, jer se
+telefon koristi van kancelarijske Wi-Fi mreže: prijava sa dodeljenim nalogom (uloge admin i
+korisnik), pa izbor aplikacije; slanje podataka između korisnika i iz jedne aplikacije u drugu
+(umesto današnjeg JSON izvoza/uvoza rasporeda); bar 5 optimizacija istovremeno **ukupno** za
+RCVA i smartLoad. Strah: procesor i trošak hostinga. Predlog: mali server u oblaku (portal,
+baza, slanje, red optimizacija) + radnik za optimizacije na računaru u kancelariji, sa
+ograničenjem niti i trajanja po optimizaciji. Ceo predlog, zahtevi i redosled su u
+`../smartLoad+/CLAUDE.md` („Zajednički sistem RCVA + smartLoad“).
+
+Merenje 20.11.2026 (`../smartLoad+/docs/measurements/2026-11-20-concurrency.md`): RCVA Timefold
+(jar, `SampleData`, 5 pošiljki, 60 s) koristi jednu nit (~1 jezgro) do kraja zadatog vremena i
+~400 MB; uz 4 smartLoad optimizacije završio je tačno za 60 s sa istim skorom. Backend radi
+jednu optimizaciju odjednom (`newSingleThreadExecutor`). Nije mereno na većem poslu.
+
 ## Gde smo stali (03.11.2026)
 
 **Uređivač rasporeda, ispravke i „Van kamiona“ (urađeno 20.11.2026)**, na zahtev korisnika (drugar je prijavio
