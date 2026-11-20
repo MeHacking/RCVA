@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useBlocker } from 'react-router'
 import { useApi } from '../../api/apiContext'
 import { describeError } from '../../api/client'
 import type { LoadPlan, RoutePlan } from '../../api/types'
@@ -13,6 +14,7 @@ import {
   piecesFromPlacements,
   placementsFromPieces,
   rotateGroup,
+  samePlaces,
   shipmentsAt,
   snapMove,
   unloadOrder,
@@ -59,6 +61,11 @@ interface Drag {
   minY: number
   fromX: number
   fromY: number
+  /**
+   * The plan as the last move left it. The end of a drag takes it from here: a quick drag can be
+   * let go before the page draws again, and then the state the handlers see is still from before.
+   */
+  last: EditPiece[] | null
 }
 
 interface FloorPress extends Drag {
@@ -128,9 +135,19 @@ export function LoadEditor(props: LoadEditorProps) {
   const bad = useMemo(() => new Set(problems.flatMap((p) => p.shipmentIds)), [problems])
   const group = groupOf(pieces, selection)
   const changed = past.length > 0
+  // Another screen while there are changes: asks first (in the card, as "Otkaži" does).
+  const blocker = useBlocker(changed && !saving)
+  const blocked = blocker.state === 'blocked'
+  useEffect(() => {
+    if (blocked) top.current?.scrollIntoView?.({ block: 'start' })
+  }, [blocked])
 
   function commit(next: EditPiece[], before: EditPiece[] = pieces) {
-    if (next === before) return
+    if (next === before || samePlaces(next, before)) {
+      // Nothing moved (a drag let go where it started): no step to undo, nothing to save.
+      setPieces(before)
+      return
+    }
     setPast((h) => [...h.slice(-99), before])
     setFuture([])
     setPieces(next)
@@ -164,14 +181,15 @@ export function LoadEditor(props: LoadEditorProps) {
     commit(moveGroup(pieces, g, at.dx, at.dy))
   }
   /** A drag: the group's footprint to start where the pointer has taken it. */
-  function dragged(d: Drag, x: number, y: number): EditPiece[] {
+  function drag(d: Drag, x: number, y: number) {
     const at = snapMove(d.start, d.group, d.minX + x - d.fromX, d.minY + y - d.fromY, space)
-    return moveGroup(d.start, d.group, at.dx, at.dy)
+    d.last = moveGroup(d.start, d.group, at.dx, at.dy)
+    setPieces(d.last)
   }
   function startDrag(start: EditPiece[], ids: number[], x: number, y: number): Drag {
     const g = groupOf(start, ids)
     const e = extentOf(start.filter((p) => g.has(p.key)))
-    return { start, group: g, minX: e.minX, minY: e.minY, fromX: x, fromY: y }
+    return { start, group: g, minX: e.minX, minY: e.minY, fromX: x, fromY: y, last: null }
   }
 
   // ---- The floor from above ----
@@ -215,14 +233,14 @@ export function LoadEditor(props: LoadEditorProps) {
     if (!d.moved && Math.hypot(e.clientX - d.px, e.clientY - d.py) < 4) return
     d.moved = true
     const p = toCm(e)
-    setPieces(dragged(d, p.x, p.y))
+    drag(d, p.x, p.y)
   }
   function onUp(e: PointerEvent<SVGSVGElement>) {
     const d = press.current
     press.current = null
     if (!d) return
     if (d.moved) {
-      commit(pieces, d.start)
+      if (d.last) commit(d.last, d.start)
       return
     }
     if (d.cycle) {
@@ -242,12 +260,12 @@ export function LoadEditor(props: LoadEditorProps) {
   }
   function move3d(at: { x: number; y: number }) {
     const d = drag3d.current
-    if (d) setPieces(dragged(d, at.x, at.y))
+    if (d) drag(d, at.x, at.y)
   }
   function end3d() {
     const d = drag3d.current
     drag3d.current = null
-    if (d) commit(pieces, d.start)
+    if (d?.last) commit(d.last, d.start)
   }
 
   function onKey(e: KeyboardEvent<HTMLElement>) {
@@ -380,6 +398,17 @@ export function LoadEditor(props: LoadEditorProps) {
             </button>
             <button type="button" onClick={() => setConfirm(null)}>
               Odustani
+            </button>
+          </div>
+        )}
+        {blocked && (
+          <div className="load-editor__confirm" role="alert">
+            <span>Izmene rasporeda nisu sačuvane. Napustiti ekran?</span>
+            <button type="button" className="button--danger" onClick={() => blocker.proceed?.()}>
+              Napusti ekran
+            </button>
+            <button type="button" onClick={() => blocker.reset?.()}>
+              Ostani
             </button>
           </div>
         )}

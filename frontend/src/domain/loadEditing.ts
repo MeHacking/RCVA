@@ -23,6 +23,12 @@ export interface EditPiece {
   w: number
   h: number
   rotated: boolean
+  /**
+   * On the ground beside the truck, put aside for a while (user, 19.11.2026: "Van kamiona" as in
+   * smartLoad). z is then from the truck's floor, so it is below 0. Only while editing: a plan is
+   * saved with everything in the truck.
+   */
+  out?: boolean
 }
 
 /** The cargo space in cm. */
@@ -221,7 +227,10 @@ export function moveGroup(pieces: EditPiece[], group: Set<string>, dx: number, d
 
 /**
  * Turns a group by 90° around the middle of the chosen shipment's footprint, then lets it down
- * again. What then reaches out of the cargo space shows as a problem, as in smartLoad.
+ * again. What then reaches out of the cargo space shows as a problem, as in smartLoad. The plan
+ * is kept in whole mm: with an odd size the middle is on half a millimetre, so the turned group
+ * is shifted by that half (all of it the same way), or saving would round each piece on its own
+ * and two shipments put edge to edge could overlap by a millimetre.
  */
 export function rotateGroup(pieces: EditPiece[], group: Set<string>, shipmentId: number): EditPiece[] {
   const own = pieces.filter((p) => p.shipmentId === shipmentId)
@@ -235,18 +244,49 @@ export function rotateGroup(pieces: EditPiece[], group: Set<string>, shipmentId:
     const py = p.y + p.w / 2 - cy
     const nx = cx - py
     const ny = cy + px
-    return { ...p, l: p.w, w: p.l, x: round(nx - p.w / 2), y: round(ny - p.l / 2), rotated: !p.rotated }
+    return { ...p, l: p.w, w: p.l, x: nx - p.w / 2, y: ny - p.l / 2, rotated: !p.rotated }
   })
-  return settle(turned, group)
+  const t = extentOf(turned.filter((p) => p.shipmentId === shipmentId))
+  const sx = roundMm(t.minX) - t.minX
+  const sy = roundMm(t.minY) - t.minY
+  return settle(
+    turned.map((p) => (group.has(p.key) ? { ...p, x: round(p.x + sx), y: round(p.y + sy) } : p)),
+    group,
+  )
 }
 
 function round(v: number): number {
   return Math.round(v * 100) / 100 + 0
 }
 
+/** cm to the nearest whole mm */
+function roundMm(v: number): number {
+  return Math.round(v * 10) / 10
+}
+
+/** Whether two plans of the same pieces have every piece where it was (and turned as it was). */
+export function samePlaces(a: readonly EditPiece[], b: readonly EditPiece[]): boolean {
+  if (a.length !== b.length) return false
+  const near = (u: number, v: number) => Math.abs(u - v) < 1e-6
+  return a.every((p, i) => {
+    const q = b[i]
+    return (
+      p.key === q.key &&
+      Boolean(p.out) === Boolean(q.out) &&
+      p.rotated === q.rotated &&
+      near(p.x, q.x) &&
+      near(p.y, q.y) &&
+      near(p.z, q.z) &&
+      near(p.l, q.l) &&
+      near(p.w, q.w)
+    )
+  })
+}
+
 /**
  * How far to move a group so its footprint starts near (x, y): whole centimetres, kept inside
- * the floor, and pulled to a wall or a neighbour's edge when one is within `reach` cm.
+ * the floor, and pulled to a wall or a neighbour's edge when one is within `reach` cm. With no
+ * reach (the arrows) it goes exactly where it is sent, so a step is a step also from half a cm.
  */
 export function snapMove(
   pieces: EditPiece[],
@@ -265,7 +305,7 @@ export function snapMove(
   const xs = [0, space.L - l, ...others.flatMap((o) => [o.x + o.l, o.x - l, o.x, o.x + o.l - l])]
   const ys = [0, space.W - w, ...others.flatMap((o) => [o.y + o.w, o.y - w, o.y, o.y + o.w - w])]
   const pick = (v: number, candidates: number[]) => {
-    let best = Math.round(v)
+    let best = reach > 0 ? Math.round(v) : v
     let dist = reach + EPS
     for (const c of candidates) {
       const d = Math.abs(c - v)

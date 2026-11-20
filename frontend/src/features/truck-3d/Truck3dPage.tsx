@@ -26,11 +26,20 @@ const ON_DEVICE = apiMode() === 'local'
 export function Truck3dPage() {
   const { state } = useLastJob()
   const completed = completedJob(state)
+  // While a plan is being arranged, the job it is from stays on the screen, even when a new
+  // optimization starts meanwhile (the editor would close and the changes would be lost).
+  const [pinned, setPinned] = useState<{ job: OptimizationJob; result: OptimizationResult } | null>(null)
+  const shown = pinned ?? completed
   return (
     <section>
       <PageHeader title="3D prikaz kamiona" />
-      {completed ? (
-        <LoadPlans job={completed.job} result={completed.result} />
+      {shown ? (
+        <LoadPlans
+          job={shown.job}
+          result={shown.result}
+          editing={pinned !== null}
+          onEditing={(on) => setPinned(on ? shown : null)}
+        />
       ) : isLastJobBusy(state) ? (
         <LoadingState label="Optimizacija je u toku; raspored se prikazuje kada posao završi." />
       ) : (
@@ -43,7 +52,17 @@ export function Truck3dPage() {
   )
 }
 
-function LoadPlans({ job, result }: { job: OptimizationJob; result: OptimizationResult }) {
+function LoadPlans({
+  job,
+  result,
+  editing,
+  onEditing,
+}: {
+  job: OptimizationJob
+  result: OptimizationResult
+  editing: boolean
+  onEditing: (on: boolean) => void
+}) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [reference, reload] = useReferenceData()
   const { truckId } = parseRouteMapParams(searchParams)
@@ -67,19 +86,22 @@ function LoadPlans({ job, result }: { job: OptimizationJob; result: Optimization
 
   return (
     <>
-      <div className="route-filter" role="group" aria-label="Izbor kamiona">
-        {rows.map((row) => (
-          <button
-            type="button"
-            key={row.truckId}
-            aria-pressed={row.truckId === selected.truckId}
-            onClick={() => selectTruck(row.truckId)}
-          >
-            {row.truckName}
-          </button>
-        ))}
-        <span className="route-filter__meta text--muted">Posao #{job.id}</span>
-      </div>
+      {/* Not while a plan is being arranged: another truck would throw its changes away. */}
+      {!editing && (
+        <div className="route-filter" role="group" aria-label="Izbor kamiona">
+          {rows.map((row) => (
+            <button
+              type="button"
+              key={row.truckId}
+              aria-pressed={row.truckId === selected.truckId}
+              onClick={() => selectTruck(row.truckId)}
+            >
+              {row.truckName}
+            </button>
+          ))}
+          <span className="route-filter__meta text--muted">Posao #{job.id}</span>
+        </div>
+      )}
       {truck ? (
         <TruckLoad
           key={truck.id}
@@ -87,6 +109,8 @@ function LoadPlans({ job, result }: { job: OptimizationJob; result: Optimization
           truck={truck}
           route={result.routes.find((r) => r.truckId === truck.id)}
           reference={reference.data}
+          editing={editing}
+          onEditing={onEditing}
         />
       ) : (
         <ErrorState title="Kamion ne postoji" message={`Kamion #${selected.truckId} nije među kamionima.`} />
@@ -101,12 +125,17 @@ function TruckLoad({
   truck,
   route,
   reference,
+  editing,
+  onEditing,
 }: {
   jobId: number
   truck: Truck
   /** the truck's route in the result: its fill and the order of the deliveries */
   route: RoutePlan | undefined
   reference: ReferenceData
+  /** the editor is open (the page holds the job while it is) */
+  editing: boolean
+  onEditing: (on: boolean) => void
 }) {
   const api = useApi()
   const load = useCallback(() => api.getLoadPlan(jobId, truck.id), [api, jobId, truck.id])
@@ -115,7 +144,6 @@ function TruckLoad({
   // Shipments a layout from smartLoad+ changed here (LDM, weight): the reference data is from before.
   const [changed, setChanged] = useState<ReadonlyMap<number, Shipment>>(new Map())
   const [layoutMessage, setLayoutMessage] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
   // The plan the editor saved (or the reset gave), until the reload brings it.
   const [fresh, setFresh] = useState<{ after: unknown; plan: LoadPlan } | null>(null)
 
@@ -162,10 +190,10 @@ function TruckLoad({
         names={new Map([...shipments].map(([id, s]) => [id, s.externalId]))}
         weights={new Map([...shipments].map(([id, s]) => [id, s.weightKg]))}
         onSaved={(saved) => {
-          setEditing(false)
+          onEditing(false)
           showPlan(saved, 'Ručno uređen raspored je sačuvan; 3D prikaz i PDF ga koriste.')
         }}
-        onClose={() => setEditing(false)}
+        onClose={() => onEditing(false)}
       />
     )
   }
@@ -195,7 +223,7 @@ function TruckLoad({
             ON_DEVICE
               ? () => {
                   setLayoutMessage(null)
-                  setEditing(true)
+                  onEditing(true)
                 }
               : undefined
           }

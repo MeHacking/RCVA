@@ -11,6 +11,7 @@ import {
   rotateGroup,
   routeKey,
   samePieces,
+  samePlaces,
   shipmentsAt,
   snapMove,
   unloadOrder,
@@ -156,6 +157,48 @@ describe('load plan arranged by hand: moves', () => {
     ])
     expect(both.find((p) => p.shipmentId === 2)).toMatchObject({ l: 80, w: 80, z: 100, rotated: true })
     expect(occupiedLength(turned)).toBe(410)
+  })
+
+  it('turns to whole mm, so saving shows no overlap the editor did not', () => {
+    // Odd sizes in mm put the middle on half a millimetre; the plan is saved in whole mm.
+    let random = 7
+    const next = () => {
+      random = (random * 1103515245 + 12345) % 2147483648
+      return random / 2147483648
+    }
+    const size = () => (500 + Math.floor(next() * 900)) / 10
+    const shown: string[] = []
+    for (let i = 0; i < 400; i++) {
+      let plan = [piece(1, 200, 20, 0, size(), size(), 100), piece(2, 700, 0, 0, size(), size(), 100)]
+      plan = rotateGroup(plan, groupOf(plan, [1]), 1)
+      for (const p of plan) expect(Math.abs(p.x * 10 - Math.round(p.x * 10))).toBeLessThan(1e-6)
+      // 2 pulled against 1's far end, as a drag does within 5 cm.
+      const one = plan[0]
+      const two = groupOf(plan, [2])
+      const at = snapMove(plan, two, one.x + one.l + 2, one.y, SPACE)
+      plan = moveGroup(plan, two, at.dx, at.dy)
+      const before = checkLoad(plan, SPACE, ORDER, name).map((p) => p.text)
+      const saved = piecesFromPlacements(placementsFromPieces(plan), new Map())
+      const after = checkLoad(saved, SPACE, ORDER, name).map((p) => p.text)
+      if (after.join() !== before.join()) shown.push(`${i}: ${after.join(' ')}`)
+    }
+    expect(shown).toEqual([])
+  })
+
+  it('moves by the arrows exactly by the step, also from half a centimetre', () => {
+    const half = [piece(3, 300.5, 0.5, 0, 120, 100, 120)]
+    const three = groupOf(half, [3])
+    expect(snapMove(half, three, 301.5, 0.5, SPACE, 0)).toEqual({ dx: 1, dy: 0 })
+    expect(snapMove(half, three, 300.5, 10.5, SPACE, 0)).toEqual({ dx: 0, dy: 10 })
+    // and still not past the walls
+    expect(snapMove(half, three, -4.5, 0.5, SPACE, 0)).toEqual({ dx: -300.5, dy: 0 })
+  })
+
+  it('knows a move that puts everything back where it was', () => {
+    const back = moveGroup(pieces, groupOf(pieces, [3]), 0, 0)
+    expect(samePlaces(pieces, back)).toBe(true)
+    expect(samePlaces(pieces, moveGroup(pieces, groupOf(pieces, [3]), 1, 0))).toBe(false)
+    expect(samePlaces(pieces, rotateGroup(pieces, groupOf(pieces, [3]), 3))).toBe(false)
   })
 })
 

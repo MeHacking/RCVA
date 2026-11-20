@@ -177,3 +177,88 @@ test('arranges a truck\'s load by hand, keeps it, and gives the computed one bac
   await expect(manual).toBeHidden()
   expect(errors).toEqual([])
 })
+
+/** A job, the 3D screen and the editor for the first truck. */
+async function openEditor(page: Page) {
+  await page.goto('/optimization')
+  await page.getByLabel('Vremensko ograničenje (s)').fill('1')
+  await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('navigation').getByRole('link', { name: '3D prikaz kamiona' }).click()
+  await ready(page)
+  await page.getByRole('button', { name: 'Uredi', exact: true }).click()
+  const editor = page.getByRole('region', { name: /^Uređivanje rasporeda/ })
+  await expect(editor).toBeVisible()
+  await ready(page)
+  return editor
+}
+
+test('keeps a quick drag in 3D, and a drag let go where it started changes nothing', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const editor = await openEditor(page)
+  const save = editor.getByRole('button', { name: 'Sačuvaj raspored' })
+  const start = await floor(page)
+
+  // Let go where it started: nothing to save or undo.
+  await page.locator('.load-editor__floor').evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  const first = await centre(rectOf(page, start[0].id))
+  await dragTo(page, first, first)
+  expect(await floor(page)).toEqual(start)
+  await expect(save).toBeDisabled()
+  await expect(editor.getByRole('button', { name: 'Poništi' })).toBeDisabled()
+
+  // Pressed, moved and let go before the page draws again (a quick flick of the mouse).
+  await editor.getByRole('group', { name: 'Pogled' }).getByRole('button', { name: 'Odozgo' }).click()
+  const canvas = editor.locator('.truck3d canvas')
+  await canvas.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  const id = start[0].id
+  await expect
+    .poll(() => canvas.evaluate((c, shipmentId) => (c as HTMLCanvasElement & { rcvaProbe: Probe }).rcvaProbe.screenOf(shipmentId) !== null, id))
+    .toBe(true)
+  await canvas.evaluate((c, shipmentId) => {
+    const at = (c as HTMLCanvasElement & { rcvaProbe: Probe }).rcvaProbe.screenOf(shipmentId)!
+    const fire = (type: string, dx: number) =>
+      c.dispatchEvent(
+        new PointerEvent(type, { bubbles: true, cancelable: true, clientX: at.x + dx, clientY: at.y, button: 0, buttons: type === 'pointerup' ? 0 : 1, pointerId: 1, isPrimary: true }),
+      )
+    fire('pointerdown', 0)
+    fire('pointermove', 20)
+    fire('pointermove', 60)
+    fire('pointerup', 60)
+  }, id)
+  await expect.poll(async () => (await floor(page)).find((p) => p.id === id)!.x).toBeGreaterThan(start[0].x)
+  await expect(save).toBeEnabled()
+  await editor.getByRole('button', { name: 'Poništi' }).click()
+  expect(await floor(page)).toEqual(start)
+  expect(errors).toEqual([])
+})
+
+test('does not lose changes without asking', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const editor = await openEditor(page)
+  // While editing, the other trucks are not offered (another truck would throw the changes away).
+  await expect(page.locator('.route-filter')).toBeHidden()
+
+  const start = await floor(page)
+  await rectOf(page, start[0].id).click()
+  await page.getByRole('application', { name: /Pod kamiona odozgo/ }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(editor.getByRole('button', { name: 'Sačuvaj raspored' })).toBeEnabled()
+
+  // A new optimization started from the top bar: the editor stays with the plan it opened.
+  await page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  await page.waitForTimeout(1000)
+  await expect(editor).toBeVisible()
+  await expect(editor.getByRole('button', { name: 'Sačuvaj raspored' })).toBeEnabled()
+
+  // Another screen: asks first.
+  await page.getByRole('navigation').getByRole('link', { name: 'Pošiljke' }).click()
+  await expect(editor.getByRole('alert')).toContainText('Izmene rasporeda nisu sačuvane')
+  await editor.getByRole('button', { name: 'Ostani' }).click()
+  await expect(page).toHaveURL(/\/truck-3d/)
+  await expect(editor.getByRole('button', { name: 'Sačuvaj raspored' })).toBeEnabled()
+  await page.getByRole('navigation').getByRole('link', { name: 'Pošiljke' }).click()
+  await editor.getByRole('button', { name: 'Napusti ekran' }).click()
+  await expect(page).toHaveURL(/\/shipments/)
+  expect(errors).toEqual([])
+})
