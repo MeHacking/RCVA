@@ -36,7 +36,17 @@ kamionu (izbacivanje i dalje preko „Premesti u…“).
   (Višnja i Grafit, 1440 px).
 - Stanje: tsc, lint i build čisti, Vitest 782, e2e 112 (svi prošli). Desktop i serverski e2e nisu pokretani.
 - **Zamka**: `.truck-3d__swatch` ima `grid-area: swatch` (spisak pored 3D), pa u drugoj mreži kvari raspored.
-- **Sledeće (traženo 20.11.)**: posle uvoza iz smartLoad+ svaki paket treba da bude posebno telo.
+- **Paket kao posebno telo (urađeno 20.11.2026)**, korisnik: „svaki paket nakon importa treba da bude posebno telo“
+  (menja odluku od 19.11. „pomera se cela pošiljka“). U uređivaču se bira i pomera telo (`EditPiece.key`, `"103#4"`):
+  blok pošiljke ili jedan paket iz smartLoad+, sa onim što stoji na njemu (ne i ostatak te pošiljke): `groupOf(keys)`,
+  `piecesAt`, `rotateGroup(…, key)`, `placeFromFront(…, key)`, `asideRows` (red po pošiljci, „× N“). Pravila po telu:
+  i paketi iste pošiljke ne smeju da se preklapaju, oslonac po paketu, `pieceLabel` („S-103, paket 4“),
+  `LoadProblem.keys`; redosled istovara jednom po paru pošiljki. `Truck3D` vraća `Hit` (`shipmentId`, `key`), izbor u
+  uređivaču po ključu; u običnom 3D prikazu klik i dalje bira celu pošiljku (predlog, korisnik nije posebno odgovorio).
+  Panel: „Paket 6. od 7“, „Visina dna … (na S-103, paket 5)“. Uputstvo i Legenda dopunjeni. Provereno na pokvarenom
+  kodu (7 izmena; dve su prvo prošle, dodati testovi). Vitest 783, e2e 112 od 113: pao `routeMap.spec.ts:71`, i sam 2 od
+  3 (dva opisa na mapi odjednom, poznato od 04.11.; ne dira izmenjeni kod; poređenje na starom kodu preko git worktree
+  nije uspelo, jer tamo posao nije ni krenuo).
 
 **Ručno uređivanje rasporeda (urađeno 19.11.2026)**, na zahtev korisnika: dugme „Uredi“ levo od „Ceo ekran“ na 3D
 ekranu otvara isto što i korak Rezultat u smartLoad-u (`screens/optimization.tsx`, `editor/LayoutEditor.tsx`,
