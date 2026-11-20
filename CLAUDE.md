@@ -4,11 +4,39 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 19.11.2026 (ručno uređivanje rasporeda, „Uredi“ na 3D ekranu; pre toga uvoz rasporeda iz
-smartLoad+, teme i animacije, nov 3D prikaz kao u smartLoad-u); videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 19.11.2026 (i „Uredi“ na 3D ekranu).
+Poslednje ažuriranje: 20.11.2026 (ispravke uređivača rasporeda, „Van kamiona“ i „Legenda“; pre toga „Uredi“ na
+3D ekranu, uvoz rasporeda iz smartLoad+, teme i animacije); videti „Gde smo stali“.
+Push-ovano na `origin/main` 19.11.2026 (do „Uredi“); izmene od 20.11. nisu push-ovane.
 
 ## Gde smo stali (03.11.2026)
+
+**Uređivač rasporeda, ispravke i „Van kamiona“ (urađeno 20.11.2026)**, na zahtev korisnika (drugar je prijavio
+bagove i „Van kamiona“ iz smartLoad-a). Poređenje sa smartLoad-om (`editor/plan.ts`, `LayoutEditor.tsx`, `Truck3D.tsx`,
+`Legend.tsx`); odluka korisnika: **predlog A**, pod oko kamiona je samo privremen, raspored se čuva tek kada je sve u
+kamionu (izbacivanje i dalje preko „Premesti u…“).
+- Ispravljeno (svako sa testom koji pada na starom kodu): brzo prevlačenje u 3D pušteno pre novog crtanja se videlo,
+  ali ni „Sačuvaj“ ni „Poništi“ (kraj prevlačenja je čitao staro stanje; sada `Drag.last`); prevlačenje pušteno na istom
+  mestu je dodavalo korak (`samePlaces`); promena kamiona za vreme uređivanja je bez pitanja brisala izmene (dugmad
+  kamiona se tada ne prikazuju, a `Truck3dPage` drži posao dok se uređuje, i kada nova optimizacija krene); izlazak sa
+  ekrana sa izmenama pita (`useBlocker`, potvrda u kartici); okretanje je ostavljalo pola mm, pa je posle čuvanja
+  pošiljka prislonjena uz okrenutu javljala „se preklapaju“ (u 500 od 3000 nasumičnih slučajeva; sada se okrenuta grupa
+  pomera na cele mm); strelica sa pola cm nije pomerala za tačan korak; pritisak u 3D delu je fokusom skrolovao
+  stranicu, pa se gubio klik na dugme tamo (pogled, legenda).
+- „Van kamiona“: `EditPiece.out`, `Yard` (`yardOf` u `scene.ts`: 1,5 m ispred kabine, 4,5 m iza vrata, 3,2 m sa strana),
+  `dragTo` (središte grupe iznad kamiona: u kamion, inače `putOnGround`, gurnuto sa kamiona najkraćim putem),
+  `placeFromFront` („Ubaci“: prvo mesto od čela gde ne krši nijedno pravilo, i redosled istovara, i okrenuto; šta je
+  stajalo na njoj na podu padne), `inTruck`, `shipmentsAside`. Pravila, kartice i pod odozgo gledaju samo kamion; na
+  podu odozgo se pomera samo u kamionu. Spisak „Van kamiona“ je po pošiljci (nema „× N“ kao u smartLoad-u: svaka
+  pošiljka je druga). `Truck3D` crta pod sa mrežom kad je `space.yard`, a pogledi ga uklapaju.
+- „Legenda“ (`Legend.tsx`, `useLegend.ts`, `localStorage` `rcva.legend.open`): otvorena prvi put, kolona pored 3D
+  prikaza; tada spisak ide ispod. „Pomera se sa“ u panelu izabrane. Uputstvo dopunjeno.
+- Provereno na pokvarenom kodu: 7 izmena ispravki (sve obaraju testove), 12 u logici poda (dve su prvo prošle: dodat test
+  za „najbliže čelu“, a dvostruka provera u „Ubaci“ je svedena na jednu), 7 na ekranu. Ekvivalentne: filter
+  `out` u `settle` (pod je uvek van kamiona) i provera visine u „Ubaci“ (samo prečica). Izgled proveren snimcima
+  (Višnja i Grafit, 1440 px).
+- Stanje: tsc, lint i build čisti, Vitest 782, e2e 112 (svi prošli). Desktop i serverski e2e nisu pokretani.
+- **Zamka**: `.truck-3d__swatch` ima `grid-area: swatch` (spisak pored 3D), pa u drugoj mreži kvari raspored.
+- **Sledeće (traženo 20.11.)**: posle uvoza iz smartLoad+ svaki paket treba da bude posebno telo.
 
 **Ručno uređivanje rasporeda (urađeno 19.11.2026)**, na zahtev korisnika: dugme „Uredi“ levo od „Ceo ekran“ na 3D
 ekranu otvara isto što i korak Rezultat u smartLoad-u (`screens/optimization.tsx`, `editor/LayoutEditor.tsx`,
@@ -1243,7 +1271,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (19.11.2026, posle „Uredi“ na 3D ekranu): tsc, lint i build čisti, Vitest 774, Playwright 109 (pao samo
+Stanje (20.11.2026, posle ispravki uređivača i „Van kamiona“): tsc, lint i build čisti, Vitest 782, Playwright 112
+(svi prošli); desktop i serverski e2e nisu pokretani.
+Pre toga (19.11.2026, posle „Uredi“ na 3D ekranu): tsc, lint i build čisti, Vitest 774, Playwright 109 (pao samo
 poznati nestabilni `routeMap.spec.ts:71`, sam prolazi); desktop i serverski e2e nisu pokretani.
 Pre toga (19.11.2026, posle uvoza rasporeda iz smartLoad+): tsc, lint i build čisti, Vitest 759, Playwright 108 (pao
 samo poznati nestabilni `smoke` logo, sam prolazi); desktop i serverski e2e nisu pokretani.
