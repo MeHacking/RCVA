@@ -1281,8 +1281,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (20.11.2026, posle ispravki uređivača i „Van kamiona“): tsc, lint i build čisti, Vitest 782, Playwright 112
-(svi prošli); desktop i serverski e2e nisu pokretani.
+Stanje (20.11.2026, posle paketa kao posebnih tela): tsc, lint i build čisti, Vitest 783, Playwright 112 od 113 (pao
+poznati nestabilni `routeMap.spec.ts:71`, sam 2 od 3); desktop i serverski e2e nisu pokretani.
+Pre toga (20.11.2026, posle ispravki uređivača i „Van kamiona“): Vitest 782, Playwright 112 (svi prošli).
 Pre toga (19.11.2026, posle „Uredi“ na 3D ekranu): tsc, lint i build čisti, Vitest 774, Playwright 109 (pao samo
 poznati nestabilni `routeMap.spec.ts:71`, sam prolazi); desktop i serverski e2e nisu pokretani.
 Pre toga (19.11.2026, posle uvoza rasporeda iz smartLoad+): tsc, lint i build čisti, Vitest 759, Playwright 108 (pao
