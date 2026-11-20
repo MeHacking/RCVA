@@ -193,6 +193,13 @@ const PATHS = {
       <rect x="8" y="13" width="8" height="7" />
     </>
   ),
+  restart: (
+    <>
+      <path d="M4 6h16M4 12h6M4 18h6" />
+      <path d="M13 15.5a3.5 3.5 0 1 0 1-2.45" />
+      <path d="M14 10.2V13h2.8" />
+    </>
+  ),
   minus: <path d="M5 12h14" />,
   fit: (
     <>

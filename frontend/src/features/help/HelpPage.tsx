@@ -383,7 +383,7 @@ function Steps() {
           strane i Od vrata uvek prikazuju ceo kamion. Mišem: prevlačenje okreće pogled, točkić približava, desni
           taster pomera. Klik na blok ili na pošiljku u spisku je ističe (ostale postaju providne) i ispod slike
           piše koja je, odakle i kuda ide i kada se istovara; klik pored kamiona poništava izbor. „Ceo ekran“
-          prikazuje 3D preko celog ekrana (Esc izlazi).
+          prikazuje 3D preko celog ekrana; tada dugme piše „Normalan prikaz“ i vraća ga (Esc takođe).
         </li>
         {ON_DEVICE && (
           <li>
@@ -405,7 +405,8 @@ function Steps() {
             preklapaju i svaki mora imati pun oslonac), uvek sa onim što stoji na njoj: prevlačenjem na podu ili u 3D, ili
             strelicama za izabrani korak (1, 5 ili 10 cm). U običnom 3D prikazu klik i dalje bira celu pošiljku. Uz zid i
             susednu pošiljku se lepi na 5 cm, a puštena preko druge pošiljke staje na nju. R ili dvoklik okreće za 90°,
-            Ctrl + Z i Ctrl + Y poništavaju i ponavljaju, Ctrl + klik dodaje pošiljku u izbor, a Shift + prevlačenje u 3D
+            Ctrl + Z i Ctrl + Y poništavaju i ponavljaju, „Vrati početni raspored“ vraća raspored kakav je bio kad je
+            uređivanje otvoreno (i to se može poništiti), Ctrl + klik dodaje pošiljku u izbor, a Shift + prevlačenje u 3D
             bira okvirom. Desno se odmah vidi šta je prekršeno: pošiljka izlazi iz tovarnog prostora, preklapa se sa
             drugom, nema pun oslonac, ili pošiljka koja se ranije istovara ne može da izađe (na njoj je ili ispred nje, ka
             vratima, stoji ona koja se kasnije istovara; pošiljke istog mesta istovara izlaze zajedno). „Sačuvaj raspored“
