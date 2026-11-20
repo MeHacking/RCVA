@@ -16,6 +16,12 @@ tela); „Vrati početni raspored“ i „Normalan prikaz“ još nisu.
 komunikacija) radi **tek kada RCVA i smartLoad+ budu razvijeni do kraja**. Do tada samo merenje
 i smanjenje potrošnje algoritama.
 
+**Odluka korisnika 20.11.2026: hosting u oblaku posle završetka razvoja**; do tada razvoj na
+njegovom laptopu i drugarovom jačem računaru. Zaposleni imaju slabije računare, pa se na
+hostingu optimizacija računa na serveru: za RCVA to znači režim `server` umesto današnjeg
+`local` (rešavač u pregledaču). Formalno je odluka o režimu još na razmatranju; ne menjati
+podrazumevani režim dok korisnik ne kaže.
+
 Korisnik želi da RCVA i smartLoad+ (`../smartLoad+`) budu jedan sistem na internetu, jer se
 telefon koristi van kancelarijske Wi-Fi mreže: prijava sa dodeljenim nalogom (uloge admin i
 korisnik), pa izbor aplikacije; slanje podataka između korisnika i iz jedne aplikacije u drugu
