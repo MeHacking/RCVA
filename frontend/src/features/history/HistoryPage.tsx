@@ -7,7 +7,9 @@ import type { JobStatus, JobSummary } from '../../api/types'
 import { Badge, type BadgeTone } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
+import { matchesQuery } from '../../app/search'
 import { PageHeader } from '../../components/PageHeader'
+import { SearchBox } from '../../components/SearchBox'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatShipmentCount } from '../../format/count'
 import { formatClock, formatDateTime } from '../../format/time'
@@ -30,6 +32,19 @@ const TONES: Record<JobStatus, BadgeTone> = {
  * Istorija (user, 21.11.2026): the optimizations kept on the device, newest first. "Otvori" shows
  * one on Rezultati (and on Mapa ruta and 3D prikaz, with its PDF), instead of the last one.
  */
+/** A kept job for the search: its number, when it started, its state, trucks and kilometres. */
+function matchesJob(summary: JobSummary, query: string): boolean {
+  const { job } = summary
+  return matchesQuery(query, [
+    `#${job.id}`,
+    formatDateTime(job.createdAt),
+    JOB_STATUS_LABELS[job.status],
+    ...summary.truckNames,
+    summary.totalMeters === null ? null : formatKm(summary.totalMeters),
+    formatShipmentCount(summary.shipmentCount),
+  ])
+}
+
 export function HistoryPage() {
   const api = useApi()
   const navigate = useNavigate()
@@ -37,6 +52,8 @@ export function HistoryPage() {
   const load = useCallback(() => api.listOptimizationJobs(), [api])
   const [jobs, reload] = useAsyncData(load)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  // The search in the top bar (as in smartLoad+'s Istorija).
+  const [query, setQuery] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
   const busy = isLastJobBusy(state)
@@ -64,7 +81,10 @@ export function HistoryPage() {
 
   return (
     <section>
-      <PageHeader title="Istorija" />
+      <PageHeader
+        title="Istorija"
+        tools={<SearchBox value={query} onChange={setQuery} placeholder="Pretraži: posao, datum, kamion…" label="Pretraga istorije" />}
+      />
       {jobs.status === 'loading' && <LoadingState label="Učitavanje istorije…" />}
       {jobs.status === 'error' && <ErrorState title="Istorija nije učitana" message={jobs.message} onRetry={reload} />}
       {jobs.status === 'success' && jobs.data === null && (
@@ -86,6 +106,9 @@ export function HistoryPage() {
             onda i na mapi ruta i u 3D prikazu, sa PDF-om za vozače.
             {busy && ' Dok optimizacija radi, drugi rezultat se ne može otvoriti.'}
           </p>
+          {query.trim() && !jobs.data.some((summary) => matchesJob(summary, query)) && (
+            <p className="text--muted">Nijedna optimizacija ne odgovara pretrazi „{query.trim()}“.</p>
+          )}
           <div className="table-wrap">
             <table className="table history-table" aria-label="Sačuvane optimizacije">
               <thead>
@@ -107,7 +130,7 @@ export function HistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {jobs.data.map((summary) => {
+                {jobs.data.filter((summary) => matchesJob(summary, query)).map((summary) => {
                   const { job } = summary
                   const duration = jobDurationSeconds(job)
                   return (
@@ -125,10 +148,8 @@ export function HistoryPage() {
                         {summary.trucksUsed === null ? (
                           <span className="text--muted">–</span>
                         ) : (
-                          <span className="history-table__trucks">
-                            <strong>{summary.trucksUsed}</strong>
-                            <span className="text--muted">{summary.truckNames.join(', ')}</span>
-                          </span>
+                          // Only how many (owner, 21.11.2026): the names did not fit.
+                          summary.trucksUsed
                         )}
                       </td>
                       <td className="num">{summary.totalMeters === null ? '–' : formatKm(summary.totalMeters)}</td>

@@ -292,6 +292,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   }
   // Jobs run one at a time, in the order they were created (as on the backend).
   let queue: Promise<void> = Promise.resolve()
+  /** The running job's way to stop its solver ("Prekini"). */
+  const running = new Map<number, AbortController>()
   // Writes go one after another; each writes the state as it is when its turn comes.
   let saving: Promise<void> = Promise.resolve()
   const ready = restore()
@@ -819,6 +821,9 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   }
 
   async function run(job: LocalJob): Promise<void> {
+    if (job.status === 'CANCELLED') return
+    const controller = new AbortController()
+    running.set(job.id, controller)
     job.status = 'RUNNING'
     job.startedAt = new Date().toISOString()
     persistInBackground()
@@ -829,14 +834,18 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       const deadline = Date.now() + limitMs
       const withAdvice = settings.extraTruckSavingPercent !== null
       const input = toSolverInput(job.input)
-      const solution = await runSolver(input, { timeLimitMs: withAdvice ? Math.round(limitMs * MAIN_SOLVE_SHARE) : limitMs })
+      const solution = await runSolver(
+        input,
+        { timeLimitMs: withAdvice ? Math.round(limitMs * MAIN_SOLVE_SHARE) : limitMs },
+        controller.signal,
+      )
       job.score = solution.score
       if (isFeasible(solution.score)) {
         const result = toOptimizationResult(
           job.input,
           solution.routes.map((r) => ({ truckId: r.truckId, route: r.route })),
         )
-        const extraTruck = await adviseExtraTruck(input, result, deadline - Date.now())
+        const extraTruck = await adviseExtraTruck(input, result, deadline - Date.now(), controller.signal)
         job.result = { ...result, openRoute: true, distanceSource: job.distanceSource, ...(extraTruck ? { extraTruck } : {}) }
         job.trucksLowerBound = result.trucksLowerBound
         job.status = 'COMPLETED'
@@ -845,9 +854,14 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         job.infeasibilityKind = 'NOT_FOUND'
       }
     } catch (error) {
-      console.error(`Optimization job ${job.id} failed`, error)
-      job.status = 'FAILED'
+      if (controller.signal.aborted) {
+        job.status = 'CANCELLED'
+      } else {
+        console.error(`Optimization job ${job.id} failed`, error)
+        job.status = 'FAILED'
+      }
     }
+    running.delete(job.id)
     job.finishedAt = new Date().toISOString()
     persistInBackground()
   }
@@ -858,7 +872,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
    * started at its first pickup, since it is not anywhere yet). Advised only when that saves at
    * least the share in the settings.
    */
-  async function adviseExtraTruck(input: SolverInput, result: OptimizationResult, timeLimitMs: number) {
+  async function adviseExtraTruck(input: SolverInput, result: OptimizationResult, timeLimitMs: number, signal: AbortSignal) {
     const percent = settings.extraTruckSavingPercent
     if (percent === null || result.unassignedShipmentIds.length > 0 || result.totalMeters === 0) return undefined
     if (timeLimitMs < MIN_ADVICE_MS) return undefined
@@ -872,6 +886,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         exactTrucks: result.trucksUsed + 1,
       },
       { timeLimitMs },
+      signal,
     )
     const meters = -other.score.soft
     const saving = ((result.totalMeters - meters) / result.totalMeters) * 100
@@ -1113,6 +1128,21 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           })
         }
         jobs.delete(id)
+      }),
+
+    cancelOptimizationJob: (id) =>
+      change(() => {
+        const job = findJob(id)
+        if (job.status === 'QUEUED') {
+          // run() skips it when its turn comes.
+          job.status = 'CANCELLED'
+          job.finishedAt = new Date().toISOString()
+        } else if (job.status === 'RUNNING') {
+          // The solver's worker is ended; run() marks the job CANCELLED.
+          running.get(id)?.abort()
+        } else {
+          throw new ApiError({ title: 'Posao je završen', status: 409, detail: `Posao #${id} je već završen.` })
+        }
       }),
 
     getOptimizationResult: (id) => respond(() => withFleet(findJob(id))),

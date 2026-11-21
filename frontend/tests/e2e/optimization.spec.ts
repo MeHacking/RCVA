@@ -23,7 +23,7 @@ test('goes through the steps of Optimizacija, and the old addresses lead to them
   await expect(page.getByRole('banner').getByRole('navigation', { name: 'Koraci optimizacije' })).toBeVisible()
   await expect(steps.getByRole('link')).toHaveText(['Pošiljke', 'Lokacije kamiona', 'Vreme', 'Rezultat'])
   await expect(page.getByTestId('last-job-status')).toHaveCount(0)
-  await expect(page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' })).toBeVisible()
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Optimizuj' })).toBeVisible()
   await expect(page.getByText('Korak 1 od 4')).toBeVisible()
   await expect(page.getByRole('heading', { level: 1, name: 'Pošiljke' })).toBeVisible()
 

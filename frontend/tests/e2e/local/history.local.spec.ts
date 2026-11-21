@@ -43,7 +43,8 @@ test('lists the kept jobs, opens an older one everywhere, and deletes one', asyn
   await expect(rows.nth(1)).toContainText('od 0:02')
   await expect(rows.nth(2)).toContainText('#1')
   await expect(rows.nth(2)).toContainText('od 0:01')
-  await expect(rows.nth(2)).toContainText(/Šleper/)
+  // Only how many trucks, not their names.
+  await expect(rows.nth(2)).not.toContainText(/Šleper/)
   await expect(rows.nth(2)).toContainText('km')
 
   // Opened: Rezultati, the top bar and the map show job #1.

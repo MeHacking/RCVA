@@ -41,6 +41,8 @@ export interface LastJobContextValue {
    * device the truck locations are checked first. Resolves to the state it ends in.
    */
   start: (options?: StartOptions) => Promise<LastJobState['kind']>
+  /** "Prekini": stops the tracked job (on the device; NOT IN SPEC v2). Its status then shows CANCELLED. */
+  cancel: () => Promise<void>
   /** The result of the tracked job changed (shipments moved by hand). */
   replaceResult: (jobId: number, result: OptimizationResult) => void
   /**

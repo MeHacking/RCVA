@@ -105,6 +105,18 @@ klik vodi na Rezultate, otvaranje Rezultata ih briše). Profil: „Niste prijavl
   početna), ikonice iz `lucide-react` (Anchor, Moon, TreePine, Zap, Cherry) i kvačica `Check`, bez opisa
   ispod naziva; tekst korisnika: „Tema menja boje aplikacije. Važi odmah i pamti se u ovom pregledaču.“
   Testovi tema prilagođeni redosledu (strelice). Uputstvo dopunjeno.
+- **Gornja traka kao smartLoad+ (21.11.2026)**: naslov ekrana, opis, pretraga i dugmad idu u traku kroz
+  portal (`PageHeader` → `TopBarTitleContext`); čipovi poslednjeg posla uklonjeni. Optimizacija: koraci i
+  „Optimizuj“ (dok radi „Računam…“, pod pokazivačem „Prekini“); naslov koraka na stranici sakriven, vidi se
+  samo „Korak X od 4“ (kao `ScreenHeader` u smartLoad+). Pregled „Nastavi optimizaciju“; Kamioni pretraga
+  (`aria-label` „Pretraga kamiona“: placeholder sa „naziv“ je smetao testovima sa `getByLabel('Naziv')`) i
+  „Dodaj kamion“, „Dodaj tip kamiona“; Istorija pretraga i samo broj kamiona. „Nova optimizacija“ u meniju
+  (46 px, izmereno u smartLoad+). Stilovi dugmadi i pretrage iz smartLoad+ pod `.bar` (`layout.css`).
+  **Prekini** (NOT IN SPEC v2): `cancelOptimizationJob`, na uređaju `AbortController` po poslu i
+  `SolverRunner` sa signalom (Worker se gasi), posao `CANCELLED`; mock i server 404, dugme samo odbrojava.
+  Testovi: `search.test.ts`, „stopping a job“ u `localClient.test.ts` (provereno na pokvarenom kodu),
+  e2e `stopJob.local.spec.ts`, prepisan `topBar.spec.ts`; pun e2e posle toga 115 od 130, uzroci ispravljeni
+  i svi pali testovi ponovo prolaze; pun prolaz posle poslednjih ispravki nije ponovljen.
 - Nije rađeno: uski prozori (telefon) nisu prilagođeni novom rasporedu.
 
 **Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad

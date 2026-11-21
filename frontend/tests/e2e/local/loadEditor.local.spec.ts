@@ -446,7 +446,7 @@ test('does not lose changes without asking', async ({ page }) => {
   await expect(editor.getByRole('button', { name: 'Sačuvaj raspored' })).toBeEnabled()
 
   // A new optimization started from the top bar: the editor stays with the plan it opened.
-  await page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  await page.getByRole('banner').getByRole('button', { name: 'Optimizuj' }).click()
   await page.waitForTimeout(1000)
   await expect(editor).toBeVisible()
   await expect(editor.getByRole('button', { name: 'Sačuvaj raspored' })).toBeEnabled()

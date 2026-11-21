@@ -33,7 +33,7 @@ export function HelpPage() {
   ]
   return (
     <section className="help">
-      <PageHeader title="Uputstvo" />
+      <PageHeader title="Uputstvo" note="Kako se planiraju utovar i rute" />
       {!ON_DEVICE && (
         <p className="text--muted">
           Aplikacija sada ne radi na uređaju, pa delovi o lokacijama kamiona, podešavanjima i čuvanju podataka nisu

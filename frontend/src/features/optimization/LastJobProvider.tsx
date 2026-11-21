@@ -122,7 +122,20 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const value = useMemo(() => ({ state, start, replaceResult, open, close }), [state, start, replaceResult, open, close])
+  // The poll then finds it CANCELLED; an answer such as 409 (it had just ended) changes nothing.
+  const cancel = useCallback(async () => {
+    if (trackedJobId === null) return
+    try {
+      await api.cancelOptimizationJob(trackedJobId)
+    } catch (error) {
+      console.warn('Stopping the optimization job failed', error)
+    }
+  }, [api, trackedJobId])
+
+  const value = useMemo(
+    () => ({ state, start, cancel, replaceResult, open, close }),
+    [state, start, cancel, replaceResult, open, close],
+  )
   return <LastJobContext value={value}>{children}</LastJobContext>
 }
 

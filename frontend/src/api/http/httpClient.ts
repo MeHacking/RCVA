@@ -51,6 +51,8 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     listOptimizationJobs: async () => null,
     deleteOptimizationJob: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema brisanje poslova.' })),
+    cancelOptimizationJob: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema prekidanje poslova.' })),
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
     getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
     // The backend has no road lines (its distances are great-circle): the map draws straight lines.

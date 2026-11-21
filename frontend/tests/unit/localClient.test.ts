@@ -1642,3 +1642,39 @@ describe('an empty device and a new week', () => {
     await settle(api, id)
   })
 })
+
+describe('stopping a job ("Prekini")', () => {
+  // A solver that runs until it is stopped.
+  const untilStopped: SolverRunner = (_input, _options, signal) =>
+    new Promise((_resolve, reject) => signal?.addEventListener('abort', () => reject(new Error('stopped'))))
+
+  it('stops the running job and a waiting one, which then never runs', async () => {
+    const runSolver = vi.fn(untilStopped)
+    const api = setup('small', runSolver)
+    const first = await api.createOptimizationJob(REQUEST)
+    const second = await api.createOptimizationJob(REQUEST)
+    await vi.waitFor(async () => expect((await api.getOptimizationJob(first.id)).status).toBe('RUNNING'))
+
+    await api.cancelOptimizationJob(second.id)
+    expect((await api.getOptimizationJob(second.id)).status).toBe('CANCELLED')
+    await api.cancelOptimizationJob(first.id)
+    const stopped = await settle(api, first.id)
+    expect(stopped.status).toBe('CANCELLED')
+    expect(stopped.finishedAt).not.toBeNull()
+    await written()
+    expect(runSolver).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses an ended job (409) and an unknown one (404)', async () => {
+    const api = setup('small')
+    const { id } = await api.createOptimizationJob(REQUEST)
+    expect((await settle(api, id)).status).toBe('COMPLETED')
+    expect((await rejection(api.cancelOptimizationJob(id))).problem.status).toBe(409)
+    expect((await rejection(api.cancelOptimizationJob(999))).problem.status).toBe(404)
+  })
+
+  it('is not there in the mock', async () => {
+    const api = createMockApiClient({ scenario: SCENARIOS.small, latencyMs: 0 })
+    expect((await rejection(api.cancelOptimizationJob(1))).problem.status).toBe(404)
+  })
+})

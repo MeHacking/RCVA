@@ -1,3 +1,4 @@
+import { Layers, Plus } from 'lucide-react'
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { useApi } from '../../api/apiContext'
 import { apiMode } from '../../api/apiMode'
@@ -5,7 +6,9 @@ import { describeError } from '../../api/client'
 import type { Truck, TruckStart, TruckType } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
+import { matchesQuery } from '../../app/search'
 import { PageHeader } from '../../components/PageHeader'
+import { SearchBox } from '../../components/SearchBox'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
@@ -30,6 +33,19 @@ type Editing =
   | { mode: 'editType'; type: TruckType }
   | null
 
+/** A truck for the search: its name, driver, capacity, load limit and cargo space. */
+function matchesTruck(truck: Truck, query: string): boolean {
+  return matchesQuery(query, [
+    truck.name,
+    truck.driverName,
+    formatLdm(truck.capacityLdmTenths),
+    truck.capacityKg,
+    truck.innerLengthMm,
+    truck.innerWidthMm,
+    truck.innerHeightMm,
+  ])
+}
+
 export function TrucksPage() {
   const api = useApi()
   const load = useCallback(() => api.listTrucks(), [api])
@@ -42,6 +58,8 @@ export function TrucksPage() {
   const [types, reloadTypes] = useAsyncData(loadTypes)
   const typeList = types.status === 'success' ? (types.data ?? []) : []
   const [editing, setEditing] = useState<Editing>(null)
+  // The search in the top bar (as in smartLoad+'s truck catalog): name, driver or measures.
+  const [query, setQuery] = useState('')
   /** the truck types card: shown on "Dodaj tip kamiona", until closed */
   const [typesOpen, setTypesOpen] = useState(false)
   // One card open at a time: the types card or a truck's form.
@@ -140,22 +158,23 @@ export function TrucksPage() {
     <section>
       <PageHeader
         title="Kamioni"
+        tools={<SearchBox value={query} onChange={setQuery} placeholder="Pretraži kamione: naziv ili mere…" label="Pretraga kamiona" />}
         actions={
           <>
             <button
               type="button"
-              className="button--primary"
+              className="btn btn--glass"
               onClick={() => editTruck({ mode: 'create' })}
               disabled={trucks.status !== 'success' || types.status === 'loading'}
             >
-              <Icon name="plus" size={16} />
-              Dodaj kamion
+              <Plus aria-hidden="true" />
+              <span>Dodaj kamion</span>
             </button>
             {/* Only where types are kept (not on the backend). */}
             {types.status === 'success' && types.data && (
-              <button type="button" onClick={() => editType({ mode: 'createType' })}>
-                <Icon name="layers" size={16} />
-                Dodaj tip kamiona
+              <button type="button" className="btn btn--glass" onClick={() => editType({ mode: 'createType' })}>
+                <Layers aria-hidden="true" />
+                <span>Dodaj tip kamiona</span>
               </button>
             )}
           </>
@@ -271,8 +290,11 @@ export function TrucksPage() {
             <p className="text--muted">
               Kamioni koje optimizacija može da koristi. Kamion koji nije dostupan ne ulazi u optimizaciju.
             </p>
+            {query.trim() && !trucks.data.some((truck) => matchesTruck(truck, query)) && (
+              <p className="text--muted">Nijedan kamion ne odgovara pretrazi „{query.trim()}“.</p>
+            )}
             <TruckTable
-              trucks={trucks.data}
+              trucks={trucks.data.filter((truck) => matchesTruck(truck, query))}
               editingId={editing?.mode === 'edit' ? editing.truck.id : null}
               confirmingId={confirmingId}
               deletingId={deletingId}

@@ -156,6 +156,12 @@ export interface ApiClient {
    * it). 404 for an unknown job (and over HTTP), 409 while it waits or runs.
    */
   deleteOptimizationJob(id: number): Promise<void>
+  /**
+   * NOT IN SPEC v2 ("Prekini" in the top bar, as in smartLoad+, 21.11.2026): stops a job that
+   * waits or runs; it ends CANCELLED. 404 for an unknown job (and in the mock and over HTTP, which
+   * cannot stop one), 409 once it has ended.
+   */
+  cancelOptimizationJob(id: number): Promise<void>
   /** Only for COMPLETED jobs; 409 otherwise */
   getOptimizationResult(id: number): Promise<OptimizationResult>
   /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */

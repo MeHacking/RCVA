@@ -1,3 +1,4 @@
+import { ArrowRight } from 'lucide-react'
 import { useCallback, useId } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
@@ -18,6 +19,7 @@ import { BarList, Meter, StatusRing } from './DashboardCharts'
 import { buildDashboardModel, truckLoads, type DashboardModel } from './dashboardModel'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
   const api = useApi()
   const load = useCallback(async () => {
     const [shipments, locations, trucks, starts, history] = await Promise.all([
@@ -33,7 +35,16 @@ export function DashboardPage() {
 
   return (
     <section className="dashboard">
-      <PageHeader title="Pregled" />
+      <PageHeader
+        title="Pregled"
+        note="Pošiljke, kamioni i optimizacije"
+        actions={
+          <button type="button" className="btn btn--glass btn--arrow" onClick={() => void navigate(PATHS.optimization)}>
+            <ArrowRight aria-hidden="true" className="btn__arrow btn__arrow--right" />
+            <span>Nastavi optimizaciju</span>
+          </button>
+        }
+      />
       {data.status === 'loading' && <LoadingState label="Učitavanje pregleda…" />}
       {data.status === 'error' && <ErrorState title="Pregled nije učitan" message={data.message} onRetry={reload} />}
       {data.status === 'success' && (

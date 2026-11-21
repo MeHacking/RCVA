@@ -27,7 +27,9 @@ for (const route of [...ROUTES, ...STEP_ROUTES]) {
 
     await expect(page.getByRole('heading', { level: 1, name: route.heading })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Glavna navigacija' })).toBeVisible()
-    await expect(page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' })).toBeVisible()
+    // The top bar: the screen's title, or in Optimizacija its steps and "Optimizuj" (as in smartLoad+).
+    const banner = page.getByRole('banner')
+    await expect(banner.getByRole('heading', { level: 1 }).or(banner.getByRole('button', { name: 'Optimizuj' }))).toBeVisible()
     // Let mount effects (run twice under StrictMode) and mock responses settle.
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(500)

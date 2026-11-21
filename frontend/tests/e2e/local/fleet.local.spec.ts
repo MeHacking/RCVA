@@ -36,7 +36,7 @@ test('asks where a new truck is before a job, and starts only then', async ({ pa
 
   // The top bar sends the user to the question.
   await page.goto('/shipments')
-  await page.getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  await page.getByRole('banner').getByRole('button', { name: 'Optimizuj' }).click()
   await expect(page).toHaveURL('/optimization/trucks')
   const check = page.getByRole('region', { name: 'Gde su kamioni?' })
   await expect(check.getByRole('row', { name: /Nova cerada/ })).toContainText('Nije uneta')

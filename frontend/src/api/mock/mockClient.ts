@@ -291,6 +291,10 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
           }),
       ),
 
+    // The mock's jobs follow a fixed course; only the application on the device stops one.
+    cancelOptimizationJob: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Probni podaci nemaju prekidanje poslova.' })),
+
     deleteOptimizationJob: (id) =>
       respond(() => {
         const job = jobView(findJob(id))

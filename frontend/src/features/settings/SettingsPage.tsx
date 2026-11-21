@@ -20,7 +20,7 @@ export function SettingsPage() {
 
   return (
     <section className="settings">
-      <PageHeader title="Podešavanja" />
+      <PageHeader title="Podešavanja" note="Izgled, podaci i servisi" />
       {/* The look is the browser's own, so it is there whatever the data source says. */}
       <ThemePanel />
       {settings.status === 'loading' && <LoadingState label="Učitavanje podešavanja…" />}

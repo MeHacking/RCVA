@@ -25,7 +25,7 @@ test('a job that ends on another screen leaves a notification that leads to the 
   await expect(page).toHaveURL('/optimization/trucks')
   await page.getByRole('button', { name: 'Zadrži sve sadašnje lokacije' }).click()
   await page.getByRole('region', { name: 'Gde su kamioni?' }).getByRole('button', { name: 'Pokreni optimizaciju' }).click()
-  await page.getByRole('link', { name: 'Kamioni', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Glavna navigacija' }).getByRole('link', { name: 'Kamioni', exact: true }).click()
   await expect(page).toHaveURL(/\/trucks$/)
   await expect(bell).toHaveAccessibleName('Obaveštenja (1 novo)', { timeout: 20_000 })
   await bell.click()

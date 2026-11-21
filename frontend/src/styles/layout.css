@@ -311,6 +311,7 @@
 
 /* The screen's icon and title, as in smartLoad+ (PageHeader puts the title here). */
 .top-bar__title {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -322,9 +323,10 @@
   flex: none;
 }
 
-.top-bar__title-text {
+.top-bar__screen {
+  flex: 1;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   min-width: 0;
 }
@@ -345,11 +347,327 @@
   white-space: nowrap;
 }
 
-/* "Pokreni optimizaciju" in the bar: a pill as tall as the bell, as in smartLoad+. */
-.top-bar button.button--primary {
+/* The screen's tools (a search) and buttons at the right end of the bar, as in smartLoad+. */
+.top-bar__tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 26rem;
+  min-width: 0;
+}
+
+.top-bar__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex: none;
-  height: 2.875rem;
-  padding: 0 1.25rem;
+}
+
+.top-bar__tools ~ .top-bar__actions {
+  margin-left: 0;
+}
+
+/*
+ * Buttons of the top bar, as smartLoad+'s .btn (owner, 21.11.2026): pills 46 px tall with an
+ * 18 px icon; glass ones in the ink's tint, the primary one in the accent. Written with the bar in
+ * front, so the plain button rules of components.css do not win.
+ */
+.bar button.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 46px;
+  min-height: 46px;
+  padding: 0 20px 0 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--text) 15%, transparent);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  box-shadow: none;
+  translate: none;
+  white-space: nowrap;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease,
+    scale 150ms var(--ease-out);
+}
+
+.bar button.btn::after {
+  display: none;
+}
+
+.bar button.btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.bar button.btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 11%, transparent);
+  border-color: color-mix(in srgb, var(--text) 26%, transparent);
+  translate: none;
+  box-shadow: none;
+}
+
+.bar button.btn:active:not(:disabled) {
+  scale: none;
+  transform: translateY(1px);
+}
+
+/* Next to a search: no frame, a soft pill (as smartLoad+'s "Dodaj kamion"). */
+.top-bar__tools ~ .top-bar__actions button.btn {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.top-bar__tools ~ .top-bar__actions button.btn:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--text) 13%, transparent);
+}
+
+.bar button.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.bar button.btn--primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.bar button.btn--primary svg {
+  transition: translate 150ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bar button.btn--primary:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--accent) 86%, #ffffff);
+    border-color: transparent;
+  }
+
+  /* The icon leans a little forward, the button stays where it is. */
+  .bar button.btn--primary:hover svg {
+    translate: 2px 0;
+  }
+}
+
+.bar button.btn--primary:active:not(:disabled) {
+  transform: none;
+  scale: 0.97;
+}
+
+.bar button.btn:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* "Optimizuj": while it runs, "Računam…" and "Prekini" share one place; hover or focus shows
+   "Prekini" with its X spinning in. */
+.bar button.run-btn--busy {
+  display: inline-grid;
+  grid-template-areas: 'one';
+  place-items: center;
+}
+
+.bar button.run-btn--busy:disabled {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+.run-btn__layer {
+  grid-area: one;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    opacity 160ms var(--ease-out),
+    translate 160ms var(--ease-out);
+}
+
+.run-btn__stop {
+  opacity: 0;
+  translate: 0 4px;
+}
+
+.run-btn--busy:hover .run-btn__wait,
+.run-btn--busy:focus-visible .run-btn__wait {
+  opacity: 0;
+  translate: 0 -4px;
+}
+
+.run-btn--busy:hover .run-btn__stop,
+.run-btn--busy:focus-visible .run-btn__stop {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.run-btn .spin {
+  animation: run-spin 1s linear infinite;
+}
+
+@keyframes run-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* The X of "Prekini" spins in, one and a half turns, once per hover. */
+  .run-btn--busy:hover .run-btn__x {
+    animation: x-spin 700ms var(--ease-out);
+  }
+
+  .bar button.btn--primary.run-btn:hover svg {
+    translate: 0 0;
+  }
+
+  /* The play icon pulses once on hover, as if pressed. */
+  .run-btn:not(.run-btn--busy):hover .run-btn__play {
+    animation: play-pulse 380ms var(--ease-out);
+  }
+
+  /* An arrow moves the way it points while the pointer is on its button. */
+  .btn--arrow:hover .btn__arrow--right {
+    animation: arrow-right 800ms cubic-bezier(0.77, 0, 0.175, 1) 1;
+  }
+}
+
+@keyframes x-spin {
+  from {
+    rotate: -540deg;
+  }
+  to {
+    rotate: 0deg;
+  }
+}
+
+@keyframes play-pulse {
+  0% { scale: 1; }
+  35% { scale: 0.72; }
+  70% { scale: 1.14; }
+  100% { scale: 1; }
+}
+
+@keyframes arrow-right {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 4px 0; }
+}
+
+/* The search of the top bar: one soft pill, no frame until it is used. */
+.search {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  min-width: 0;
+  padding: 0 6px 0 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.search:hover,
+.search:focus-within {
+  background: color-mix(in srgb, var(--text) 11%, transparent);
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+}
+
+.search > svg {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  color: var(--text-muted);
+  transition: color 160ms ease;
+}
+
+.search:focus-within > svg {
+  color: var(--accent);
+}
+
+.search input:not([type='checkbox']) {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  box-shadow: none;
+}
+
+/* No frame of its own in any state: the pill around it shows the focus (as in smartLoad+). */
+.search input:not([type='checkbox']):hover,
+.search input:not([type='checkbox']):focus,
+.search input:not([type='checkbox']):focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.search input::placeholder {
+  color: var(--text-muted);
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.bar .search button.search__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  border: none;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  color: var(--text);
+  font-size: 0.8rem;
+  box-shadow: none;
+}
+
+.search__clear svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar button.btn,
+  .run-btn__layer,
+  .search {
+    transition: none;
+  }
+
+  .run-btn .spin {
+    animation-duration: 3s;
+  }
+
+  .run-btn--busy:hover .run-btn__x,
+  .run-btn:not(.run-btn--busy):hover .run-btn__play,
+  .btn--arrow:hover .btn__arrow--right {
+    animation: none;
+  }
 }
 
 /* While a job runs: a light sliding along the bottom edge of the bar. */
@@ -1506,12 +1824,6 @@ button.stat.stat-action:hover:not(:disabled) {
 .history-table__shown {
   color: var(--accent-on-light);
   font-weight: var(--weight-semibold);
-}
-
-.history-table__trucks {
-  display: grid;
-  gap: 2px;
-  max-width: 22rem;
 }
 
 /* The trucks' map on Kamioni: a pin per place (TruckMap.tsx). */
