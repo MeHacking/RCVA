@@ -4,11 +4,9 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 20.11.2026 („Vrati početni raspored“ i „Normalan prikaz“ iz smartLoad-a; pre toga ispravke
-uređivača rasporeda, „Van kamiona“ i „Legenda“, „Uredi“ na 3D ekranu, uvoz rasporeda iz smartLoad+, teme i animacije);
-videti „Gde smo stali“.
-Sve je push-ovano na `origin/main` 20.11.2026 (i ispravke uređivača, „Van kamiona“, „Legenda“ i paketi kao posebna
-tela); „Vrati početni raspored“ i „Normalan prikaz“ još nisu.
+Poslednje ažuriranje: 21.11.2026 (Optimizacija u koracima, Istorija, mapa kamiona, ikonice iz smartLoad+, vremensko
+ograničenje i brojač); videti „Gde smo stali“.
+Sve je push-ovano na `origin/main` 21.11.2026 (korisnik je tražio push na kraju, jer nije bio tu).
 
 ## Zajednički sistem RCVA + smartLoad (razgovor 20.11.2026, predlog ODOBREN, ali kasnije)
 
@@ -37,6 +35,41 @@ Merenje 20.11.2026 (`../smartLoad+/docs/measurements/2026-11-20-concurrency.md`)
 jednu optimizaciju odjednom (`newSingleThreadExecutor`). Nije mereno na većem poslu.
 
 ## Gde smo stali (03.11.2026)
+
+**Pet zahteva od 21.11.2026 (urađeno, redom 5, 4, 2, 3, 1 po izboru korisnika; svi predlozi prihvaćeni)**:
+- **5. Vremensko ograničenje**: izmereno (Vitest, 3 s): posao je trajao 6055 ms, jer je preporuka dodatnog kamiona
+  (podrazumevano 10 %) posle rešenja rešavala još jednom isto toliko; u pregledaču 4 s → 8037 ms. Sada je zadato vreme
+  ukupno: rešenje dobija 2/3 (`MAIN_SOLVE_SHARE`), preporuka ostatak do roka (`MIN_ADVICE_MS` 200; bez preporuke sve
+  vreme rešenju). Vreme ORS upita pre posla („Priprema“) se ne računa (nije mereno, nema ključa ovde). Brojač kao u
+  smartLoad+: dugme gore desno „Računam… 0:12 / 1:00“ („Priprema…“, „Čeka red…“), isto u koraku Rezultat uz traku
+  (`jobClock.ts`, `useJobClock.ts`, `JobClockText.tsx`, `formatClock`).
+- **4. Ikonice menija** iz `lucide-react` kao u smartLoad+ (House, Lightbulb, History, Truck, Settings, BookOpen).
+- **2. Mapa kamiona** na ekranu Kamioni („Kamioni na mapi“, samo režim `local`): čioda po mestu sa brojem kamiona,
+  predlog posle optimizacije isprekidana čioda, kamioni bez lokacije ispod mape (`truckMapModel.ts`, `TruckMap.tsx`,
+  Leaflet lenjo). **Zamka**: Leaflet pravi element markera tek kad mapa ima pogled, pa `fitBounds` ide pre crtanja.
+- **3. Istorija** (`/history`): uređaj čuva 50 poslova (`KEPT_JOBS`, ranije 10); spisak, „Otvori“ (prikazuje posao u
+  koraku Rezultat, na mapi i u 3D, `LastJobContext.open`, `fromHistory`; ne dok posao radi), „Obriši“ uz potvrdu
+  (`close`). API (NOT IN SPEC v2): `listOptimizationJobs` (`JobSummary`), `deleteOptimizationJob` (404, 409); HTTP
+  `null`/404. Grafik na Pregledu i dalje broji obrisane.
+- **1. Optimizacija u koracima** (kao smartLoad+; korisnik dopunio: koraci u gornjoj traci, bez brojeva): meni Pregled,
+  Optimizacija, Istorija, Kamioni, Podešavanja, Uputstvo. Koraci (`steps.ts`, `PATHS` u `app/paths.ts`): Pošiljke
+  (`/optimization/shipments`, uvoz `/import`), Lokacije kamiona (`/trucks`, `LocationsCheck` sa „Dalje“ ili, kad
+  pokretanje čeka odgovor, „Pokreni optimizaciju“), Vreme (`/time`, `TimerDial` iz smartLoad+ vezan za polje; vreme se
+  pamti u `localStorage` `rcva.timeLimit` i koristi ga i dugme gore desno), Rezultat (`/result`, pogledi Rute, `/map`,
+  `/3d`; „Izbor rute“ `RouteFilter` sa `?truck=` važi u svim pogledima). Na `/optimization/*` gornja traka ima korake
+  (`StepsBar`) umesto čipova statusa; Lokacije kamiona broje kamione koji čekaju odgovor (osvežava se preko
+  `announceTruckStarts`), Rezultat se vrti dok posao radi. Meni otvara poslednji korak (`sessionStorage`). Posle svake
+  optimizacije Rezultat nudi „Premesti kamione na kraj ruta“ / „Zadrži sadašnje lokacije“. Stare adrese (`/shipments`,
+  `/route-map`, `/truck-3d`) preusmeravaju sa `?job=&truck=`. Uputstvo dopunjeno.
+- Testovi: novi `jobClock.test.ts`, `truckMapModel.test.ts`, u `localClient.test.ts` (ukupno vreme, bez preporuke,
+  spisak i brisanje poslova); e2e `truckMap.local`, `history.local`, novi testovi u `optimization.spec` (koraci,
+  preusmeravanja, filter), `optimization.local` (posao od 4 s traje < 5 s), `fleet.local` (ponuda novih lokacija);
+  ostali e2e prebačeni na nove adrese. Provereno na pokvarenom kodu: stari `localClient` (oba nova testa padaju),
+  model mape (2 izmene), Istorija (`close`, „Otvori“ dok radi), filter u pogledu Rute.
+- **Zamke**: posle „Sačuvaj“ na Kamionima test koji odmah radi `goto` gubi kamion (trka; sada se čeka red u tabeli);
+  klik na „Odozgo“ u 3D skroluje stranu do dugmeta, pa se prikaz centrira tek posle (`layoutImport.local`).
+- Stanje: tsc, lint i build čisti, Vitest 849, Playwright 127 (poslednji pun prolaz 126 od 127, pao `fleet.local`
+  zbog trke iz testa, ispravljeno i prošlo 2 od 2), desktop 4. Serverski e2e nisu pokretani.
 
 **Bočna i gornja traka, font i veličina slova kao u smartLoad+ (urađeno 21.11.2026)**, na zahtev
 korisnika. Odluke korisnika: u glavnoj gornjoj traci ostaju status poslednjeg posla i „Pokreni
@@ -1360,7 +1393,9 @@ run dev`: podrazumevani režim, prazan uređaj). Testovi u
 `tests/e2e/scenarios/<scenario>*.spec.ts` idu na server tog scenarija, `tests/e2e/local/`
 na lokalni, a `tests/e2e/local-empty/` na 5178.
 
-Stanje (20.11.2026, posle paketa kao posebnih tela): tsc, lint i build čisti, Vitest 783, Playwright 112 od 113 (pao
+Stanje (21.11.2026, posle Optimizacije u koracima): tsc, lint i build čisti, Vitest 849, Playwright 127 (videti „Gde smo
+stali“), desktop 4; serverski e2e nisu pokretani.
+Pre toga (20.11.2026, posle paketa kao posebnih tela): tsc, lint i build čisti, Vitest 783, Playwright 112 od 113 (pao
 poznati nestabilni `routeMap.spec.ts:71`, sam 2 od 3); desktop i serverski e2e nisu pokretani.
 Pre toga (20.11.2026, posle ispravki uređivača i „Van kamiona“): Vitest 782, Playwright 112 (svi prošli).
 Pre toga (19.11.2026, posle „Uredi“ na 3D ekranu): tsc, lint i build čisti, Vitest 774, Playwright 109 (pao samo
