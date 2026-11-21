@@ -38,7 +38,7 @@ test('changes the theme, keeps it on the device and goes back to Višnja', async
   const grafit = page.getByRole('group', { name: 'Tema' }).getByRole('radio', { name: /^Grafit/ })
   await grafit.focus()
   await page.keyboard.press('ArrowRight')
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'neon')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'suma')
 
   // Back to Višnja: no attribute, the first colours.
   await page.locator('.theme-option--visnja').click()
@@ -60,8 +60,9 @@ test('takes quick changes one after another without errors, the last one winning
     await page.keyboard.press('ArrowRight')
     await page.waitForTimeout(60)
   }
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'grafit')
-  await expect(page.getByRole('group', { name: 'Tema' }).getByRole('radio', { name: /^Grafit/ })).toBeChecked()
+  // Višnja is the last, so the arrow goes round: Teget, Grafit, Šuma.
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'suma')
+  await expect(page.getByRole('group', { name: 'Tema' }).getByRole('radio', { name: /^Šuma/ })).toBeChecked()
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('theme-switching'))).toBe(false)
   await page.waitForTimeout(500)
   expect(errors).toEqual([])

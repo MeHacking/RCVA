@@ -68,6 +68,10 @@ klik vodi na Rezultate, otvaranje Rezultata ih briše). Profil: „Niste prijavl
   dugmad `--radius-pill`. Sličice tema (`--swatch-*-nav`) opet odgovaraju meniju. Provereno: tsc, lint,
   `theme.test.ts` 149, e2e zvonce, teme i smoke 17 od 18 (brojanje na Pregledu `theme.local.spec.ts:82`
   pada pod opterećenjem, samo 3 od 3); snimci Višnja i Grafit. Pun e2e posle dorade nije pokretan.
+- **Teme kao u smartLoad+ (21.11.2026)**: redosled Teget, Grafit, Šuma, Neon, Višnja (Višnja ostaje
+  početna), ikonice iz `lucide-react` (Anchor, Moon, TreePine, Zap, Cherry) i kvačica `Check`, bez opisa
+  ispod naziva; tekst korisnika: „Tema menja boje aplikacije. Važi odmah i pamti se u ovom pregledaču.“
+  Testovi tema prilagođeni redosledu (strelice). Uputstvo dopunjeno.
 - Nije rađeno: uski prozori (telefon) nisu prilagođeni novom rasporedu.
 
 **Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad

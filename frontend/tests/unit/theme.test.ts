@@ -3,8 +3,8 @@ import { DEFAULT_THEME, THEMES, applyTheme, isThemeId, loadTheme, revealRadius, 
 import tokens from '../../src/styles/tokens.css?raw'
 
 describe('theme choice', () => {
-  it('knows the five themes, Višnja first and the default', () => {
-    expect(THEMES.map((theme) => theme.id)).toEqual(['visnja', 'teget', 'suma', 'grafit', 'neon'])
+  it('knows the five themes in the order of smartLoad+, Višnja the default', () => {
+    expect(THEMES.map((theme) => theme.id)).toEqual(['teget', 'grafit', 'suma', 'neon', 'visnja'])
     expect(DEFAULT_THEME).toBe('visnja')
     expect(isThemeId('teget')).toBe(true)
     expect(isThemeId('Teget')).toBe(false)

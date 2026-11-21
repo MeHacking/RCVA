@@ -5,12 +5,13 @@
  */
 export type ThemeId = 'visnja' | 'teget' | 'suma' | 'grafit' | 'neon'
 
-export const THEMES: ReadonlyArray<{ id: ThemeId; label: string; about: string }> = [
-  { id: 'visnja', label: 'Višnja', about: 'bež, tamno siva i višnja' },
-  { id: 'teget', label: 'Teget', about: 'krem, teget i narandžasta' },
-  { id: 'suma', label: 'Šuma', about: 'pesak, zelena i crvena' },
-  { id: 'grafit', label: 'Grafit', about: 'tamna, sa svetlo plavom' },
-  { id: 'neon', label: 'Neon', about: 'tamna, sa ružičastom' },
+// In the order of smartLoad+ (owner, 21.11.2026); Višnja stays the default.
+export const THEMES: ReadonlyArray<{ id: ThemeId; label: string }> = [
+  { id: 'teget', label: 'Teget' },
+  { id: 'grafit', label: 'Grafit' },
+  { id: 'suma', label: 'Šuma' },
+  { id: 'neon', label: 'Neon' },
+  { id: 'visnja', label: 'Višnja' },
 ]
 
 /** The palette RCVA started with: no attribute, the values in :root. */
