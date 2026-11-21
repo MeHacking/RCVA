@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { JobStatus, OptimizationJob } from '../../src/api/types'
 import { formatClock } from '../../src/format/time'
-import { jobClock } from '../../src/features/optimization/jobClock'
+import { jobClock, jobDurationSeconds } from '../../src/features/optimization/jobClock'
 import type { LastJobState } from '../../src/features/optimization/lastJobContext'
 
 const CREATED = Date.parse('2026-11-21T10:00:00Z')
@@ -59,6 +59,19 @@ describe('jobClock', () => {
     expect(jobClock({ kind: 'idle' }, CREATED)).toBeNull()
     expect(jobClock({ kind: 'needsLocations', options: {} }, CREATED)).toBeNull()
     expect(jobClock({ ...tracking(job('RUNNING')), pollError: 'x' } as LastJobState, CREATED)).toBeNull()
+  })
+})
+
+describe('jobDurationSeconds', () => {
+  it('is the time from start to finish, in whole seconds', () => {
+    expect(jobDurationSeconds({ startedAt: '2026-11-21T10:00:00.000Z', finishedAt: '2026-11-21T10:01:00.400Z' })).toBe(60)
+    expect(jobDurationSeconds({ startedAt: '2026-11-21T10:00:00.000Z', finishedAt: '2026-11-21T10:00:40.600Z' })).toBe(41)
+  })
+
+  it('is null for a job that did not start or end', () => {
+    expect(jobDurationSeconds({ startedAt: null, finishedAt: '2026-11-21T10:00:00Z' })).toBeNull()
+    expect(jobDurationSeconds({ startedAt: '2026-11-21T10:00:00Z', finishedAt: null })).toBeNull()
+    expect(jobDurationSeconds({ startedAt: 'x', finishedAt: 'y' })).toBeNull()
   })
 })
 

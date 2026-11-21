@@ -124,8 +124,11 @@ const MIN_ADVICE_MS = 200
 
 const PROFILE_LABELS: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna vozila', 'driving-car': 'za automobile' }
 
-/** Jobs kept on the device; older finished jobs are dropped (the screens show only the last one). */
-export const KEPT_JOBS = 10
+/**
+ * Jobs kept on the device, with their results, for Istorija (user, 21.11.2026: 50, before 10);
+ * older finished jobs are dropped.
+ */
+export const KEPT_JOBS = 50
 /** Start times of jobs kept for the dashboard's chart: years of weekly planning. */
 export const KEPT_JOB_LOG = 5000
 /** Road lines kept on the device, the oldest dropped first: about the routes of the kept jobs. */
@@ -1080,6 +1083,37 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       }),
 
     getOptimizationHistory: () => respond(() => jobLog),
+
+    listOptimizationJobs: () =>
+      respond(() =>
+        [...jobs.values()]
+          .sort((a, b) => b.id - a.id)
+          .map((job) => {
+            const result = job.status === 'COMPLETED' ? job.result : null
+            return {
+              job: view(job),
+              shipmentCount: job.input.shipments.length,
+              trucksUsed: result?.trucksUsed ?? null,
+              totalMeters: result?.totalMeters ?? null,
+              unassignedCount: result ? result.unassignedShipmentIds.length : null,
+              truckNames: (result?.routes ?? []).map((r) => job.fleet.get(r.truckId)?.name ?? `Kamion #${r.truckId}`),
+              manual: Boolean(result?.manual),
+            }
+          }),
+      ),
+
+    deleteOptimizationJob: (id) =>
+      change(() => {
+        const job = findJob(id)
+        if (!TERMINAL_JOB_STATUSES.includes(job.status)) {
+          throw new ApiError({
+            title: 'Optimizacija je u toku',
+            status: 409,
+            detail: `Posao #${id} još nije završen; može se obrisati kada se završi.`,
+          })
+        }
+        jobs.delete(id)
+      }),
 
     getOptimizationResult: (id) => respond(() => withFleet(findJob(id))),
 

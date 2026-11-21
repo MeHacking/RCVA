@@ -271,6 +271,35 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
 
     getOptimizationHistory: () => respond(() => [...jobs.values()].map((job) => iso(job.createdAtMs))),
 
+    // The scenario's fixed result for every completed job, as getOptimizationResult gives it.
+    listOptimizationJobs: () =>
+      respond(() =>
+        [...jobs.values()]
+          .sort((a, b) => b.id - a.id)
+          .map((record) => {
+            const job = jobView(record)
+            const result = job.status === 'COMPLETED' && scenario.outcome.kind === 'COMPLETED' ? scenario.outcome.result : null
+            return {
+              job,
+              shipmentCount: shipments.length,
+              trucksUsed: result?.trucksUsed ?? null,
+              totalMeters: result?.totalMeters ?? null,
+              unassignedCount: result ? result.unassignedShipmentIds.length : null,
+              truckNames: (result?.routes ?? []).map((r) => trucks.find((t) => t.id === r.truckId)?.name ?? `Kamion #${r.truckId}`),
+              manual: false,
+            }
+          }),
+      ),
+
+    deleteOptimizationJob: (id) =>
+      respond(() => {
+        const job = jobView(findJob(id))
+        if (job.status === 'QUEUED' || job.status === 'RUNNING') {
+          throw new ApiError({ title: 'Optimizacija je u toku', status: 409, detail: `Posao #${id} još nije završen.` })
+        }
+        jobs.delete(id)
+      }),
+
     getOptimizationResult: (id) => respond(() => completedResult(id)),
 
     getLoadPlan: (jobId, truckId) =>

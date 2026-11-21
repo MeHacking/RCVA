@@ -82,7 +82,9 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
     <>
       {jobId !== null && jobId !== job.id && (
         <Notice tone="warning" title={`Posao #${jobId} nije dostupan`} role="status">
-          <p>Aplikacija čuva samo poslednji posao; prikazane su rute posla #{job.id}.</p>
+          <p>
+            Prikazane su rute posla #{job.id}. Raniji posao otvorite iz <Link to="/history">Istorije</Link>.
+          </p>
         </Notice>
       )}
       {truckId !== null && !selected && (

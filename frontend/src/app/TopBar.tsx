@@ -101,7 +101,7 @@ function describe(state: LastJobState): StatusView {
         busy: false,
       }
     case 'tracking': {
-      const job: Fact = { icon: 'job', text: `Posao #${state.jobId}` }
+      const job: Fact = { icon: 'job', text: `Posao #${state.jobId}${state.fromHistory ? ' (iz Istorije)' : ''}` }
       const { job: status, result, pollError } = state
       if (pollError) {
         return {

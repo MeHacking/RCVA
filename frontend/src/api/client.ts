@@ -10,6 +10,7 @@ import type {
   ImportPreview,
   ImportRow,
   ImportRowPatch,
+  JobSummary,
   LoadPlan,
   Placement,
   Location,
@@ -145,6 +146,16 @@ export interface ApiClient {
    * while the page lives; null over HTTP (the backend does not keep them).
    */
   getOptimizationHistory(): Promise<string[] | null>
+  /**
+   * NOT IN SPEC v2 (Istorija, 21.11.2026): the kept jobs, newest first, with what the list of
+   * them shows. The device keeps the last KEPT_JOBS; the mock while the page lives; null over HTTP.
+   */
+  listOptimizationJobs(): Promise<JobSummary[] | null>
+  /**
+   * NOT IN SPEC v2: forgets a kept job and its result (and the load plans arranged by hand for
+   * it). 404 for an unknown job (and over HTTP), 409 while it waits or runs.
+   */
+  deleteOptimizationJob(id: number): Promise<void>
   /** Only for COMPLETED jobs; 409 otherwise */
   getOptimizationResult(id: number): Promise<OptimizationResult>
   /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */

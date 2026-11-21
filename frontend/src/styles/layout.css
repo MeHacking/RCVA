@@ -1313,6 +1313,25 @@ button.stat.stat-action:hover:not(:disabled) {
   background: var(--surface-muted);
 }
 
+/* Istorija: the kept jobs. */
+.history-table__shown,
+.history-table__note {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.history-table__shown {
+  color: var(--accent-on-light);
+  font-weight: var(--weight-semibold);
+}
+
+.history-table__trucks {
+  display: grid;
+  gap: 2px;
+  max-width: 22rem;
+}
+
 /* The trucks' map on Kamioni: a pin per place (TruckMap.tsx). */
 .truck-map {
   height: 26rem;

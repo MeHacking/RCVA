@@ -6,6 +6,7 @@ const ROUTES = [
   { path: '/shipments', heading: 'Pošiljke' },
   { path: '/trucks', heading: 'Kamioni' },
   { path: '/optimization', heading: 'Rezultati optimizacije' },
+  { path: '/history', heading: 'Istorija' },
   { path: '/truck-3d', heading: '3D prikaz kamiona' },
   { path: '/route-map', heading: 'Mapa ruta' },
   { path: '/help', heading: 'Uputstvo' },

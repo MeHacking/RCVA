@@ -14,6 +14,13 @@ export interface JobClock {
   limitSeconds: number | null
 }
 
+/** How long a finished job took, start to finish, in whole seconds; null when it did not run to an end. */
+export function jobDurationSeconds(job: { startedAt: string | null; finishedAt: string | null }): number | null {
+  if (!job.startedAt || !job.finishedAt) return null
+  const ms = Date.parse(job.finishedAt) - Date.parse(job.startedAt)
+  return Number.isFinite(ms) ? Math.max(0, Math.round(ms / 1000)) : null
+}
+
 export function jobClock(state: LastJobState, nowMs: number): JobClock | null {
   const since = (startMs: number) => Math.max(0, Math.floor((nowMs - startMs) / 1000))
   if (state.kind === 'starting') {

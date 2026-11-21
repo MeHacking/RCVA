@@ -783,6 +783,51 @@ describe('local storage on the device', () => {
     expect(await setup('small', steps, store).getOptimizationHistory()).toEqual(history)
   })
 
+  it('lists the kept jobs newest first for Istorija, and deletes a finished one', async () => {
+    const store = createMemoryStore<LocalData>()
+    // The second job is held running until let go.
+    let gate: Promise<void> | null = null
+    let letGo = () => {}
+    const api = setup('small', (input, options) => (gate ? gate.then(() => steps(input, options)) : steps(input, options)), store)
+    const first = (await api.createOptimizationJob(REQUEST)).id
+    await settle(api, first)
+    const result = await api.getOptimizationResult(first)
+    gate = new Promise((resolve) => (letGo = resolve))
+    const second = (await api.createOptimizationJob({ ...REQUEST, timeLimitSeconds: 7 })).id
+
+    const list = (await api.listOptimizationJobs())!
+    expect(list.map((s) => s.job.id)).toEqual([second, first])
+    const done = list[1]
+    expect(done.job.status).toBe('COMPLETED')
+    expect(done).toMatchObject({
+      shipmentCount: (await api.listShipments()).length,
+      trucksUsed: result.trucksUsed,
+      totalMeters: result.totalMeters,
+      unassignedCount: 0,
+      manual: false,
+    })
+    const names = new Map((await api.listTrucks()).map((t) => [t.id, t.name]))
+    expect(done.truckNames).toEqual(result.routes.map((r) => names.get(r.truckId)))
+    expect(list[0]).toMatchObject({ trucksUsed: null, totalMeters: null, unassignedCount: null, truckNames: [] })
+    expect(list[0].job.timeLimitSeconds).toBe(7)
+
+    // Not while it waits or runs.
+    expect((await rejection(api.deleteOptimizationJob(second))).status).toBe(409)
+    letGo()
+    await settle(api, second)
+    // Moved by hand: so it says.
+    await api.reassignShipment(first, result.routes[0].stops[0].shipmentId, null)
+    expect((await api.listOptimizationJobs())!.find((s) => s.job.id === first)).toMatchObject({ manual: true, unassignedCount: 1 })
+
+    await api.deleteOptimizationJob(first)
+    expect((await api.listOptimizationJobs())!.map((s) => s.job.id)).toEqual([second])
+    expect((await rejection(api.getOptimizationResult(first))).status).toBe(404)
+    expect((await rejection(api.deleteOptimizationJob(first))).status).toBe(404)
+    expect(storedData(store).jobs.map((j) => j.id)).toEqual([second])
+    // The dashboard still counts it as started.
+    expect(await api.getOptimizationHistory()).toHaveLength(2)
+  })
+
   it('starts the history of an older snapshot from the jobs it kept', async () => {
     const store = createMemoryStore<LocalData>()
     const api = setup('small', steps, store)

@@ -176,6 +176,21 @@ export interface OptimizationJob {
   trucksLowerBound: number | null
 }
 
+/** NOT IN SPEC v2: a kept job as the list in Istorija shows it */
+export interface JobSummary {
+  job: OptimizationJob
+  /** shipments the job planned */
+  shipmentCount: number
+  /** with a result (COMPLETED), as it is now (also after shipments moved by hand); null otherwise */
+  trucksUsed: number | null
+  totalMeters: number | null
+  unassignedCount: number | null
+  /** the trucks with a route, by the names they had in the job */
+  truckNames: string[]
+  /** shipments were moved by hand after the optimization */
+  manual: boolean
+}
+
 export type StopType = 'PICKUP' | 'DELIVERY'
 
 export interface RouteStop {

@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { HelpPage } from '../features/help/HelpPage'
+import { HistoryPage } from '../features/history/HistoryPage'
 import { OptimizationPage } from '../features/optimization/OptimizationPage'
 import { RouteMapPage } from '../features/route-map/RouteMapPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
       { path: 'shipments/import', element: <ImportPage /> },
       { path: 'trucks', element: <TrucksPage /> },
       { path: 'optimization', element: <OptimizationPage /> },
+      { path: 'history', element: <HistoryPage /> },
       { path: 'truck-3d', element: <Truck3dPage /> },
       { path: 'route-map', element: <RouteMapPage /> },
       { path: 'settings', element: <SettingsPage /> },

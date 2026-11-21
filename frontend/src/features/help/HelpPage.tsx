@@ -471,6 +471,13 @@ function Steps() {
 
       {ON_DEVICE && (
         <>
+          <p>
+            <strong>Istorija</strong> (u meniju) čuva poslednjih 50 optimizacija sa rezultatima: kada je pokrenuta,
+            status, kamioni, kilometraža, pošiljke i koliko je trajala od zadatog vremena. „Otvori“ prikazuje taj rezultat
+            na ekranu Rezultati, pa i na mapi ruta i u 3D prikazu, sa PDF-om za vozače; gornja traka tada piše „(iz
+            Istorije)“. Dok optimizacija radi, drugi rezultat se ne može otvoriti. „Obriši“ (uz potvrdu) briše
+            optimizaciju i njen rezultat; grafik na Pregledu je i dalje broji kao pokrenutu.
+          </p>
           <Subheading n={6}>Podešavanja i podaci na uređaju</Subheading>
           <ul>
             <li>

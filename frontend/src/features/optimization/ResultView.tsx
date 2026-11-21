@@ -4,7 +4,8 @@ import type { OptimizationJob, OptimizationResult, Truck } from '../../api/types
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { ErrorState, LoadingState } from '../../components/states'
-import { formatTime } from '../../format/time'
+import { formatClock, formatDateTime } from '../../format/time'
+import { jobDurationSeconds } from './jobClock'
 import { formatKm, formatLdm } from '../../format/units'
 import { exportPdf, reportFileName, sendPdfToViber, truckReportFileName } from './exportPdf'
 import { ResultReport } from './ResultReport'
@@ -132,7 +133,8 @@ export function ResultView({
   return (
     <div className="result">
       <p className="text--muted result__meta">
-        Posao #{job.id} · završen {formatTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
+        Posao #{job.id} · završen {formatDateTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
+        {jobDurationSeconds(job) !== null && ` · trajalo ${formatClock(jobDurationSeconds(job) as number)}`}
       </p>
       {reference.status === 'success' && (
         <ResultReport job={job} result={result} reference={reference.data} truckId={reportTruckId} loadPlans={loadPlans.plans} />

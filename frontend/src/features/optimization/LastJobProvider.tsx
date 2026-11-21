@@ -3,7 +3,7 @@ import { useApi } from '../../api/apiContext'
 import { ApiError, describeError, isProvenInfeasible, type ApiClient } from '../../api/client'
 import type { OptimizationResult } from '../../api/types'
 import { isTerminal } from './jobStatus'
-import { LastJobContext, type LastJobState, type StartOptions } from './lastJobContext'
+import { isLastJobBusy, LastJobContext, type LastJobState, type StartOptions } from './lastJobContext'
 
 const POLL_INTERVAL_MS = 1000
 const DEFAULT_TIME_LIMIT_SECONDS = 60
@@ -105,7 +105,23 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const value = useMemo(() => ({ state, start, replaceResult }), [state, start, replaceResult])
+  const open = useCallback(
+    (jobId: number) =>
+      setState((previous) =>
+        // The same job stays as it is (its status is already there and would not be asked again).
+        isLastJobBusy(previous) || (previous.kind === 'tracking' && previous.jobId === jobId && !previous.pollError)
+          ? previous
+          : { kind: 'tracking', jobId, options: {}, job: null, result: null, pollError: null, fromHistory: true },
+      ),
+    [],
+  )
+
+  const close = useCallback(
+    (jobId: number) => setState((previous) => (previous.kind === 'tracking' && previous.jobId === jobId ? { kind: 'idle' } : previous)),
+    [],
+  )
+
+  const value = useMemo(() => ({ state, start, replaceResult, open, close }), [state, start, replaceResult, open, close])
   return <LastJobContext value={value}>{children}</LastJobContext>
 }
 

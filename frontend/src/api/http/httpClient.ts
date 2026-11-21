@@ -47,6 +47,10 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     // The backend has no such endpoint yet (see ApiClient), so a reload forgets the job.
     getLatestOptimizationJob: async () => null,
     getOptimizationHistory: async () => null,
+    // Nor a list of jobs: Istorija says it is kept only in the application on the device.
+    listOptimizationJobs: async () => null,
+    deleteOptimizationJob: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema brisanje poslova.' })),
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),
     getLoadPlan: (jobId, truckId) => request('GET', `/optimization-jobs/${jobId}/trucks/${truckId}/load-plan`),
     // The backend has no road lines (its distances are great-circle): the map draws straight lines.

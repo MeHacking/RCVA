@@ -30,6 +30,8 @@ export type LastJobState =
       /** set once the job is COMPLETED */
       result: OptimizationResult | null
       pollError: string | null
+      /** opened from Istorija, not the job last started */
+      fromHistory?: boolean
     }
 
 export interface LastJobContextValue {
@@ -41,6 +43,13 @@ export interface LastJobContextValue {
   start: (options?: StartOptions) => Promise<LastJobState['kind']>
   /** The result of the tracked job changed (shipments moved by hand). */
   replaceResult: (jobId: number, result: OptimizationResult) => void
+  /**
+   * Istorija: shows a kept job on Rezultati, Mapa ruta and 3D prikaz instead of the last one,
+   * until another job is opened or started. Not while a job is being started or runs.
+   */
+  open: (jobId: number) => void
+  /** The job was deleted: when it is the one shown, nothing is shown any more. */
+  close: (jobId: number) => void
 }
 
 export const LastJobContext = createContext<LastJobContextValue | null>(null)
