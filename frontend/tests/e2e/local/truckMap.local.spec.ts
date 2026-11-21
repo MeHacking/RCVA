@@ -69,3 +69,23 @@ test('shows the last delivery proposed after a job as a dashed pin until it is a
   await expect(page.getByText('Isprekidana čioda')).toBeHidden()
   expect(errors).toEqual([])
 })
+
+test('spreads the map over the whole screen and back, as on the results map', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.setViewportSize({ width: 1200, height: 800 })
+  await page.goto('/trucks')
+  await expect(map(page)).toBeVisible()
+  const card = page.getByRole('region', { name: 'Kamioni na mapi' })
+  const button = card.getByRole('button', { name: 'Ceo ekran' })
+  const height = async () => Math.round((await map(page).boundingBox())!.height)
+  const before = await height()
+  expect(before).toBeLessThan(500)
+
+  await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(height).toBe(800)
+  await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await expect.poll(height).toBe(before)
+  expect(errors).toEqual([])
+})

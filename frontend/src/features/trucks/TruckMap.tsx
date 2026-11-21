@@ -2,6 +2,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
+import { Icon } from '../../components/Icon'
+import { useFullscreen } from '../../hooks/useFullscreen'
 import { pinLabel, type TruckMapModel, type TruckPin } from './truckMapModel'
 
 // Leaflet directly, as the route map (RouteMap.tsx): one map per mount, the pins redrawn into one
@@ -16,6 +18,15 @@ export default function TruckMap({ model }: { model: TruckMapModel }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<{ map: L.Map; layers: L.LayerGroup } | null>(null)
   const signature = JSON.stringify(model.pins)
+  // Full screen as on the results' map (owner, 21.11.2026): the browser's own, or over the page.
+  const frame = useRef<HTMLDivElement>(null)
+  const { full, expanded, toggle: toggleFullscreen } = useFullscreen(frame)
+
+  // The map's box changed size: Leaflet measures it again (after the new layout), or tiles stay missing.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => map.current?.map.invalidateSize())
+    return () => cancelAnimationFrame(id)
+  }, [full])
 
   useEffect(() => {
     const element = container.current
@@ -68,14 +79,26 @@ export default function TruckMap({ model }: { model: TruckMapModel }) {
   }, [signature])
 
   return (
-    <div
-      ref={container}
-      className="route-map truck-map"
-      role="region"
-      aria-label="Mapa kamiona"
-      data-testid="truck-map"
-      data-pins={model.pins.length}
-    />
+    <div ref={frame} className={`route-map-frame truck-map-frame${expanded ? ' route-map-frame--expanded' : ''}`}>
+      <div
+        ref={container}
+        className="route-map truck-map"
+        role="region"
+        aria-label="Mapa kamiona"
+        data-testid="truck-map"
+        data-pins={model.pins.length}
+      />
+      <button
+        type="button"
+        className="route-map__fullscreen"
+        onClick={() => void toggleFullscreen()}
+        aria-pressed={full}
+        title={full ? 'Izađi iz prikaza preko celog ekrana (Esc)' : 'Mapa preko celog ekrana'}
+      >
+        <Icon name={full ? 'collapse' : 'expand'} size={16} />
+        <span className="visually-hidden">Ceo ekran</span>
+      </button>
+    </div>
   )
 }
 

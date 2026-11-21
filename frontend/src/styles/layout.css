@@ -1837,6 +1837,9 @@ button.stat.stat-action:hover:not(:disabled) {
 /* The trucks' map on Kamioni: a pin per place (TruckMap.tsx). */
 .truck-map {
   height: 26rem;
+}
+
+.truck-map-frame {
   margin-top: var(--space-3);
 }
 
