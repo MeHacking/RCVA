@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
 import { describeError } from '../../api/client'
+import { PATHS } from '../../app/paths'
 import type { JobStatus, JobSummary } from '../../api/types'
 import { Badge, type BadgeTone } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
@@ -43,7 +44,7 @@ export function HistoryPage() {
 
   function show(summary: JobSummary) {
     open(summary.job.id)
-    void navigate('/optimization')
+    void navigate(PATHS.result)
   }
 
   async function remove(summary: JobSummary) {

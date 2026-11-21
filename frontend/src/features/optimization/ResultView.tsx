@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
+import { useSearchParams } from 'react-router'
+import { parseRouteMapParams } from '../route-map/routeMapParams'
+import { RouteFilter } from './RouteFilter'
 import type { OptimizationJob, OptimizationResult, Truck } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
@@ -45,6 +48,11 @@ export function ResultView({
 }) {
   const [reference, reload] = useReferenceData()
   const { replaceResult } = useLastJob()
+  // All trucks or the one chosen in "Izbor rute" (?truck=, kept when the result's view changes).
+  const [searchParams] = useSearchParams()
+  const { truckId } = parseRouteMapParams(searchParams)
+  const rows = reference.status === 'success' ? buildTruckRows(result, reference.data) : []
+  const selected = rows.find((row) => row.truckId === truckId) ?? null
   const reassign: Reassign | undefined =
     CAN_REASSIGN && reference.status === 'success'
       ? {
@@ -161,10 +169,11 @@ export function ResultView({
       {reference.status === 'success' && (
         <>
           <h2 className="section-title">Kamioni i rute</h2>
+          <RouteFilter job={job} result={result} rows={rows} selected={selected} />
           {pdf && pdf.truckId !== null && pdfMessage(pdf.truckId)}
           <RouteTable
             jobId={job.id}
-            rows={buildTruckRows(result, reference.data)}
+            rows={selected ? [selected] : rows}
             onDriverPdf={savePdf}
             onViber={DRIVER_SUPPORTED ? (row) => sendToViber(row) : undefined}
             reassign={reassign}

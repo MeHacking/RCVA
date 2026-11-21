@@ -13,7 +13,7 @@ test('prints the report alone: the summary, then each truck on a page of its own
     ;(window as unknown as { printed: string[] }).printed = seen
     window.print = () => void seen.push(document.title)
   })
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
@@ -69,7 +69,7 @@ test("prints a driver's PDF with that truck alone, then the whole report again",
   await page.getByRole('button', { name: 'Sačuvaj' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni' })).toContainText('Marko Marković')
 
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   const routes = page.getByRole('table', { name: 'Kamioni i rute' })

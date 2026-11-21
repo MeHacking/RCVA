@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Link } from 'react-router'
+import { PATHS } from '../../app/paths'
 import { Icon } from '../../components/Icon'
 import { LdmBar } from '../../components/LdmBar'
 import { formatShipmentCount } from '../../format/count'
@@ -104,8 +105,8 @@ export function RouteTable({
                     </button>
                   </td>
                   <td className="actions route-table__links">
-                    <Link to={`/truck-3d${query}`}>3D prikaz</Link>
-                    <Link to={`/route-map${query}`}>Mapa</Link>
+                    <Link to={`${PATHS.result3d}${query}`}>3D prikaz</Link>
+                    <Link to={`${PATHS.resultMap}${query}`}>Mapa</Link>
                     {onDriverPdf && (
                       <button
                         type="button"

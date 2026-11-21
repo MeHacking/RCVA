@@ -53,7 +53,7 @@ async function saveKey(page: Page) {
 }
 
 async function solve(page: Page) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 20_000 })

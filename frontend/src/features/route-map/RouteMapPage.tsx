@@ -5,10 +5,11 @@ import { ORS_ATTRIBUTION } from '../../api/local/openRouteService'
 import type { OptimizationJob, OptimizationResult, OrsProfile } from '../../api/types'
 import { LdmBar } from '../../components/LdmBar'
 import { Notice } from '../../components/Notice'
-import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatKm } from '../../format/units'
+import { PATHS } from '../../app/paths'
 import { completedJob, isLastJobBusy, useLastJob, type LastJobState } from '../optimization/lastJobContext'
+import { RouteFilter, RouteSwatch } from '../optimization/RouteFilter'
 import { buildTruckRows, routesVersion, type TruckRow } from '../optimization/resultRows'
 import { StopList } from '../optimization/StopList'
 import { useReferenceData } from '../optimization/useReferenceData'
@@ -24,15 +25,11 @@ const RouteMap = lazy(() => import('./RouteMap'))
 
 const ROADS_FOR: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna vozila', 'driving-car': 'za automobile' }
 
+/** The view "Mapa" of the step Rezultat. */
 export function RouteMapPage() {
   const { state } = useLastJob()
   const completed = completedJob(state)
-  return (
-    <section>
-      <PageHeader title="Mapa ruta" />
-      {completed ? <RouteList job={completed.job} result={completed.result} /> : <NoRoutes state={state} />}
-    </section>
-  )
+  return completed ? <RouteList job={completed.job} result={completed.result} /> : <NoRoutes state={state} />
 }
 
 function NoRoutes({ state }: { state: LastJobState }) {
@@ -45,13 +42,13 @@ function NoRoutes({ state }: { state: LastJobState }) {
       {neverRun
         ? 'Rute se prikazuju posle završene optimizacije. '
         : 'Poslednja optimizacija nije dala rute; razlog je na ekranu rezultata. '}
-      <Link to="/optimization">{neverRun ? 'Pokrenite optimizaciju' : 'Rezultati optimizacije'}</Link>
+      <Link to={neverRun ? PATHS.shipments : PATHS.result}>{neverRun ? 'Pokrenite optimizaciju' : 'Rute'}</Link>
     </EmptyState>
   )
 }
 
 function RouteList({ job, result }: { job: OptimizationJob; result: OptimizationResult }) {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const [reference, reload] = useReferenceData()
   const { jobId, truckId } = parseRouteMapParams(searchParams)
   const shownTrucks = truckId !== null && result.routes.some((r) => r.truckId === truckId) ? [truckId] : result.routes.map((r) => r.truckId)
@@ -70,14 +67,6 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
   const model = buildMapModel(result, reference.data, visible.map((row) => row.truckId), roads)
   const failed = [...lines.values()].flatMap((line) => (line.status === 'error' ? [line.message] : []))
 
-  const selectTruck = (id: number | null) =>
-    setSearchParams((previous) => {
-      const next = new URLSearchParams(previous)
-      if (id === null) next.delete('truck')
-      else next.set('truck', String(id))
-      return next
-    })
-
   return (
     <>
       {jobId !== null && jobId !== job.id && (
@@ -93,25 +82,7 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
         </Notice>
       )}
 
-      <div className="route-filter" role="group" aria-label="Izbor rute">
-        <button type="button" aria-pressed={!selected} onClick={() => selectTruck(null)}>
-          Sve rute ({rows.length})
-        </button>
-        {rows.map((row) => (
-          <button
-            type="button"
-            key={row.truckId}
-            aria-pressed={selected?.truckId === row.truckId}
-            onClick={() => selectTruck(row.truckId)}
-          >
-            <RouteSwatch color={routeColor(result, row.truckId)} />
-            {row.truckName}
-          </button>
-        ))}
-        <span className="route-filter__meta text--muted">
-          Posao #{job.id} · ukupno {formatKm(result.totalMeters)}
-        </span>
-      </div>
+      <RouteFilter job={job} result={result} rows={rows} selected={selected} />
 
       <figure className="panel route-map-panel">
         <Suspense fallback={<LoadingState label="Učitavanje mape…" />}>
@@ -169,10 +140,6 @@ function MapCaption({ routes, lines, openRoute }: { routes: MapRoute[]; lines: M
   )
 }
 
-function RouteSwatch({ color }: { color: number }) {
-  return <span className="route-swatch" style={{ background: `var(--route-${color})` }} aria-hidden="true" />
-}
-
 function RouteCard({ jobId, row, color }: { jobId: number; row: TruckRow; color: number }) {
   const headingId = `route-${row.truckId}-title`
   return (
@@ -184,7 +151,7 @@ function RouteCard({ jobId, row, color }: { jobId: number; row: TruckRow; color:
         </h2>
         <span className="route-card__km">{formatKm(row.totalMeters)}</span>
         <LdmBar usedLdmTenths={row.usedLdmTenths} capacityLdmTenths={row.capacityLdmTenths} />
-        <Link className="route-card__link" to={`/truck-3d?job=${jobId}&truck=${row.truckId}`}>
+        <Link className="route-card__link" to={`${PATHS.result3d}?job=${jobId}&truck=${row.truckId}`}>
           3D prikaz
         </Link>
       </header>

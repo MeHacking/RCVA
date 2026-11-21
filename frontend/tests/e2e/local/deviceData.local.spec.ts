@@ -58,7 +58,7 @@ test('exports one file with the data and without the ORS key', async ({ page }) 
 test('imports a file only after showing what it holds, and keeps the key of the device', async ({ page }) => {
   const errors = collectPageErrors(page)
   await addTruck(page, 'Izvozna cerada')
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 20_000 })
@@ -86,7 +86,7 @@ test('imports a file only after showing what it holds, and keeps the key of the 
 
   await page.goto('/trucks')
   await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Izvozna cerada/ })).toBeVisible()
-  await page.goto('/optimization')
+  await page.goto('/optimization/result')
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible()
   expect(errors).toEqual([])
 })

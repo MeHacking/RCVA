@@ -7,7 +7,7 @@ import { collectPageErrors } from '../consoleGuard.ts'
 // base; Solo 1 unavailable). Subotica is a place the device knows, so it is never looked up.
 
 async function startOnResults(page: Page) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).first().click()
 }
@@ -31,23 +31,53 @@ test('asks where a new truck is before a job, and starts only then', async ({ pa
   await page.getByLabel('Naziv').fill('Nova cerada')
   await page.getByLabel('Kapacitet (LDM)').fill('13.6')
   await page.getByRole('button', { name: 'Sačuvaj' }).click()
+  // Kept before the page is loaded again.
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Nova cerada/ })).toBeVisible()
 
   // The top bar sends the user to the question.
   await page.goto('/shipments')
   await page.getByRole('button', { name: 'Pokreni optimizaciju' }).click()
-  await expect(page).toHaveURL('/optimization')
+  await expect(page).toHaveURL('/optimization/trucks')
   const check = page.getByRole('region', { name: 'Gde su kamioni?' })
   await expect(check.getByRole('row', { name: /Nova cerada/ })).toContainText('Nije uneta')
   await expect(check.getByRole('button', { name: 'Pokreni optimizaciju' })).toBeDisabled()
   await expect(check).toContainText('Čeka odgovor: 1 kamion.')
-  await expect(page.getByTestId('last-job-status')).toContainText('Lokacije kamiona')
+  // The step in the top bar counts the truck waiting for an answer.
+  await expect(page.getByRole('navigation', { name: 'Koraci optimizacije' }).getByRole('link', { name: /Lokacije kamiona/ })).toContainText(
+    '1',
+  )
 
   await placeTruck(page, 'Nova cerada', 'Subotica')
   await expect(check).toContainText('Svi kamioni imaju potvrđenu lokaciju.')
-  // Started again from the form, with a short time limit (the top bar uses 60 s).
+  // Started again from the step "Vreme", with a short time limit (the top bar used 60 s).
+  await page.getByRole('link', { name: 'Dalje: vreme' }).click()
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
-  await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).first().click()
+  await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(routesTable(page)).toBeVisible({ timeout: 60_000 })
+  expect(errors).toEqual([])
+})
+
+// User, 21.11.2026: after every optimization the trucks are offered to start where their routes ended.
+test('after a job offers every truck the end of its route, for all at once', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await startOnResults(page)
+  await expect(routesTable(page)).toBeVisible({ timeout: 60_000 })
+  const offer = page.getByRole('status').filter({ hasText: 'Gde kamioni kreću sledeću optimizaciju?' })
+  await expect(offer).toContainText('Šleper 1:')
+  await expect(offer).toContainText('(sada Beograd – magacin)')
+  const steps = page.getByRole('navigation', { name: 'Koraci optimizacije' })
+  await expect(steps.getByRole('link', { name: /Lokacije kamiona/ })).toContainText('2')
+
+  await offer.getByRole('button', { name: 'Premesti kamione na kraj ruta' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Kamioni kreću sledeću optimizaciju sa mesta poslednje isporuke.' })).toBeVisible()
+  await expect(steps.getByRole('link', { name: /Lokacije kamiona/ })).toHaveText('Lokacije kamiona')
+
+  // So they are: no question before the next job, and the trucks screen says where.
+  await steps.getByRole('link', { name: /Lokacije kamiona/ }).click()
+  const locations = page.getByRole('table', { name: 'Lokacije kamiona' })
+  const row = locations.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Šleper 1', exact: true }) })
+  await expect(row).not.toContainText('Beograd – magacin')
+  await expect(page.getByRole('region', { name: 'Gde su kamioni?' })).toContainText('Svi kamioni imaju potvrđenu lokaciju.')
   expect(errors).toEqual([])
 })
 

@@ -6,7 +6,7 @@ import { collectPageErrors } from '../consoleGuard.ts'
 
 test('a job that ends on another screen leaves a notification that leads to the results', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   const bell = page.getByRole('button', { name: /^Obaveštenja/ })
   await expect(bell).toHaveAccessibleName('Obaveštenja')
   // Closed popups are not in the page for screen readers (nor for getByRole).
@@ -18,8 +18,11 @@ test('a job that ends on another screen leaves a notification that leads to the 
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 20_000 })
   await expect(bell).toHaveAccessibleName('Obaveštenja')
 
-  // Ends on Kamioni: one notification. (The first job proposed new truck locations, kept here.)
-  await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).first().click()
+  // Ends on Kamioni: one notification. (The first job proposed new truck locations: the start
+  // goes to the step "Lokacije kamiona", where they are kept.)
+  await page.getByRole('link', { name: 'Nazad: vreme' }).click()
+  await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
+  await expect(page).toHaveURL('/optimization/trucks')
   await page.getByRole('button', { name: 'Zadrži sve sadašnje lokacije' }).click()
   await page.getByRole('region', { name: 'Gde su kamioni?' }).getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await page.getByRole('link', { name: 'Kamioni', exact: true }).click()
@@ -31,7 +34,7 @@ test('a job that ends on another screen leaves a notification that leads to the 
   await expect(popup).toContainText('Optimizacija je završena')
   await expect(popup).toContainText(/Posao #\d+: kamioni \d+, [\d.,]+ km/)
   await popup.getByRole('button', { name: /Optimizacija je završena/ }).click()
-  await expect(page).toHaveURL(/\/optimization$/)
+  await expect(page).toHaveURL(/\/optimization\/result$/)
   await expect(bell).toHaveAccessibleName('Obaveštenja')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 

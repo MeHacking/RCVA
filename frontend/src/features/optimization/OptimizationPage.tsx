@@ -1,13 +1,12 @@
-import { useId, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
+import { PATHS } from '../../app/paths'
 import { Badge } from '../../components/Badge'
-import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
-import { PageHeader } from '../../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatTime } from '../../format/time'
 import type { OptimizationJob } from '../../api/types'
 import { JOB_STATUS_LABELS, NOT_FOUND_MESSAGE, PROVEN_TITLE } from './jobStatus'
-import { isLastJobBusy, useLastJob, type LastJobState } from './lastJobContext'
+import { useLastJob, type LastJobState } from './lastJobContext'
 import { ResultView } from './ResultView'
 import { apiMode } from '../../api/apiMode'
 import { LocationsCheck, ShortageActions } from './FleetActions'
@@ -15,67 +14,13 @@ import { UnreachablePlaces } from './UnreachablePlaces'
 import { JobClockText } from './JobClockText'
 import { useJobClock } from './useJobClock'
 
-const DEFAULT_TIME_LIMIT_SECONDS = '60'
 // Only the application on the device adds trucks or plans without some shipments.
 const FLEET_ACTIONS = apiMode() === 'local'
 
+/** The view "Rute" of the step Rezultat: the job's state, then its result (summary and routes). */
 export function OptimizationPage() {
   const { state } = useLastJob()
-  return (
-    <section>
-      <PageHeader title="Rezultati optimizacije" />
-      <StartPanel />
-      <JobOutcome state={state} />
-    </section>
-  )
-}
-
-function StartPanel() {
-  const { state, start } = useLastJob()
-  const id = useId()
-  const [timeLimit, setTimeLimit] = useState(DEFAULT_TIME_LIMIT_SECONDS)
-  const [error, setError] = useState<string | null>(null)
-  const busy = isLastJobBusy(state)
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const trimmed = timeLimit.trim()
-    if (!/^\d+$/.test(trimmed) || Number(trimmed) <= 0) {
-      setError('Unesite ceo broj sekundi veći od 0.')
-      return
-    }
-    setError(null)
-    void start({ timeLimitSeconds: Number(trimmed) })
-  }
-
-  return (
-    <form className="panel start-panel" onSubmit={handleSubmit} noValidate>
-      <div className="field start-panel__field">
-        <label htmlFor={`${id}-limit`}>Vremensko ograničenje (s)</label>
-        <input
-          id={`${id}-limit`}
-          inputMode="numeric"
-          value={timeLimit}
-          onChange={(e) => setTimeLimit(e.target.value)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-limit-error` : `${id}-limit-hint`}
-        />
-      </div>
-      <button type="submit" className="button--primary" disabled={busy}>
-        <Icon name="play" size={14} />
-        Pokreni optimizaciju
-      </button>
-      {error ? (
-        <span id={`${id}-limit-error`} className="field__error start-panel__note">
-          {error}
-        </span>
-      ) : (
-        <span id={`${id}-limit-hint`} className="text--muted start-panel__note">
-          Koriste se svi dostupni kamioni i sve pošiljke. Solver vraća najbolje rešenje nađeno u tom vremenu.
-        </span>
-      )}
-    </form>
-  )
+  return <JobOutcome state={state} />
 }
 
 function JobOutcome({ state }: { state: LastJobState }) {
@@ -83,8 +28,9 @@ function JobOutcome({ state }: { state: LastJobState }) {
     case 'idle':
       return (
         <EmptyState title="Optimizacija još nije pokretana">
-          Podesite vremensko ograničenje i kliknite „Pokreni optimizaciju“. Rezultat se ovde pojavljuje
-          automatski kada posao završi: broj kamiona, kilometraža, provera validatora i ruta svakog kamiona.
+          Pošiljke unesite u koraku <Link to={PATHS.shipments}>Pošiljke</Link>, potvrdite gde su kamioni, pa u koraku{' '}
+          <Link to={PATHS.time}>Vreme</Link> zadajte vremensko ograničenje i pokrenite optimizaciju. Rezultat se ovde
+          pojavljuje automatski kada posao završi: broj kamiona, kilometraža, provera validatora i ruta svakog kamiona.
         </EmptyState>
       )
     case 'starting':

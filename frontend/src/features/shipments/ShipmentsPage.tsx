@@ -8,6 +8,9 @@ import { Badge, type BadgeTone } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { PageHeader } from '../../components/PageHeader'
+import { PATHS } from '../../app/paths'
+import { StepNav } from '../optimization/OptimizationLayout'
+import { stepContext } from '../optimization/steps'
 import { ShortenIdsNotice } from './ShortenIdsNotice'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { CSV_BOM } from '../../format/csv'
@@ -86,6 +89,7 @@ export function ShipmentsPage() {
     <section>
       <PageHeader
         title="Pošiljke"
+        context={stepContext(PATHS.shipments)}
         actions={
           <>
             <button type="button" onClick={exportCsv} disabled={!rows || rows.length === 0}>
@@ -108,7 +112,7 @@ export function ShipmentsPage() {
                 Dodaj pošiljku
               </button>
             )}
-            <button type="button" className="button--primary" onClick={() => navigate('/shipments/import')}>
+            <button type="button" className="button--primary" onClick={() => navigate(PATHS.shipmentImport)}>
               <Icon name="upload" size={16} />
               Uvezi Excel
             </button>
@@ -223,6 +227,7 @@ export function ShipmentsPage() {
           }}
         />
       )}
+      <StepNav at={PATHS.shipments} />
     </section>
   )
 }

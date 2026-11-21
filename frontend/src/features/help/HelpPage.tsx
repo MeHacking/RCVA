@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { apiMode } from '../../api/apiMode'
+import { PATHS } from '../../app/paths'
 import { Icon } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
 import { NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../optimization/jobStatus'
@@ -217,9 +218,17 @@ function Overview() {
 function Steps() {
   return (
     <>
+      <p>
+        Ceo posao je u meniju <Link to={PATHS.optimization}>Optimizacija</Link>, u četiri koraka koji su u gornjoj
+        traci: <strong>Pošiljke</strong> (uvoz iz Excel-a ili unos jedne po jedne), <strong>Lokacije kamiona</strong>{' '}
+        (potvrda gde su kamioni), <strong>Vreme</strong> (vremensko ograničenje i pokretanje) i{' '}
+        <strong>Rezultat</strong> (rute, mapa ruta i 3D prikaz, za sve kamione ili jedan). Na dnu svakog koraka su
+        „Nazad“ i „Dalje“; meni otvara korak na kome ste poslednji put bili. Kamione uređujete u meniju Kamioni, a ranije
+        optimizacije su u Istoriji.
+      </p>
       <Subheading n={1}>Uvoz pošiljki iz Excel-a</Subheading>
       <p>
-        Na ekranu <Link to="/shipments">Pošiljke</Link> kliknite „Uvezi Excel“ i pratite četiri koraka: izbor fajla,
+        U koraku <Link to={PATHS.shipments}>Pošiljke</Link> kliknite „Uvezi Excel“ i pratite četiri koraka: izbor fajla,
         mapiranje kolona, pregled i ispravke, potvrda.
       </p>
       <ul>
@@ -338,20 +347,23 @@ function Steps() {
 
       <Subheading n={4}>Pokretanje optimizacije</Subheading>
       <p>
-        Kliknite „Pokreni optimizaciju“ (gore desno) ili na ekranu <Link to="/optimization">Rezultati</Link> zadajte
-        vremensko ograničenje i pokrenite odatle. Optimizacija traži najbolje rešenje dok ne istekne zadato vreme
-        (sa gornje trake 60 sekundi).
+        U koraku <Link to={PATHS.time}>Vreme</Link> zadajte vremensko ograničenje, na brojčaniku (jedan krug je 60
+        sekundi, do 10 minuta) ili upisom u sekundama, i kliknite „Pokreni optimizaciju“; aplikacija prelazi na
+        korak Rezultat. Optimizacija traži najbolje rešenje dok ne istekne zadato vreme. Zadato vreme se pamti, pa ga
+        koristi i dugme „Pokreni optimizaciju“ gore desno (prvi put 60 sekundi). Dok optimizacija radi, to dugme broji
+        koliko je vremena prošlo („Računam… 0:12 / 1:00“), a isto piše i u koraku Rezultat, uz traku do zadatog vremena.
       </p>
       <p>
-        Dok optimizacija radi, možete raditi na drugim ekranima. Kada se završi, a niste na ekranu Rezultati, zvonce
-        gore desno dobija broj; klik na obaveštenje vodi na Rezultate, a otvaranjem Rezultata obaveštenja se brišu.
+        Dok optimizacija radi, možete raditi na drugim ekranima. Kada se završi, a niste u koraku Rezultat, zvonce
+        gore desno dobija broj; klik na obaveštenje vodi na Rezultat, a otvaranjem Rezultata obaveštenja se brišu.
         Dugme pored zvonca (korisnik) za sada samo kaže da prijava još ne postoji i, na uređaju, vodi na Podešavanja.
       </p>
       {ON_DEVICE && (
         <ul>
           <li>
-            Ako neki kamion nema lokaciju ili čeka odgovor na predlog, aplikacija vas prvo vodi na pitanje „Gde su
-            kamioni?“ i ne pokreće ništa dok ne odgovorite.
+            Ako neki kamion nema lokaciju ili čeka odgovor na predlog, aplikacija vas prvo vodi u korak Lokacije kamiona
+            (pitanje „Gde su kamioni?“) i ne pokreće ništa dok ne odgovorite; broj na tom koraku kaže koliko kamiona
+            čeka odgovor.
           </li>
           <li>
             Ako kamioni ne mogu da ponesu sve pošiljke, aplikacija kaže koliko kamiona fali i nudi „Dodaj cerade“
@@ -370,6 +382,18 @@ function Steps() {
       )}
 
       <Subheading n={5}>Rezultat</Subheading>
+      <p>
+        Korak Rezultat ima tri prikaza: <strong>Rute</strong>, <strong>Mapa ruta</strong> i{' '}
+        <strong>3D prikaz kamiona</strong>. Iznad ruta i mape „Izbor rute“ prikazuje sve kamione („Sve rute“) ili samo
+        jedan; izabran kamion ostaje izabran i kada pređete na drugi prikaz.
+      </p>
+      {ON_DEVICE && (
+        <p>
+          Posle svake optimizacije aplikacija pita gde kamioni kreću sledeću: „Premesti kamione na kraj ruta“ (mesto
+          poslednje isporuke svakog kamiona) ili „Zadrži sadašnje lokacije“; pojedinačno se bira u koraku Lokacije
+          kamiona.
+        </p>
+      )}
       <ul>
         <li>
           <strong>Kamioni i kilometri:</strong> broj korišćenih kamiona i ukupna kilometraža svih ruta
@@ -432,7 +456,7 @@ function Steps() {
             skloni (na primer da dve pošiljke zamene mesta). Tada je u spisku „Van kamiona“ pored prikaza, a pravila i
             mere gore se tiču samo onoga što je u kamionu. „Ubaci“ u spisku je vraća na prvo mesto od čela gde ne krši
             nijedno pravilo (i redosled istovara), po potrebi okrenutu; ako takvog mesta nema, prevucite je sami. Raspored
-            se čuva tek kada je sve u kamionu; pošiljka se iz kamiona izbacuje sa „Premesti u…“ na Rezultatima.
+            se čuva tek kada je sve u kamionu; pošiljka se iz kamiona izbacuje sa „Premesti u…“ u koraku Rezultat.
             „Legenda“ pored 3D prikaza objašnjava miš, tastere i oznake. Dok se uređuje, ostali kamioni se ne nude, a
             izlazak sa ekrana sa nesačuvanim izmenama prvo pita.
           </li>
@@ -474,7 +498,7 @@ function Steps() {
           <p>
             <strong>Istorija</strong> (u meniju) čuva poslednjih 50 optimizacija sa rezultatima: kada je pokrenuta,
             status, kamioni, kilometraža, pošiljke i koliko je trajala od zadatog vremena. „Otvori“ prikazuje taj rezultat
-            na ekranu Rezultati, pa i na mapi ruta i u 3D prikazu, sa PDF-om za vozače; gornja traka tada piše „(iz
+            u koraku Rezultat, pa i na mapi ruta i u 3D prikazu, sa PDF-om za vozače; gornja traka tada piše „(iz
             Istorije)“. Dok optimizacija radi, drugi rezultat se ne može otvoriti. „Obriši“ (uz potvrdu) briše
             optimizaciju i njen rezultat; grafik na Pregledu je i dalje broji kao pokrenutu.
           </p>
@@ -494,7 +518,7 @@ function Steps() {
               uređaj; „Uvezi podatke…“ zamenjuje sve podatke na uređaju podacima iz fajla.
             </li>
             <li>
-              Za novu nedelju: „Ukloni sve pošiljke“ na ekranu Pošiljke, pa uvoz nove tabele. Kamioni, njihove
+              Za novu nedelju: „Ukloni sve pošiljke“ u koraku Pošiljke, pa uvoz nove tabele. Kamioni, njihove
               lokacije, poslednji rezultati i zapamćene koordinate i kilometraže ostaju.
             </li>
             <li>
@@ -640,7 +664,7 @@ function Tips() {
 
 function Messages() {
   const items: Array<[string, ReactNode]> = [
-    ['Nejasna lokacija', 'Mesto nema koordinate. Ispravite naziv ili upišite koordinate („Izmeni“ na ekranu Pošiljke).'],
+    ['Nejasna lokacija', 'Mesto nema koordinate. Ispravite naziv ili upišite koordinate („Izmeni“ u koraku Pošiljke).'],
     [
       PROVEN_TITLE,
       'Pre pokretanja je dokazano da rešenje ne postoji: npr. pošiljka je veća ili teža od svakog kamiona, ili ukupna roba premašuje kamione. Uz poruku piše tačan razlog.',
@@ -654,7 +678,7 @@ function Messages() {
       ? ([
           [
             'Kamioni bez potvrđene lokacije',
-            'Neki dostupan kamion nema lokaciju. Unesite je na ekranu Kamioni ili u pitanju „Gde su kamioni?“.',
+            'Neki dostupan kamion nema lokaciju. Unesite je u koraku Lokacije kamiona ili na ekranu Kamioni, u pitanju „Gde su kamioni?“.',
           ],
           [
             'Nema dovoljno kamiona',

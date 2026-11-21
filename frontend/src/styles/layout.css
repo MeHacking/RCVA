@@ -770,6 +770,227 @@
   gap: var(--space-2);
 }
 
+.page-header__context {
+  margin: 0 0 2px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+}
+
+/* Optimizacija: its four steps in the top bar, instead of the job's chips (as smartLoad+). */
+.steps {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-pill);
+  background: var(--chip-surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.steps__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 2.75rem;
+  padding: 0 18px 0 15px;
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.steps__item:hover {
+  background: var(--chip-hover);
+}
+
+.steps__item[aria-current='page'] {
+  background: var(--chosen-bg);
+  color: var(--chosen-text);
+  font-weight: var(--weight-semibold);
+}
+
+.steps__badge {
+  min-width: 1.25rem;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--warning);
+  color: var(--white);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.steps__item .spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* "Nazad: …" and "Dalje: …" at the end of a step. */
+.step-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.step-nav__next {
+  margin-left: auto;
+}
+
+/* The result's views: Rute, Mapa, 3D prikaz. */
+.result-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.result-views__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: -1px;
+  border-bottom: 3px solid transparent;
+  color: var(--text-muted);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.result-views__item:hover {
+  color: var(--text);
+}
+
+.result-views__item[aria-current='page'] {
+  border-bottom-color: var(--accent);
+  color: var(--accent-on-light);
+}
+
+/* The step "Vreme": the stopwatch beside the field and the button. */
+.time-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.time-step__controls {
+  display: grid;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 16rem;
+  max-width: 28rem;
+}
+
+.time-step__controls > button {
+  justify-self: start;
+}
+
+.timer {
+  position: relative;
+  width: 200px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+.timer:active {
+  cursor: grabbing;
+}
+
+.timer:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.timer svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.timer__tick {
+  stroke: var(--gray-300);
+  stroke-width: 1.3;
+}
+
+.timer__tick--major {
+  stroke: var(--gray-500);
+  stroke-width: 2;
+}
+
+.timer__num {
+  fill: var(--text-muted);
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.timer__track {
+  fill: none;
+  stroke: var(--gray-200);
+  stroke-width: 10;
+}
+
+.timer__fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.timer__minutes-track {
+  fill: none;
+  stroke: var(--gray-100);
+  stroke-width: 3;
+}
+
+.timer__minutes {
+  fill: none;
+  stroke: var(--warning);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.timer__knob {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2;
+  filter: drop-shadow(0 3px 6px var(--wave-shadow));
+}
+
+.timer__text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.timer__text strong {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer__text small {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 /* Optimization results screen */
 
 .start-panel {

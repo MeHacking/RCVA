@@ -1,6 +1,7 @@
 import { useCallback, useId } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
+import { PATHS } from '../../app/paths'
 import { Badge } from '../../components/Badge'
 import { Icon, type IconName } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
@@ -159,7 +160,7 @@ function StatusPanel({ model }: { model: DashboardModel }) {
       )}
       {model.statusCounts.LOCATION_ERROR > 0 && (
         <p className="dashboard-panel__links">
-          <Link to="/shipments">Ispravite nejasne lokacije</Link>
+          <Link to={PATHS.shipments}>Ispravite nejasne lokacije</Link>
         </p>
       )}
     </section>
@@ -216,8 +217,8 @@ function LastJobPanel({ trucks, shipments }: { trucks: Truck[]; shipments: Shipm
         </dl>
         <TruckCharts loads={truckLoads(result, trucks, shipments)} />
         <p className="dashboard-panel__links">
-          <Link to="/optimization">Detalji rezultata</Link>
-          <Link to="/route-map">Rute</Link>
+          <Link to={PATHS.result}>Detalji rezultata</Link>
+          <Link to={PATHS.resultMap}>Rute</Link>
         </p>
       </>
     )
@@ -243,7 +244,7 @@ function LastJobPanel({ trucks, shipments }: { trucks: Truck[]; shipments: Shipm
       {body}
       {!completed && state.kind !== 'idle' && !isLastJobBusy(state) && (
         <p className="dashboard-panel__links">
-          <Link to="/optimization">Rezultati optimizacije</Link>
+          <Link to={PATHS.result}>Rezultati optimizacije</Link>
         </p>
       )}
     </section>
@@ -288,7 +289,7 @@ function QuickActions() {
     <section className="panel" aria-labelledby="dashboard-actions">
       <h2 id="dashboard-actions">Brze akcije</h2>
       <div className="quick-actions">
-        <QuickAction icon="shipments" title="Uvezi Excel" hint="dodaj pošiljke iz tabele" onClick={() => navigate('/shipments/import')} />
+        <QuickAction icon="shipments" title="Uvezi Excel" hint="dodaj pošiljke iz tabele" onClick={() => navigate(PATHS.shipmentImport)} />
         <QuickAction icon="truck" title="Uredi kamione" hint="kapaciteti i lokacije kamiona" onClick={() => navigate('/trucks')} />
         <QuickAction
           icon="play"
@@ -297,13 +298,14 @@ function QuickActions() {
           primary
           onClick={() =>
             void start().then((kind) => {
-              // Truck locations and missing trucks are answered on the results screen.
-              if (kind === 'needsLocations' || kind === 'proven') navigate('/optimization')
+              // The trucks' locations are answered in their step, missing trucks in the result.
+              if (kind === 'needsLocations') navigate(PATHS.truckLocations)
+              else if (kind === 'proven') navigate(PATHS.result)
             })
           }
           disabled={isLastJobBusy(state)}
         />
-        <QuickAction icon="results" title="Rezultati" hint="rute, kilometri i 3D prikaz" onClick={() => navigate('/optimization')} />
+        <QuickAction icon="results" title="Rezultati" hint="rute, kilometri i 3D prikaz" onClick={() => navigate(PATHS.result)} />
       </div>
     </section>
   )

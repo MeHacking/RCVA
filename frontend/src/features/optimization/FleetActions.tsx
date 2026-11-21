@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
+import { PATHS } from '../../app/paths'
 import { describeError } from '../../api/client'
 import type { OptimizationResult } from '../../api/types'
 import { Notice } from '../../components/Notice'
@@ -134,8 +136,14 @@ export function ExtraTruckNotice({ result, options }: { result: OptimizationResu
 }
 
 /** Before a job on the device: every available truck needs a confirmed location. */
-export function LocationsCheck({ options }: { options: StartOptions }) {
+/**
+ * "Gde su kamioni?": the available trucks' locations, to be answered before a job. `options`: a
+ * start waits for the answers, and "Pokreni optimizaciju" goes on with it; null: only the answers
+ * (the step "Lokacije kamiona" goes on with "Dalje").
+ */
+export function LocationsCheck({ options }: { options: StartOptions | null }) {
   const api = useApi()
+  const navigate = useNavigate()
   const { start } = useLastJob()
   const load = useCallback(async () => ({ trucks: await api.listTrucks(), starts: (await api.getTruckStarts()) ?? [] }), [api])
   const [data, reload] = useAsyncData(load)
@@ -154,9 +162,20 @@ export function LocationsCheck({ options }: { options: StartOptions }) {
       </p>
       <TruckLocations trucks={available} starts={data.data.starts} onChanged={reload} />
       <div className="form-actions">
-        <button type="button" className="button--primary" disabled={waiting > 0} onClick={() => void start(options)}>
-          Pokreni optimizaciju
-        </button>
+        {options && (
+          <button
+            type="button"
+            className="button--primary"
+            disabled={waiting > 0}
+            onClick={() => {
+              // The job goes on in the step Rezultat (from the step "Lokacije kamiona").
+              void navigate(PATHS.result)
+              void start(options)
+            }}
+          >
+            Pokreni optimizaciju
+          </button>
+        )}
         <span className={waiting > 0 ? 'text--error' : 'text--muted'} role="status">
           {waiting > 0 ? `Čeka odgovor: ${waiting} ${waiting === 1 ? 'kamion' : 'kamiona'}.` : 'Svi kamioni imaju potvrđenu lokaciju.'}
         </span>

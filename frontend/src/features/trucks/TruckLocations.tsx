@@ -5,6 +5,7 @@ import type { Location, Truck, TruckStart, TruckStartInput, TruckStartResult } f
 import { Badge } from '../../components/Badge'
 import { OsmAttribution } from '../../components/OsmAttribution'
 import { formatCoordinates, parseCoordinates } from '../../format/coordinates'
+import { announceTruckStarts } from '../optimization/steps'
 
 /**
  * Where each truck is (only on the device): a job's routes start there. The last delivery of
@@ -33,6 +34,7 @@ export function TruckLocations({
       const result = await api.setTruckStart(truck.id, input)
       setMessages((m) => ({ ...m, [truck.id]: describeResult(result) }))
       onChanged()
+      announceTruckStarts()
     } catch (error) {
       setMessages((m) => ({ ...m, [truck.id]: { tone: 'error', text: describeError(error) } }))
     } finally {

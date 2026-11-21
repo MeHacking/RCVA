@@ -1,42 +1,32 @@
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { StepsBar } from '../features/optimization/OptimizationLayout'
 import { Badge, type BadgeTone } from '../components/Badge'
 import { Icon, type IconName } from '../components/Icon'
 import { formatKm } from '../format/units'
 import { JOB_STATUS_LABELS, NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../features/optimization/jobStatus'
 import { useLastJob, type LastJobState } from '../features/optimization/lastJobContext'
 import { JobClockText } from '../features/optimization/JobClockText'
+import { PATHS } from './paths'
 
 export function TopBar() {
   const { state, start } = useLastJob()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const view = describe(state)
 
-  // What the user must answer (truck locations, missing trucks) is on the results screen.
+  // What the user must answer: the trucks' locations in their step, missing trucks in the result.
   async function startJob() {
     const kind = await start()
-    if (kind === 'needsLocations' || kind === 'proven') navigate('/optimization')
+    if (kind === 'needsLocations') navigate(PATHS.truckLocations)
+    else if (kind === 'proven') navigate(PATHS.result)
   }
+
+  // In Optimizacija the bar holds its steps, as in smartLoad+ (the job's state is in the step Rezultat).
+  const inOptimization = pathname === PATHS.optimization || pathname.startsWith(`${PATHS.optimization}/`)
 
   return (
     <div className="top-bar">
-      <div className="job-status" data-testid="last-job-status" role="status" aria-live="polite">
-        <Link to="/optimization" className="job-status__link" title={[view.label, ...view.facts.map((f) => f.text), view.message].filter(Boolean).join(' · ')}>
-          <span className="visually-hidden">Poslednja optimizacija: </span>
-          <Badge tone={view.tone} pulse={view.busy}>
-            {view.label}
-          </Badge>
-          {view.facts.map((fact) => (
-            <span
-              key={fact.text}
-              className={`job-status__fact${fact.minor ? ' job-status__fact--minor' : ''}${fact.tone ? ` job-status__fact--${fact.tone}` : ''}`}
-            >
-              <Icon name={fact.icon} size={14} />
-              {fact.text}
-            </span>
-          ))}
-          {view.message && <span className={`job-status__message ${view.messageClass ?? ''}`}>{view.message}</span>}
-        </Link>
-      </div>
+      {inOptimization ? <StepsBar /> : <JobStatus view={view} />}
       {view.busy ? (
         <button type="button" className="button--primary run-clock" disabled>
           <span className="spinner spinner--small" aria-hidden="true" />
@@ -49,6 +39,34 @@ export function TopBar() {
         </button>
       )}
       {view.busy && <span className="top-bar__progress" aria-hidden="true" />}
+    </div>
+  )
+}
+
+/** The last job's state as a row of chips; the whole row opens the result. */
+function JobStatus({ view }: { view: StatusView }) {
+  return (
+    <div className="job-status" data-testid="last-job-status" role="status" aria-live="polite">
+      <Link
+        to={PATHS.result}
+        className="job-status__link"
+        title={[view.label, ...view.facts.map((f) => f.text), view.message].filter(Boolean).join(' · ')}
+      >
+        <span className="visually-hidden">Poslednja optimizacija: </span>
+        <Badge tone={view.tone} pulse={view.busy}>
+          {view.label}
+        </Badge>
+        {view.facts.map((fact) => (
+          <span
+            key={fact.text}
+            className={`job-status__fact${fact.minor ? ' job-status__fact--minor' : ''}${fact.tone ? ` job-status__fact--${fact.tone}` : ''}`}
+          >
+            <Icon name={fact.icon} size={14} />
+            {fact.text}
+          </span>
+        ))}
+        {view.message && <span className={`job-status__message ${view.messageClass ?? ''}`}>{view.message}</span>}
+      </Link>
     </div>
   )
 }

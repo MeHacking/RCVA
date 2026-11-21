@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
 import { useLastJob } from '../features/optimization/lastJobContext'
 import { NOTHING_SEEN, noticeFor, observeJob, type JobNotice, type SeenJob } from './jobNotices'
+import { PATHS } from './paths'
 
-/** The screen with the results: a job that ends there needs no notification. */
-export const RESULTS_PATH = '/optimization'
+/** The step Rezultat (any of its views): a job that ends there needs no notification. */
+export const RESULTS_PATH = PATHS.result
 
 /** The notifications of this visit, newest first; opening Rezultati clears them. */
 export function useJobNotices(): JobNotice[] {
@@ -12,7 +13,7 @@ export function useJobNotices(): JobNotice[] {
   const { pathname } = useLocation()
   const [notices, setNotices] = useState<JobNotice[]>([])
   const seen = useRef<SeenJob>(NOTHING_SEEN)
-  const onResults = pathname === RESULTS_PATH
+  const onResults = pathname === RESULTS_PATH || pathname.startsWith(`${RESULTS_PATH}/`)
 
   // Running again for the same state (the screen changed) is harmless: an ended job is
   // reported once, as observeJob closes it.

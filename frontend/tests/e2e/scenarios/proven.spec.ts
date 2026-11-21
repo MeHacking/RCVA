@@ -5,7 +5,7 @@ import { collectPageErrors } from '../consoleGuard.ts'
 
 test('PROVEN shows the 422 reason and does not create a job', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
 
   const notice = page.getByRole('alert').filter({ hasText: 'Dokazano neizvodljivo (HTTP 422)' })

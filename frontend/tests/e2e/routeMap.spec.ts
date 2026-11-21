@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 const map = (page: Page) => page.getByRole('region', { name: 'Mapa ruta' })
 
 async function runJob(page: Page) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 10_000 })
 }
@@ -39,7 +39,7 @@ test('without a job it explains where routes come from', async ({ page }) => {
   await page.goto('/route-map')
   await expect(page.getByText('Nema ruta za prikaz')).toBeVisible()
   await page.getByRole('link', { name: 'Pokrenite optimizaciju' }).click()
-  await expect(page).toHaveURL('/optimization')
+  await expect(page).toHaveURL('/optimization/shipments')
 })
 
 test('lists all routes with their stops and filters by truck', async ({ page }) => {
@@ -57,13 +57,13 @@ test('lists all routes with their stops and filters by truck', async ({ page }) 
 
   const filter = page.getByRole('group', { name: 'Izbor rute' })
   await filter.getByRole('button', { name: 'Šleper 2' }).click()
-  await expect(page).toHaveURL('/route-map?truck=2')
+  await expect(page).toHaveURL('/optimization/result/map?truck=2')
   await expect(routeCards(page)).toHaveCount(1)
   await expect(routeCards(page).first()).toContainText('Šleper 2')
   await expect(filter.getByRole('button', { name: 'Šleper 2' })).toHaveAttribute('aria-pressed', 'true')
 
   await filter.getByRole('button', { name: 'Sve rute (2)' }).click()
-  await expect(page).toHaveURL('/route-map')
+  await expect(page).toHaveURL('/optimization/result/map')
   await expect(routeCards(page)).toHaveCount(2)
   expect(errors).toEqual([])
 })
@@ -115,8 +115,10 @@ test('switching trucks and leaving the screen leave one map and no errors', asyn
     await filter.getByRole('button', { name: i % 2 === 0 ? 'Šleper 1' : 'Sve rute (2)' }).click()
     await expect(map(page).locator('path.map-route')).toHaveCount(i % 2 === 0 ? 1 : 2)
   }
-  await page.getByRole('navigation').getByRole('link', { name: 'Kamioni' }).click()
+  await page.getByRole('navigation').getByRole('link', { name: 'Kamioni', exact: true }).click()
   await expect(page.locator('.leaflet-container')).toHaveCount(0)
+  // Back through the menu: Optimizacija opens the step Rezultat, then its map.
+  await page.getByRole('navigation').getByRole('link', { name: 'Optimizacija' }).click()
   await page.getByRole('navigation').getByRole('link', { name: 'Mapa ruta' }).click()
   await expect(map(page).locator('path.map-route')).toHaveCount(2)
   await expect(page.locator('.leaflet-container')).toHaveCount(1)
@@ -127,7 +129,7 @@ test('the "Mapa" link in the results table opens that truck', async ({ page }) =
   await runJob(page)
   await page.getByRole('row', { name: /Šleper 1/ }).getByRole('link', { name: 'Mapa' }).click()
 
-  await expect(page).toHaveURL('/route-map?job=1&truck=1')
+  await expect(page).toHaveURL('/optimization/result/map?job=1&truck=1')
   await expect(routeCards(page)).toHaveCount(1)
   await expect(routeCards(page).first()).toContainText('Šleper 1')
   await expect(page.getByText(/nije dostupan|nema rutu/)).toHaveCount(0)

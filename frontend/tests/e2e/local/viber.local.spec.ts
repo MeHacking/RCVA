@@ -25,7 +25,7 @@ const seen = (page: Page) =>
   page.evaluate(() => (window as unknown as { seen: { printed: Array<{ title: string; trucks: number; text: string }>; opened: string[] } }).seen)
 
 async function solve(page: Page) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })

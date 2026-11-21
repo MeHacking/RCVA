@@ -24,6 +24,8 @@ test('warns about too few trucks, and about a truck without a location', async (
   await page.getByLabel('Naziv').fill('Nova cerada')
   await page.getByLabel('Kapacitet (LDM)').fill('13.6')
   await page.getByRole('button', { name: 'Sačuvaj' }).click()
+  // Kept before the page is loaded again.
+  await expect(page.getByRole('table', { name: 'Kamioni' }).getByRole('row', { name: /Nova cerada/ })).toBeVisible()
   await page.goto('/')
   await expect(warnings).toContainText('Kamioni bez lokacije: 1. Pre optimizacije unesite gde se nalaze.')
   await expect(warnings).not.toContainText('Ukupno 20,9 LDM')
@@ -32,7 +34,7 @@ test('warns about too few trucks, and about a truck without a location', async (
 
 test('counts the optimizations started, per day, week or month, with a tooltip on hover', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).first().click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })

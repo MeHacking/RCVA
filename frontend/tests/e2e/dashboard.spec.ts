@@ -38,7 +38,7 @@ test('quick actions open the import wizard and the trucks screen', async ({ page
   await page.goto('/')
   const actions = page.getByRole('region', { name: 'Brze akcije' })
   await actions.getByRole('button', { name: 'Uvezi Excel' }).click()
-  await expect(page).toHaveURL('/shipments/import')
+  await expect(page).toHaveURL('/optimization/shipments/import')
   await page.goBack()
   await actions.getByRole('button', { name: 'Uredi kamione' }).click()
   await expect(page).toHaveURL('/trucks')

@@ -25,7 +25,7 @@ test('keeps a new truck and the last result after a page reload', async ({ page 
     'Subotica',
   )
 
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   const routes = page.getByRole('table', { name: 'Kamioni i rute' })
@@ -67,14 +67,16 @@ test('keeps a truck type after a page reload, and fills a new truck from it', as
 
 test('shows a job cut off by a reload as failed, and can start a new one', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('60')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
-  const status = page.getByTestId('last-job-status')
-  await expect(status).toContainText(/U toku|U redu čekanja/)
+  // The job's state is in the step Rezultat (the top bar holds the steps there).
+  const progress = page.getByRole('main').getByRole('status').filter({ hasText: /^Posao #1/ })
+  await expect(progress).toContainText(/U toku|U redu čekanja/)
 
   await page.reload()
-  await expect(status).toContainText('Greška solvera')
+  await expect(page.getByText('Posao #1: greška solvera')).toBeVisible()
+  await page.getByRole('link', { name: 'Nazad: vreme' }).click()
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 20_000 })

@@ -82,7 +82,7 @@ async function probe(page: Page): Promise<Probe> {
 }
 
 async function openTruck3d(page: Page) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('navigation').getByRole('link', { name: '3D prikaz kamiona' }).click()

@@ -46,7 +46,7 @@ test('shows a pin where the trucks are, one per place, and follows a new locatio
 
 test('shows the last delivery proposed after a job as a dashed pin until it is answered', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 20_000 })

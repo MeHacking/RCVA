@@ -1,4 +1,5 @@
 import type { Location, OptimizationResult, Shipment, Truck, TruckStart } from '../../api/types'
+import { PATHS } from '../../app/paths'
 import { availableCapacity } from '../../domain/capacity'
 import { planningFleet } from '../../domain/fleet'
 import { provenFindings, trucksLowerBound } from '../../domain/optimization/feasibility'
@@ -73,7 +74,7 @@ export function buildDashboardModel(
   const warnings: DashboardWarning[] = findings.map((finding) => ({
     tone: 'danger',
     text: finding.text,
-    link: finding.about === 'shipment' ? { to: '/shipments', label: 'Pošiljke' } : { to: '/trucks', label: 'Kamioni' },
+    link: finding.about === 'shipment' ? { to: PATHS.shipments, label: 'Pošiljke' } : { to: '/trucks', label: 'Kamioni' },
   }))
 
   if (starts) {
@@ -94,7 +95,7 @@ export function buildDashboardModel(
     warnings.push({
       tone: 'warning',
       text: `Pošiljke sa nejasnom lokacijom: ${totals.withErrors}. Bez koordinata ne mogu da uđu u rutu.`,
-      link: { to: '/shipments', label: 'Pošiljke' },
+      link: { to: PATHS.shipments, label: 'Pošiljke' },
     })
   }
 

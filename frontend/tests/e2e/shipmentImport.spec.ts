@@ -25,7 +25,7 @@ async function xlsx(rows: string[][]) {
 async function uploadAndMap(page: Page) {
   await page.goto('/shipments')
   await page.getByRole('button', { name: 'Uvezi Excel' }).click()
-  await expect(page).toHaveURL('/shipments/import')
+  await expect(page).toHaveURL('/optimization/shipments/import')
   await page.getByLabel('Fajl').setInputFiles(await xlsx(ROWS))
   await expect(page.getByRole('heading', { name: 'Povežite kolone fajla „probni-uvoz.xlsx“' })).toBeVisible()
 }

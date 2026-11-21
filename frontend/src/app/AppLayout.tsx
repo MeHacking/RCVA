@@ -1,27 +1,25 @@
-import { BookOpen, Box, History, House, Lightbulb, Map as MapIcon, Package, Settings, Truck, type LucideIcon } from 'lucide-react'
+import { BookOpen, History, House, Lightbulb, Settings, Truck, type LucideIcon } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { apiMode, apiModeLabel } from '../api/apiMode'
 import { BackgroundWaves } from '../components/BackgroundWaves'
 import { Icon } from '../components/Icon'
 import { AccountTray } from './AccountTray'
+import { PATHS } from './paths'
 import { TopBar } from './TopBar'
 import { RESULTS_PATH, useJobNotices } from './useJobNotices'
 
 /*
  * The icons of smartLoad+'s menu (user, 21.11.2026; lucide-react, as there): Početna (House),
- * Optimizacija (Lightbulb), Istorija (History), Katalog kamiona (Truck), Katalog robe (Package), Podešavanja
- * (Settings), Uputstvo (BookOpen). smartLoad+ has no map and no 3D screen of its own: Map and Box
- * (the box smartLoad+ draws goods with) from the same set.
+ * Optimizacija (Lightbulb), Istorija (History), Katalog kamiona (Truck), Podešavanja (Settings),
+ * Uputstvo (BookOpen). The order as there: the work first, then the trucks.
  */
 const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/', label: 'Pregled', icon: House },
-  { to: '/shipments', label: 'Pošiljke', icon: Package },
-  { to: '/trucks', label: 'Kamioni', icon: Truck },
-  { to: '/optimization', label: 'Rezultati optimizacije', icon: Lightbulb },
+  // The shipments, the trucks' locations, the time limit and the result (with the map and 3D) are its steps.
+  { to: PATHS.optimization, label: 'Optimizacija', icon: Lightbulb },
   { to: '/history', label: 'Istorija', icon: History },
-  { to: '/truck-3d', label: '3D prikaz kamiona', icon: Box },
-  { to: '/route-map', label: 'Mapa ruta', icon: MapIcon },
+  { to: '/trucks', label: 'Kamioni', icon: Truck },
   // Only the application on the device has settings.
   ...(apiMode() === 'local' ? [{ to: '/settings', label: 'Podešavanja', icon: Settings }] : []),
   { to: '/help', label: 'Uputstvo', icon: BookOpen },

@@ -5,7 +5,7 @@ import { collectPageErrors } from '../consoleGuard.ts'
 
 test('NOT_FOUND shows the required wording, distinct from PROVEN', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
 
   const notice = page.getByRole('main').getByRole('status').filter({ hasText: 'rešenje nije nađeno' })

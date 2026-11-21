@@ -16,7 +16,7 @@ async function keepLocations(page: Page) {
 }
 
 async function startJob(page: Page, seconds: string) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill(seconds)
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).first().click()
 }
@@ -48,9 +48,9 @@ test('lists the kept jobs, opens an older one everywhere, and deletes one', asyn
 
   // Opened: Rezultati, the top bar and the map show job #1.
   await page.getByRole('button', { name: 'Otvori posao #1' }).click()
-  await expect(page).toHaveURL('/optimization')
+  await expect(page).toHaveURL('/optimization/result')
   await expect(page.getByRole('main').getByText(/^Posao #1 · završen/)).toBeVisible()
-  await expect(page.getByTestId('last-job-status')).toContainText('Posao #1 (iz Istorije)')
+  await expect(page.getByRole('status').filter({ hasText: 'Prikazan je posao #1 iz Istorije' })).toBeVisible()
   await page.getByRole('navigation').getByRole('link', { name: 'Mapa ruta' }).click()
   await expect(page.getByRole('group', { name: 'Izbor rute' })).toContainText('Posao #1')
   await page.getByRole('navigation').getByRole('link', { name: 'Istorija' }).click()

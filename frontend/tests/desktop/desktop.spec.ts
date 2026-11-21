@@ -73,8 +73,8 @@ test('starts empty on its own origin, and every screen loads, also after a reloa
   expect(await page.title()).toBe('RCVA – rutiranje i vizualizacija')
 
   for (const [link, url, heading] of [
-    ['Pošiljke', 'app://rcva/shipments', 'Pošiljke'],
-    ['Mapa ruta', 'app://rcva/route-map', 'Mapa ruta'],
+    ['Optimizacija', 'app://rcva/optimization/shipments', 'Pošiljke'],
+    ['Istorija', 'app://rcva/history', 'Istorija'],
     ['Podešavanja', 'app://rcva/settings', 'Podešavanja'],
   ] as const) {
     await page.getByRole('navigation').getByRole('link', { name: link }).click()
@@ -104,7 +104,7 @@ test('introduces itself to the services with its own User-Agent', async () => {
 test('imports, solves in its Web Worker, and keeps the data after a restart', async () => {
   let { app, page } = await launch()
   outside.length = 0
-  await page.getByRole('navigation').getByRole('link', { name: 'Pošiljke' }).click()
+  await page.getByRole('navigation').getByRole('link', { name: 'Optimizacija' }).click()
   await page.getByRole('button', { name: 'Uvezi Excel' }).click()
   await page.getByLabel('Fajl').setInputFiles({
     name: 'nedelja.xlsx',
@@ -124,7 +124,7 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
   expect(outside.every((r) => r.userAgent.startsWith('RCVA/1.0.0 '))).toBe(true)
 
   // An empty device has no trucks: one is added, at a place the device knows now (no lookup).
-  await page.getByRole('navigation').getByRole('link', { name: 'Kamioni' }).click()
+  await page.getByRole('navigation').getByRole('link', { name: 'Kamioni', exact: true }).click()
   await page.getByRole('button', { name: 'Dodaj kamion' }).click()
   await page.getByLabel('Naziv').fill('Kamion 1')
   await page.getByLabel('Kapacitet (LDM)').fill('13.6')
@@ -135,7 +135,8 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
   await expect(page.getByRole('table', { name: 'Lokacije kamiona' })).toContainText('Sačuvano: „Primerovo“.')
   expect(outside).toHaveLength(2)
 
-  await page.getByRole('navigation').getByRole('link', { name: 'Rezultati optimizacije' }).click()
+  await page.getByRole('navigation').getByRole('link', { name: 'Optimizacija' }).click()
+  await page.getByRole('navigation', { name: 'Koraci optimizacije' }).getByRole('link', { name: 'Vreme' }).click()
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
@@ -179,9 +180,9 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
   await app.close()
 
   ;({ app, page } = await launch())
-  await page.getByRole('navigation').getByRole('link', { name: 'Pošiljke' }).click()
+  await page.getByRole('navigation').getByRole('link', { name: 'Optimizacija' }).click()
   await expect(page.getByRole('table', { name: 'Pošiljke' }).getByRole('row')).toHaveCount(3)
-  await page.getByRole('navigation').getByRole('link', { name: 'Rezultati optimizacije' }).click()
+  await page.getByRole('navigation', { name: 'Koraci optimizacije' }).getByRole('link', { name: 'Rezultat' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible()
   await app.close()
 })

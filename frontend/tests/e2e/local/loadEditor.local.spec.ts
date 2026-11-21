@@ -50,7 +50,7 @@ async function dragTo(page: Page, from: { x: number; y: number }, to: { x: numbe
 
 test('arranges a truck\'s load by hand, keeps it, and gives the computed one back', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
@@ -182,7 +182,7 @@ test('arranges a truck\'s load by hand, keeps it, and gives the computed one bac
 
 /** A job, the 3D screen and the editor for the first truck. */
 async function openEditor(page: Page) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
@@ -349,7 +349,7 @@ test('puts a shipment aside on the ground for a while and back with "Ubaci"; the
 
 test('moves every package of a shipment from smartLoad+ on its own', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
@@ -455,10 +455,10 @@ test('does not lose changes without asking', async ({ page }) => {
   await page.getByRole('navigation').getByRole('link', { name: 'Pošiljke' }).click()
   await expect(editor.getByRole('alert')).toContainText('Izmene rasporeda nisu sačuvane')
   await editor.getByRole('button', { name: 'Ostani' }).click()
-  await expect(page).toHaveURL(/\/truck-3d/)
+  await expect(page).toHaveURL(/\/optimization\/result\/3d/)
   await expect(editor.getByRole('button', { name: 'Sačuvaj raspored' })).toBeEnabled()
   await page.getByRole('navigation').getByRole('link', { name: 'Pošiljke' }).click()
   await editor.getByRole('button', { name: 'Napusti ekran' }).click()
-  await expect(page).toHaveURL(/\/shipments/)
+  await expect(page).toHaveURL(/\/optimization\/shipments/)
   expect(errors).toEqual([])
 })

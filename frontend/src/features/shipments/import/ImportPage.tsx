@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import type { ImportCommitResult, ImportCreated, ImportMapping } from '../../../api/types'
 import { Notice } from '../../../components/Notice'
 import { PageHeader } from '../../../components/PageHeader'
+import { PATHS } from '../../../app/paths'
+import { stepContext } from '../../optimization/steps'
 import { ConfirmStep } from './ConfirmStep'
 import { FileStep } from './FileStep'
 import { MappingStep } from './MappingStep'
@@ -29,7 +31,11 @@ export function ImportPage() {
 
   return (
     <section>
-      <PageHeader title="Uvoz pošiljki iz Excel-a" actions={<Link to="/shipments">Nazad na pošiljke</Link>} />
+      <PageHeader
+        title="Uvoz pošiljki iz Excel-a"
+        context={`${stepContext(PATHS.shipments)}: Pošiljke`}
+        actions={<Link to={PATHS.shipments}>Nazad na pošiljke</Link>}
+      />
 
       <ol className="stepper" aria-label="Koraci uvoza">
         {STEPS.map((s, index) => (
@@ -79,7 +85,7 @@ export function ImportPage() {
           </p>
           {state.result.geocoding && <GeocodingSummary {...state.result.geocoding} />}
           <p className="notice__actions">
-            <Link to="/shipments">Pogledaj pošiljke</Link>
+            <Link to={PATHS.shipments}>Pogledaj pošiljke</Link>
             <button type="button" onClick={() => setState({ step: 'file' })}>
               Novi uvoz
             </button>

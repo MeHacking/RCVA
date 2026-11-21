@@ -7,7 +7,7 @@ import { collectPageErrors } from '../consoleGuard.ts'
 
 test('solves in the browser and shows open routes, the validator and the 3D plan', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await expect(page.getByText('Na uređaju (probni početni podaci)')).toBeVisible()
 
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
@@ -43,7 +43,7 @@ test('solves in the browser and shows open routes, the validator and the 3D plan
 // solved again for as long); and the time that passed is counted while solving, as in smartLoad+.
 test('keeps the whole job to the time limit and counts the time while solving', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('4')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
 

@@ -7,7 +7,7 @@ import type { LoadPlan, OptimizationJob, OptimizationResult, RoutePlan, Shipment
 import { Icon } from '../../components/Icon'
 import { LdmBar } from '../../components/LdmBar'
 import { Notice } from '../../components/Notice'
-import { PageHeader } from '../../components/PageHeader'
+import { PATHS } from '../../app/paths'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { useAsyncData } from '../../hooks/useAsyncData'
@@ -30,9 +30,9 @@ export function Truck3dPage() {
   // optimization starts meanwhile (the editor would close and the changes would be lost).
   const [pinned, setPinned] = useState<{ job: OptimizationJob; result: OptimizationResult } | null>(null)
   const shown = pinned ?? completed
+  // The view "3D prikaz" of the step Rezultat.
   return (
-    <section>
-      <PageHeader title="3D prikaz kamiona" />
+    <>
       {shown ? (
         <LoadPlans
           job={shown.job}
@@ -45,10 +45,12 @@ export function Truck3dPage() {
       ) : (
         <EmptyState title="Nema rasporeda za prikaz">
           3D raspored se pravi za kamione iz završene optimizacije.{' '}
-          <Link to="/optimization">{state.kind === 'idle' ? 'Pokrenite optimizaciju' : 'Rezultati optimizacije'}</Link>
+          <Link to={state.kind === 'idle' ? PATHS.shipments : PATHS.result}>
+            {state.kind === 'idle' ? 'Pokrenite optimizaciju' : 'Rute'}
+          </Link>
         </EmptyState>
       )}
-    </section>
+    </>
   )
 }
 

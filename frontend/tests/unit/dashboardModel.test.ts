@@ -10,7 +10,7 @@ const model = (name: keyof typeof SCENARIOS) => {
 }
 
 const { locations } = SCENARIOS.small
-const TO_SHIPMENTS = { to: '/shipments', label: 'Pošiljke' }
+const TO_SHIPMENTS = { to: '/optimization/shipments', label: 'Pošiljke' }
 const TO_TRUCKS = { to: '/trucks', label: 'Kamioni' }
 
 describe('buildDashboardModel', () => {

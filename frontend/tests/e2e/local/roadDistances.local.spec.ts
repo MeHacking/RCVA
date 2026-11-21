@@ -36,7 +36,7 @@ async function saveKey(page: Page) {
 }
 
 async function start(page: Page) {
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
 }
@@ -67,7 +67,7 @@ test('with a key the job uses road distances from ORS, asked once', async ({ pag
   await check.getByRole('button', { name: 'Zadrži sve sadašnje lokacije' }).click()
   await expect(check.getByRole('status').last()).toHaveText('Svi kamioni imaju potvrđenu lokaciju.')
   await check.getByRole('button', { name: 'Pokreni optimizaciju' }).click()
-  await expect(page.getByTestId('last-job-status')).toContainText('Završeno', { timeout: 20_000 })
+  await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 20_000 })
   expect(asked).toHaveLength(1)
   expect(errors).toEqual([])
 })

@@ -7,7 +7,7 @@ import { collectPageErrors } from '../consoleGuard.ts'
 
 test('takes a shipment off a truck, puts it back, and gives the optimizer\'s result back', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   const routes = page.getByRole('table', { name: 'Kamioni i rute' })

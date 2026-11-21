@@ -30,7 +30,7 @@ async function ready(page: Page) {
 
 test('imports a layout from smartLoad+ for a shipment, shows it piece by piece, and removes it', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await page.goto('/optimization')
+  await page.goto('/optimization/time')
   await page.getByLabel('Vremensko ograničenje (s)').fill('1')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible({ timeout: 30_000 })
@@ -79,7 +79,7 @@ test('imports a layout from smartLoad+ for a shipment, shows it piece by piece, 
   await expect(first).toContainText('2,6 LDM')
   await expect(first).toContainText('7 komada (smartLoad+)')
   await expect(page.getByText('Upozorenja rasporeda')).toBeVisible()
-  await expect(page.locator('.notice__list')).toContainText(`zauzima 2,6 LDM; pokrenite optimizaciju ponovo.`)
+  await expect(page.locator('.notice__list').filter({ hasText: 'Raspored pošiljke' })).toContainText(`zauzima 2,6 LDM; pokrenite optimizaciju ponovo.`)
   await expect(panel).toContainText('Pošiljka ima raspored „2,4 LDM - Proba“ (7 komada).')
 
   // A click on any piece picks the whole shipment. (The page went down to the panel under the
@@ -87,9 +87,10 @@ test('imports a layout from smartLoad+ for a shipment, shows it piece by piece, 
   await first.click()
   await expect(first).toHaveAttribute('aria-pressed', 'false')
   expect((await probe(page)).selected).toEqual([])
-  await page.locator('.truck3d').evaluate((view) => view.scrollIntoView({ block: 'center' }))
-  // From above: obliquely, the higher blocks nearer the doors can hide the pallets.
+  // From above: obliquely, the higher blocks nearer the doors can hide the pallets. The view is
+  // centred after that click (the click scrolls the page to the button above the view).
   await page.getByRole('group', { name: 'Pogled' }).getByRole('button', { name: 'Odozgo' }).click()
+  await page.locator('.truck3d').evaluate((view) => view.scrollIntoView({ block: 'center' }))
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
   const at = await page.evaluate((shipment) => {
     const p = (document.querySelector('.truck3d canvas') as HTMLCanvasElement & { rcvaProbe: Probe }).rcvaProbe
@@ -102,7 +103,7 @@ test('imports a layout from smartLoad+ for a shipment, shows it piece by piece, 
 
   // The PDF draws the pieces too, with one number for the shipment.
   const drawing = page.getByTestId('result-report').locator('svg.load-drawing').first()
-  await page.getByRole('navigation').getByRole('link', { name: 'Rezultati optimizacije' }).click()
+  await page.getByRole('navigation', { name: 'Prikaz rezultata' }).getByRole('link', { name: 'Rute', exact: true }).click()
   await expect(page.getByRole('table', { name: 'Kamioni i rute' })).toBeVisible()
   await expect(drawing.locator(`g[data-shipment="${id}"]`)).toHaveCount(7)
   await expect(drawing.locator(`text[data-shipment="${id}"]`)).toHaveCount(1)

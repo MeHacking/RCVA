@@ -84,7 +84,48 @@ button.quick-action--primary:hover:not(:disabled)::after {
   transition: translate 0.75s var(--ease-out);
 }
 
+/* A link that looks like a button ("Nazad: …", "Dalje: …" between the steps of Optimizacija). */
+a.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  font-weight: var(--weight-medium);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s,
+    translate 0.18s var(--ease-out);
+}
+
+a.link-button:hover {
+  background: var(--gray-100);
+}
+
+a.link-button--primary {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+a.link-button--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  translate: 0 -1px;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  a.link-button--primary:hover {
+    translate: none;
+  }
+
   button {
     transition:
       background-color 0.12s,
