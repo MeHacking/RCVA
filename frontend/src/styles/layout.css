@@ -3137,9 +3137,12 @@ button.truck-3d__shipment[aria-pressed='true'] {
 .app__nav button.nav-new {
   flex: none;
   width: 100%;
-  height: auto;
-  min-height: 52px;
+  /* Measured in smartLoad+ (46 px tall, an 18 px icon, semibold). */
+  height: 46px;
+  gap: 9px;
+  padding: 0 20px 0 16px;
   font-size: 1rem;
+  font-weight: 600;
   color: var(--chosen-text);
   background: var(--chosen-bg);
   border-color: var(--chosen-bg);

@@ -38,7 +38,7 @@ export function AppLayout() {
         {/* As in smartLoad+ (owner, 21.11.2026): a new optimization starts at its first step. The
             shipments and trucks are kept data in RCVA, so there is no draft to throw away. */}
         <button type="button" className="button--primary nav-new" onClick={() => void navigate(PATHS.shipments)}>
-          <Plus aria-hidden="true" size={20} />
+          <Plus aria-hidden="true" size={18} />
           Nova optimizacija
         </button>
         <div className="nav-footer">
