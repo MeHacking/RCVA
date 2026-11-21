@@ -274,7 +274,7 @@ describe('local optimization', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect((await api.getOptimizationJob(first.id)).status).toBe('RUNNING')
     expect((await api.getOptimizationJob(second.id)).status).toBe('QUEUED')
-    expect(calls).toEqual([5000])
+    expect(calls).toHaveLength(1)
 
     // A place keeps what the job uses while a job waits or runs.
     const [someplace] = await api.listLocations()
@@ -284,20 +284,56 @@ describe('local optimization', () => {
     // A truck cannot be removed while a job waits or runs.
     expect((await rejection(api.deleteTruck(1))).status).toBe(409)
 
-    // The advice solves the same shipments again, as long, with one truck more.
+    // The advice solves the same shipments again with one truck more, in what is left of the
+    // limit: the whole job keeps to the time limit.
     release()
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(calls).toEqual([5000, 5000])
     expect((await api.getOptimizationJob(first.id)).status).toBe('RUNNING')
     release()
     expect((await settle(api, first.id)).status).toBe('COMPLETED')
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(calls).toEqual([5000, 5000, 7000])
     release()
     await new Promise((resolve) => setTimeout(resolve, 0))
     release()
     expect((await settle(api, second.id)).status).toBe('COMPLETED')
+    expect(calls).toHaveLength(4)
+    expect(calls[0]).toBe(3333)
+    expect(calls[1]).toBeGreaterThan(0)
+    expect(calls[1]).toBeLessThanOrEqual(5000)
+    expect(calls[2]).toBe(4667)
     await api.deleteTruck(1)
+  })
+
+  it('keeps the whole job, the advice of one more truck too, to the time limit', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const calls: number[] = []
+      // A solver that uses all the time it is given.
+      const api = setup('small', (input, options) => {
+        calls.push(options.timeLimitMs ?? 0)
+        vi.setSystemTime(Date.now() + (options.timeLimitMs ?? 0))
+        return steps(input, {})
+      })
+      const { id } = await api.createOptimizationJob({ ...REQUEST, timeLimitSeconds: 60 })
+      const job = await settle(api, id)
+      expect(job.status).toBe('COMPLETED')
+      expect(calls).toEqual([40_000, 20_000])
+      expect(Date.parse(job.finishedAt!) - Date.parse(job.startedAt!)).toBe(60_000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('gives the solver the whole time limit when the advice of one more truck is off', async () => {
+    const calls: number[] = []
+    const api = setup('small', (input, options) => {
+      calls.push(options.timeLimitMs ?? 0)
+      return steps(input, {})
+    })
+    await api.updateDeviceSettings({ ...(await api.getDeviceSettings())!, extraTruckSavingPercent: null })
+    const { id } = await api.createOptimizationJob({ ...REQUEST, timeLimitSeconds: 5 })
+    expect((await settle(api, id)).status).toBe('COMPLETED')
+    expect(calls).toEqual([5000])
   })
 
   it('builds the 3D plan with what is unloaded first at the doors', async () => {

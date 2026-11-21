@@ -803,6 +803,59 @@
   font-weight: var(--weight-semibold);
 }
 
+.job-progress__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.job-progress__clock {
+  margin: var(--space-1) 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+/* How much of the time limit has passed. */
+.job-progress__track {
+  display: block;
+  max-width: 24rem;
+  height: 0.5rem;
+  margin-bottom: var(--space-2);
+  border-radius: 999px;
+  background: var(--gray-100);
+  box-shadow: inset 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+
+.job-progress__bar {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: inline-size 0.25s linear;
+}
+
+.job-clock__time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Računam… 0:12 / 1:00" in the top bar: the button stays readable while it cannot be pressed. */
+.top-bar button.run-clock:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+.run-clock .spinner--small {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-progress__bar {
+    transition: none;
+  }
+}
+
 .result__meta {
   margin-bottom: var(--space-3);
   font-size: var(--text-sm);

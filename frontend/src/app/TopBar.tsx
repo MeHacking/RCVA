@@ -4,6 +4,7 @@ import { Icon, type IconName } from '../components/Icon'
 import { formatKm } from '../format/units'
 import { JOB_STATUS_LABELS, NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../features/optimization/jobStatus'
 import { useLastJob, type LastJobState } from '../features/optimization/lastJobContext'
+import { JobClockText } from '../features/optimization/JobClockText'
 
 export function TopBar() {
   const { state, start } = useLastJob()
@@ -36,10 +37,17 @@ export function TopBar() {
           {view.message && <span className={`job-status__message ${view.messageClass ?? ''}`}>{view.message}</span>}
         </Link>
       </div>
-      <button type="button" className="button--primary" onClick={() => void startJob()} disabled={view.busy}>
-        <Icon name="play" size={14} />
-        Pokreni optimizaciju
-      </button>
+      {view.busy ? (
+        <button type="button" className="button--primary run-clock" disabled>
+          <span className="spinner spinner--small" aria-hidden="true" />
+          <JobClockText />
+        </button>
+      ) : (
+        <button type="button" className="button--primary" onClick={() => void startJob()}>
+          <Icon name="play" size={14} />
+          Pokreni optimizaciju
+        </button>
+      )}
       {view.busy && <span className="top-bar__progress" aria-hidden="true" />}
     </div>
   )

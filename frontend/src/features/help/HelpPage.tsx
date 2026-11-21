@@ -354,7 +354,12 @@ function Steps() {
             koliko staje, a ostale pošiljke navodi kao nedodeljene.
           </li>
           <li>
-            Uz preporuku dodatnog kamiona optimizacija traje do dva puta duže od zadatog vremena (videti ispod).
+            Zadato vreme važi za celu optimizaciju. Uz preporuku dodatnog kamiona (videti ispod) oko dve trećine ide na
+            rešenje, a ostatak na proveru sa jednim kamionom više.
+          </li>
+          <li>
+            Sa ključem za OpenRouteService aplikacija pre početka traži kilometraže za mesta koja još ne zna (jedan
+            upit na 1,5 s). Taj deo traje dok gornja traka piše „Priprema“ i ne računa se u zadato vreme.
           </li>
         </ul>
       )}
@@ -543,7 +548,8 @@ function Algorithm() {
         <>
           <Subheading n={3}>Preporuka dodatnog kamiona</Subheading>
           <p>
-            Posle rešenja aplikacija isti zadatak reši još jednom, sa tačno jednim kamionom više. Ako je tada
+            Posle rešenja aplikacija isti zadatak reši još jednom, u ostatku zadatog vremena, sa tačno jednim kamionom
+            više. Ako je tada
             kilometara manje bar za procenat iz Podešavanja (podrazumevano 10 %), rezultat to prikaže sa dugmetom „Dodaj
             kamion i pokreni ponovo“ (ili „Pokreni sa N kamiona“, ako je dovoljan neki od dostupnih kamiona). Novi
             kamion se pri tom računa kao da kreće iz prvog magacina, bez prazne vožnje, pa je stvarna ušteda nešto

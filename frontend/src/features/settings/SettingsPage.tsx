@@ -222,7 +222,7 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
             aria-invalid={errors.extraTruckSavingPercent ? true : undefined}
             aria-describedby={described('extraTruckSavingPercent', true)}
           />
-          {hint('extraTruckSavingPercent', 'Prazno = bez preporuke (optimizacija tada traje upola kraće).')}
+          {hint('extraTruckSavingPercent', 'Prazno = bez preporuke (tada celo zadato vreme ide na rešenje).')}
           {fieldError('extraTruckSavingPercent')}
         </div>
       </SettingsPart>

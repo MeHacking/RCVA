@@ -12,6 +12,8 @@ import { ResultView } from './ResultView'
 import { apiMode } from '../../api/apiMode'
 import { LocationsCheck, ShortageActions } from './FleetActions'
 import { UnreachablePlaces } from './UnreachablePlaces'
+import { JobClockText } from './JobClockText'
+import { useJobClock } from './useJobClock'
 
 const DEFAULT_TIME_LIMIT_SECONDS = '60'
 // Only the application on the device adds trucks or plans without some shipments.
@@ -166,16 +168,25 @@ function JobOutcome({ state }: { state: LastJobState }) {
 }
 
 function JobProgress({ job }: { job: OptimizationJob }) {
+  const clock = useJobClock()
+  const share = clock?.phase === 'running' && clock.limitSeconds ? Math.min(1, clock.seconds / clock.limitSeconds) : 0
   return (
-    <div className="panel job-progress" role="status">
+    <div className="panel job-progress">
       <span className="spinner" aria-hidden="true" />
-      <div>
-        <p className="job-progress__title">
+      <div className="job-progress__body">
+        <p className="job-progress__title" role="status">
           Posao #{job.id}{' '}
           <Badge tone="info" pulse>
             {JOB_STATUS_LABELS[job.status]}
           </Badge>
         </p>
+        <p className="job-progress__clock">
+          <JobClockText />
+        </p>
+        {/* How much of the time limit has passed; the count itself is the text above. */}
+        <span className="job-progress__track" aria-hidden="true">
+          <span className="job-progress__bar" style={{ inlineSize: `${share * 100}%` }} />
+        </span>
         <p className="text--muted">
           Kreiran {formatTime(job.createdAt)}
           {job.startedAt && ` · pokrenut ${formatTime(job.startedAt)}`} · vremensko ograničenje {job.timeLimitSeconds} s ·

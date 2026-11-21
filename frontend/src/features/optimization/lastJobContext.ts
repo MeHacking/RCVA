@@ -12,7 +12,8 @@ export interface StartOptions {
 
 export type LastJobState =
   | { kind: 'idle' }
-  | { kind: 'starting' }
+  /** "since": when the start was asked for (ms), for the count in the top bar */
+  | { kind: 'starting'; since?: number }
   /** on the device: an available truck has no confirmed location, or a proposal waits; no job yet */
   | { kind: 'needsLocations'; options: StartOptions }
   /** 422 from POST /optimization-jobs: no job was created */

@@ -46,7 +46,7 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
         setState(next)
         return next.kind
       }
-      set({ kind: 'starting' })
+      set({ kind: 'starting', since: Date.now() })
       try {
         if (await locationsMissing(api)) return set({ kind: 'needsLocations', options })
         const created = await api.createOptimizationJob({

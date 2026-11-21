@@ -114,6 +114,13 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
 
 /** Id of the truck added for the extra-truck comparison; never stored. */
 const EXTRA_TRUCK_ID = -1
+/**
+ * With the advice of one more truck on, the share of the time limit for the solution; the advice
+ * gets the rest (user, 21.11.2026: the time limit is the whole job, before it was twice as long).
+ */
+export const MAIN_SOLVE_SHARE = 2 / 3
+/** Less time than this left for the advice: no advice (it would only be noise). */
+const MIN_ADVICE_MS = 200
 
 const PROFILE_LABELS: Record<OrsProfile, string> = { 'driving-hgv': 'za teretna vozila', 'driving-car': 'za automobile' }
 
@@ -813,15 +820,20 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     job.startedAt = new Date().toISOString()
     persistInBackground()
     try {
+      // The time limit is for the whole job: with the advice of one more truck, the solution gets
+      // a share of it and the advice what is left until the deadline.
+      const limitMs = job.timeLimitSeconds * 1000
+      const deadline = Date.now() + limitMs
+      const withAdvice = settings.extraTruckSavingPercent !== null
       const input = toSolverInput(job.input)
-      const solution = await runSolver(input, { timeLimitMs: job.timeLimitSeconds * 1000 })
+      const solution = await runSolver(input, { timeLimitMs: withAdvice ? Math.round(limitMs * MAIN_SOLVE_SHARE) : limitMs })
       job.score = solution.score
       if (isFeasible(solution.score)) {
         const result = toOptimizationResult(
           job.input,
           solution.routes.map((r) => ({ truckId: r.truckId, route: r.route })),
         )
-        const extraTruck = await adviseExtraTruck(job, input, result)
+        const extraTruck = await adviseExtraTruck(input, result, deadline - Date.now())
         job.result = { ...result, openRoute: true, distanceSource: job.distanceSource, ...(extraTruck ? { extraTruck } : {}) }
         job.trucksLowerBound = result.trucksLowerBound
         job.status = 'COMPLETED'
@@ -838,13 +850,15 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
   }
 
   /**
-   * The same shipments solved again, as long, on exactly one truck more than the result uses,
-   * with one standard truck added (counted as if it started at its first pickup, since it is
-   * not anywhere yet). Advised only when that saves at least the share in the settings.
+   * The same shipments solved again, in `timeLimitMs` (what is left of the job's limit), on
+   * exactly one truck more than the result uses, with one standard truck added (counted as if it
+   * started at its first pickup, since it is not anywhere yet). Advised only when that saves at
+   * least the share in the settings.
    */
-  async function adviseExtraTruck(job: LocalJob, input: SolverInput, result: OptimizationResult) {
+  async function adviseExtraTruck(input: SolverInput, result: OptimizationResult, timeLimitMs: number) {
     const percent = settings.extraTruckSavingPercent
     if (percent === null || result.unassignedShipmentIds.length > 0 || result.totalMeters === 0) return undefined
+    if (timeLimitMs < MIN_ADVICE_MS) return undefined
     const extra = standardJobTruck(EXTRA_TRUCK_ID)
     const other = await runSolver(
       {
@@ -854,7 +868,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
         freeTrucks: undefined,
         exactTrucks: result.trucksUsed + 1,
       },
-      { timeLimitMs: job.timeLimitSeconds * 1000 },
+      { timeLimitMs },
     )
     const meters = -other.score.soft
     const saving = ((result.totalMeters - meters) / result.totalMeters) * 100
