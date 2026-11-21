@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { apiMode, apiModeLabel } from '../api/apiMode'
@@ -5,6 +6,7 @@ import { BackgroundWaves } from '../components/BackgroundWaves'
 import { Icon } from '../components/Icon'
 import { AccountTray } from './AccountTray'
 import { NAV_ITEMS } from './navItems'
+import { PATHS } from './paths'
 import { TopBar } from './TopBar'
 import { TopBarTitleContext } from './topBarTitle'
 import { RESULTS_PATH, useJobNotices } from './useJobNotices'
@@ -33,6 +35,12 @@ export function AppLayout() {
         <div className="app__nav-scroll">
           <NavList />
         </div>
+        {/* As in smartLoad+ (owner, 21.11.2026): a new optimization starts at its first step. The
+            shipments and trucks are kept data in RCVA, so there is no draft to throw away. */}
+        <button type="button" className="button--primary nav-new" onClick={() => void navigate(PATHS.shipments)}>
+          <Plus aria-hidden="true" size={20} />
+          Nova optimizacija
+        </button>
         <div className="nav-footer">
           <span className="nav-footer__chip">
             {/* Where the data is: this computer (on the device, or the sample data in the browser), or the server. */}

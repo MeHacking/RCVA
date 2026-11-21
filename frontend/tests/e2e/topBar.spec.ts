@@ -25,3 +25,12 @@ test('top bar starts a job and polls it to completion', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Obaveštenja' })).toContainText(/Posao #1: kamioni 2, /)
   expect(errors).toEqual([])
 })
+
+test('Nova optimizacija in the menu opens the first step of Optimizacija', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/trucks')
+  await page.getByRole('navigation', { name: 'Glavna navigacija' }).getByRole('button', { name: 'Nova optimizacija' }).click()
+  await expect(page).toHaveURL(/\/optimization\/shipments$/)
+  await expect(page.getByText('Korak 1 od 4')).toBeVisible()
+  expect(errors).toEqual([])
+})
