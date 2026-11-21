@@ -1,8 +1,8 @@
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { useApi } from '../../api/apiContext'
 import { apiMode } from '../../api/apiMode'
 import { describeError } from '../../api/client'
-import type { Truck, TruckType } from '../../api/types'
+import type { Truck, TruckStart, TruckType } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { PageHeader } from '../../components/PageHeader'
@@ -14,6 +14,10 @@ import { DRIVER_SUPPORTED } from './truckFormValidation'
 import { TruckLocations } from './TruckLocations'
 import { TruckTypeForm } from './TruckTypeForm'
 import { TruckTypes } from './TruckTypes'
+import { truckMapModel } from './truckMapModel'
+
+// Leaflet only when the map is shown (as on Mapa ruta).
+const TruckMap = lazy(() => import('./TruckMap'))
 
 /** Removing every truck at once is the device's (and the mock's); the backend has it not. */
 const CAN_REMOVE_ALL = apiMode() !== 'server'
@@ -281,6 +285,10 @@ export function TrucksPage() {
         ))}
 
       {trucks.status === 'success' && trucks.data.length > 0 && starts.status === 'success' && starts.data && (
+        <TruckMapCard trucks={trucks.data} starts={starts.data} />
+      )}
+
+      {trucks.status === 'success' && trucks.data.length > 0 && starts.status === 'success' && starts.data && (
         <section className="panel truck-card truck-locations" aria-labelledby="truck-locations">
           <h2 id="truck-locations">Lokacije kamiona</h2>
           <p className="text--muted">
@@ -296,6 +304,29 @@ export function TrucksPage() {
 
       {types.status === 'error' && (
         <ErrorState title="Tipovi kamiona nisu učitani" message={types.message} onRetry={reloadTypes} />
+      )}
+    </section>
+  )
+}
+
+/** Where the trucks are, as pins on a map (only on the device, which knows the locations). */
+function TruckMapCard({ trucks, starts }: { trucks: Truck[]; starts: TruckStart[] }) {
+  const model = truckMapModel(trucks, starts)
+  const proposals = model.pins.some((p) => p.kind === 'proposal')
+  return (
+    <section className="panel truck-card" aria-labelledby="truck-map-title">
+      <h2 id="truck-map-title">Kamioni na mapi</h2>
+      <p className="text--muted">
+        Čioda pokazuje gde je kamion; kamioni na istom mestu dele čiodu sa brojem.
+        {proposals && ' Isprekidana čioda je predlog posle optimizacije (mesto poslednje isporuke), dok ga ne potvrdite.'}
+      </p>
+      <Suspense fallback={<LoadingState label="Učitavanje mape…" />}>
+        <TruckMap model={model} />
+      </Suspense>
+      {model.nowhere.length > 0 && (
+        <p className="truck-map__nowhere">
+          Bez lokacije ({model.nowhere.length}): {model.nowhere.join(', ')}. Unesite je u delu „Lokacije kamiona“ ispod.
+        </p>
       )}
     </section>
   )

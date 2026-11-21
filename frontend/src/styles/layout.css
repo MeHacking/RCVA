@@ -1313,6 +1313,67 @@ button.stat.stat-action:hover:not(:disabled) {
   background: var(--surface-muted);
 }
 
+/* The trucks' map on Kamioni: a pin per place (TruckMap.tsx). */
+.truck-map {
+  height: 26rem;
+  margin-top: var(--space-3);
+}
+
+.truck-pin {
+  background: none;
+  border: 0;
+}
+
+.truck-pin svg {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px var(--wave-shadow));
+}
+
+.truck-pin path {
+  fill: var(--accent);
+  stroke: var(--accent-text);
+  stroke-width: 1.5;
+}
+
+.truck-pin circle {
+  fill: var(--accent-text);
+}
+
+.truck-pin text {
+  fill: var(--accent-text);
+  font: 700 13px var(--font-sans);
+  text-anchor: middle;
+}
+
+/* A proposal waits for the user: open and dashed. */
+.truck-pin--proposal path {
+  fill: var(--warning-subtle);
+  stroke: var(--warning);
+  stroke-dasharray: 4 3;
+  stroke-width: 2;
+}
+
+.truck-pin--proposal circle,
+.truck-pin--proposal text {
+  fill: var(--warning);
+}
+
+/* Only trucks that are not available stand there. */
+.truck-pin--idle path {
+  fill: var(--gray-500);
+}
+
+.truck-pin:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.truck-map__nowhere {
+  margin-top: var(--space-3);
+}
+
 /* The map with its full-screen button, top right like Leaflet's own buttons. */
 .route-map-frame {
   position: relative;

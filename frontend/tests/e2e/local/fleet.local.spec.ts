@@ -21,7 +21,7 @@ async function placeTruck(page: Page, truck: string, place: string) {
 
 const routesTable = (page: Page) => page.getByRole('table', { name: 'Kamioni i rute' })
 
-// Each job solves twice (the second time for the advice "one more truck").
+// Each job solves twice (the second time for the advice "one more truck", in what is left of the limit).
 test.setTimeout(120_000)
 
 test('asks where a new truck is before a job, and starts only then', async ({ page }) => {

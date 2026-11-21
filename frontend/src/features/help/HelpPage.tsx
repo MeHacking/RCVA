@@ -328,6 +328,11 @@ function Steps() {
             isporuke. Predlog važi tek kada ga potvrdite („Potvrdi predlog“); ako kamion nije vozio tu rutu, izaberite
             „Zadrži sadašnju“. Kada je predloga više, postoje i dugmad za sve odjednom.
           </p>
+          <p>
+            Kartica „Kamioni na mapi“ pokazuje čiodom gde je koji kamion; kamioni na istom mestu dele čiodu sa brojem, a
+            pokazivač iznad čiode navodi mesto i kamione. Predlog posle optimizacije je isprekidana čioda dok ga ne
+            potvrdite, a kamioni bez lokacije su navedeni ispod mape.
+          </p>
         </>
       )}
 
