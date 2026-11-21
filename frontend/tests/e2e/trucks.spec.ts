@@ -334,8 +334,8 @@ test('closes the edit form when the edited truck is removed', async ({ page }) =
 
 test('refuses removal while an optimization is running', async ({ page }) => {
   await page.getByRole('banner').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
-  // The job exists once the top bar names it (starting asks first where the trucks are).
-  await expect(page.getByTestId('last-job-status')).toContainText('Posao #1')
+  // The job runs once the clock in the top bar has counted a second (starting asks first where the trucks are).
+  await expect(page.getByRole('banner').getByTestId('job-clock')).toHaveText(/^Računam… 0:0[1-9] \//)
   await page.getByRole('button', { name: 'Ukloni Šleper 1' }).click()
   await page.getByRole('group', { name: 'Potvrda uklanjanja: Šleper 1' }).getByRole('button', { name: 'Da, ukloni' }).click()
 

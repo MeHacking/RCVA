@@ -1,29 +1,13 @@
-import { BookOpen, History, House, Lightbulb, Settings, Truck, type LucideIcon } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { apiMode, apiModeLabel } from '../api/apiMode'
 import { BackgroundWaves } from '../components/BackgroundWaves'
 import { Icon } from '../components/Icon'
 import { AccountTray } from './AccountTray'
-import { PATHS } from './paths'
+import { NAV_ITEMS } from './navItems'
 import { TopBar } from './TopBar'
+import { TopBarTitleContext } from './topBarTitle'
 import { RESULTS_PATH, useJobNotices } from './useJobNotices'
-
-/*
- * The icons of smartLoad+'s menu (user, 21.11.2026; lucide-react, as there): Početna (House),
- * Optimizacija (Lightbulb), Istorija (History), Katalog kamiona (Truck), Podešavanja (Settings),
- * Uputstvo (BookOpen). The order as there: the work first, then the trucks.
- */
-const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon }> = [
-  { to: '/', label: 'Pregled', icon: House },
-  // The shipments, the trucks' locations, the time limit and the result (with the map and 3D) are its steps.
-  { to: PATHS.optimization, label: 'Optimizacija', icon: Lightbulb },
-  { to: '/history', label: 'Istorija', icon: History },
-  { to: '/trucks', label: 'Kamioni', icon: Truck },
-  // Only the application on the device has settings.
-  ...(apiMode() === 'local' ? [{ to: '/settings', label: 'Podešavanja', icon: Settings }] : []),
-  { to: '/help', label: 'Uputstvo', icon: BookOpen },
-]
 
 /*
  * The shell as in smartLoad+ (owner, 20.11.2026): a floating frosted menu on the left, and above
@@ -33,6 +17,8 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon }> 
 export function AppLayout() {
   const navigate = useNavigate()
   const notices = useJobNotices()
+  // The place for the screen's title in the top bar (PageHeader puts it there).
+  const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null)
   return (
     <div className="app">
       <BackgroundWaves />
@@ -63,7 +49,7 @@ export function AppLayout() {
             <BackgroundWaves />
           </div>
           <header className="bar">
-            <TopBar />
+            <TopBar titleRef={setTitleSlot} />
           </header>
           <div className="bar bar--tray">
             <AccountTray
@@ -74,7 +60,9 @@ export function AppLayout() {
           </div>
         </div>
         <main className="app__main">
-          <Outlet />
+          <TopBarTitleContext value={titleSlot}>
+            <Outlet />
+          </TopBarTitleContext>
         </main>
       </div>
     </div>

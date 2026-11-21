@@ -65,7 +65,10 @@ test('lists the kept jobs, opens an older one everywhere, and deletes one', asyn
   await confirm.getByRole('button', { name: 'Da, obriši' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Posao #1 je obrisan.' })).toBeVisible()
   await expect(rows).toHaveCount(2)
-  await expect(page.getByTestId('last-job-status')).toContainText('Nije pokretano')
+  // The shown job was the last one: Pregled no longer has one.
+  await page.getByRole('navigation').getByRole('link', { name: 'Pregled' }).click()
+  await expect(page.getByText('Optimizacija još nije pokretana.')).toBeVisible()
+  await page.getByRole('navigation').getByRole('link', { name: 'Istorija' }).click()
 
   // Kept on the device: after a reload, still only job #2.
   await page.reload()

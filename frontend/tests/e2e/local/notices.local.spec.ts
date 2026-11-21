@@ -39,9 +39,9 @@ test('a job that ends on another screen leaves a notification that leads to the 
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
   // A job that had ended before the page was opened is not news.
-  await page.goto('/trucks')
-  await expect(page.getByRole('heading', { name: 'Kamioni', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('last-job-status')).toContainText('Završeno', { timeout: 20_000 })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Pregled', level: 1 })).toBeVisible()
+  await expect(page.getByRole('main')).toContainText(/Posao #\d+/, { timeout: 20_000 })
   await expect(bell).toHaveAccessibleName('Obaveštenja')
   expect(errors).toEqual([])
 })

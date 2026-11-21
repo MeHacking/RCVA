@@ -309,77 +309,40 @@
   container-type: inline-size;
 }
 
-.job-status {
-  min-width: 0;
-}
-
-/* The status and the facts as a row of chips; the whole row opens the results. */
-.job-status__link {
+/* The screen's icon and title, as in smartLoad+ (PageHeader puts the title here). */
+.top-bar__title {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
   min-width: 0;
-  padding: 4px;
-  border-radius: 999px;
-  color: var(--text);
-  text-decoration: none;
-  transition: background-color 0.15s;
+  padding-left: 8px;
 }
 
-.job-status__link:hover {
-  background: var(--chip-hover);
-}
-
-.job-status__link .badge {
+.top-bar__title > svg {
   flex: none;
 }
 
-.job-status__fact {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: none;
-  height: 1.875rem;
-  padding: 0 0.625rem;
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
+.top-bar__title-text {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.top-bar h1.top-bar__heading {
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
   white-space: nowrap;
-  background: var(--chip-surface);
-  border: 1px solid var(--chip-border);
-  border-radius: 999px;
 }
 
-.job-status__fact .icon {
-  color: var(--text-muted);
-}
-
-.job-status__fact--success .icon {
-  color: var(--success);
-}
-
-.job-status__fact--danger,
-.job-status__fact--danger .icon {
-  color: var(--danger);
-}
-
-/* A sentence after the chips, up to two lines (e.g. a PROVEN cause); all of it is in the title. */
-.job-status__message {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+.top-bar__note {
   overflow: hidden;
-  min-width: 0;
-  font-size: var(--text-sm);
-  line-height: 1.3;
-}
-
-.job-status__message.text--muted {
   color: var(--text-muted);
-}
-
-.job-status__message.text--error {
-  color: var(--danger);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* "Pokreni optimizaciju" in the bar: a pill as tall as the bell, as in smartLoad+. */
@@ -387,13 +350,6 @@
   flex: none;
   height: 2.875rem;
   padding: 0 1.25rem;
-}
-
-/* A narrow bar keeps the status, trucks and kilometres. */
-@container (max-width: 44rem) {
-  .job-status__fact--minor {
-    display: none;
-  }
 }
 
 /* While a job runs: a light sliding along the bottom edge of the bar. */
@@ -763,6 +719,11 @@
   gap: var(--space-4);
   min-height: var(--control-height);
   margin-bottom: var(--space-4);
+}
+
+/* Only the buttons, when the title is in the top bar. */
+.page-header--actions {
+  justify-content: flex-end;
 }
 
 .page-header__actions {
