@@ -21,7 +21,7 @@ button {
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   white-space: nowrap;

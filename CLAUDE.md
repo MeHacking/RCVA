@@ -58,8 +58,17 @@ klik vodi na Rezultate, otvaranje Rezultata ih briše). Profil: „Niste prijavl
   Vitest 829; pun e2e (portovi +100, jer 5174 zauzima smartLoad) 104 od 116 u prvom prolazu od 10 min,
   padovi su bili isticanja pod opterećenjem i moj test; ponovo sa 2 radnika 10 od 12, preostala 2
   (`geocoding` razmak 1 s, `loadEditor`) sama prolaze. Desktop i serverski e2e nisu pokretani.
-- Nije rađeno: sličice tema u Podešavanjima još imaju tamni meni (`--swatch-*-nav`); uski prozori
-  (telefon) nisu prilagođeni novom rasporedu.
+- **Dorada 21.11.2026** (korisnik: iste ikonice kao smartLoad+, ista zaobljenja, a bojama odmah
+  prepoznatljivo da je RCVA posebna celina): zvonce, prečrtano zvonce i korisnik su iz
+  `lucide-react` **1.66.0** (ISC, 31.10.2026, isti kao smartLoad+), iste veličine (20, 28, 24 i 26 px).
+  Boje obrnute u odnosu na smartLoad+ (izbor korisnika „Obrnuto“): meni taman (boja teme od 30 %),
+  gornje trake svetlo staklo sa tamnim tekstom, izabrani ekran i dugme profila „pilula“ u akcentu
+  (`--chosen-bg`; Višnja `#8a2541`, jer je `--accent` na tamnom meniju jedva vidljiv). Zaobljenja kao
+  smartLoad+: `--radius-sm` 8px, `--radius-md` 14px (polja, pločice), `--radius-lg` 26px (kartice),
+  dugmad `--radius-pill`. Sličice tema (`--swatch-*-nav`) opet odgovaraju meniju. Provereno: tsc, lint,
+  `theme.test.ts` 149, e2e zvonce, teme i smoke 17 od 18 (brojanje na Pregledu `theme.local.spec.ts:82`
+  pada pod opterećenjem, samo 3 od 3); snimci Višnja i Grafit. Pun e2e posle dorade nije pokretan.
+- Nije rađeno: uski prozori (telefon) nisu prilagođeni novom rasporedu.
 
 **Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad
 `63cc134`, `18ffc8b`):

@@ -127,25 +127,26 @@
   --text-muted: var(--gray-500);
   --focus-ring: 0 0 0 3px rgba(94, 26, 46, 0.3);
 
-  /* The shell as in smartLoad+ (owner, 20.11.2026). The menu: frosted glass in the page's tone
-     with a faint grain, text in the ink, the open screen a dark pill. */
-  --nav-bg: rgba(255, 252, 247, 0.6);
-  --nav-text: var(--text);
-  --nav-muted: var(--text-muted);
-  --nav-edge: rgba(43, 42, 44, 0.15);
-  --nav-hover: rgba(43, 42, 44, 0.09);
-  --nav-inner: rgba(43, 42, 44, 0.045);
-  --chosen-bg: var(--dark-grey);
+  /* The shell has the shapes of smartLoad+ (owner, 20.11.2026), with the colours the other way
+     round, so RCVA is told apart at a glance (owner, 21.11.2026): the menu dark (the theme's 30 %
+     colour) with light text, the open screen and the user a pill in the accent. */
+  --nav-bg: rgba(43, 42, 44, 0.95);
+  --nav-text: var(--on-dark-text);
+  --nav-muted: var(--on-dark-muted);
+  --nav-edge: rgba(255, 255, 255, 0.07);
+  --nav-hover: rgba(255, 255, 255, 0.08);
+  --nav-inner: rgba(255, 255, 255, 0.05);
+  --chosen-bg: #8a2541;
   --chosen-text: var(--cream);
-  --shell-shadow: 0 20px 50px rgba(40, 40, 30, 0.12);
+  --shell-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
   --frost: blur(26px) saturate(140%);
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  /* The top bars: dark, like a toolbar over the work, in every theme; on them the light ink of
-     the dark cards (--on-dark-*). Their popups (notifications, user) are solid: on a see-through one the page showed through. */
-  --bar: rgba(43, 42, 44, 0.95);
-  --bar-edge: rgba(255, 255, 255, 0.07);
-  --bar-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
-  --pop: #2b2a2c;
+  /* The top bars: frosted glass in the page's tone with the ink's text. Their popups
+     (notifications, user) are solid: on a see-through one the page showed through. */
+  --bar: rgba(255, 252, 247, 0.6);
+  --bar-edge: rgba(43, 42, 44, 0.15);
+  --bar-shadow: 0 20px 50px rgba(40, 40, 30, 0.12);
+  --pop: var(--cream-light);
 
   /* Typography: Figtree and 16px text, as in smartLoad+ (owner, 20.11.2026) */
   --font-sans: 'Figtree Variable', 'Segoe UI', system-ui, sans-serif;
@@ -169,11 +170,14 @@
   --space-6: 2rem;
 
   /* Shape */
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  /* Corners as in smartLoad+ (owner, 21.11.2026): small marks 8px, fields and tiles 14px, cards
+     26px, buttons and chips pills. */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-pill: 999px;
   --shadow-sm: 0 1px 2px rgba(21, 26, 35, 0.06);
   /* Cards stand slightly off the page: a light top edge and a soft, layered shadow (dark grey) */
-  --radius-lg: 12px;
+  --radius-lg: 26px;
   --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
   --shadow-card: 0 1px 2px rgba(43, 42, 44, 0.08), 0 6px 12px -2px rgba(43, 42, 44, 0.12),
     0 18px 32px -10px rgba(43, 42, 44, 0.22);
@@ -277,12 +281,10 @@
     --dark-hover: #263659;
     --on-dark-accent: #ffa36b;
     --focus-ring: 0 0 0 3px rgba(184, 67, 11, 0.32);
-    --nav-bg: rgba(255, 253, 249, 0.6);
-    --nav-edge: rgba(20, 33, 61, 0.15);
-    --nav-hover: rgba(20, 33, 61, 0.09);
-    --nav-inner: rgba(20, 33, 61, 0.045);
-    --bar: rgba(20, 33, 61, 0.96);
-    --pop: #14213d;
+    --nav-bg: rgba(20, 33, 61, 0.96);
+    --chosen-bg: var(--accent);
+    --bar: rgba(255, 253, 249, 0.6);
+    --bar-edge: rgba(20, 33, 61, 0.15);
     --shadow-card: 0 1px 2px rgba(20, 33, 61, 0.08), 0 6px 12px -2px rgba(20, 33, 61, 0.11),
       0 18px 32px -10px rgba(20, 33, 61, 0.2);
     --shadow-card-raised: 0 2px 4px rgba(20, 33, 61, 0.1), 0 12px 24px -6px rgba(20, 33, 61, 0.17),
@@ -321,12 +323,10 @@
     --dark-hover: #2a5c45;
     --on-dark-accent: #ff9b85;
     --focus-ring: 0 0 0 3px rgba(184, 54, 27, 0.3);
-    --nav-bg: rgba(255, 251, 243, 0.55);
-    --nav-edge: rgba(29, 74, 53, 0.15);
-    --nav-hover: rgba(29, 74, 53, 0.09);
-    --nav-inner: rgba(29, 74, 53, 0.045);
-    --bar: rgba(29, 74, 53, 0.96);
-    --pop: #1d4a35;
+    --nav-bg: rgba(29, 74, 53, 0.96);
+    --chosen-bg: var(--accent);
+    --bar: rgba(255, 251, 243, 0.55);
+    --bar-edge: rgba(29, 74, 53, 0.15);
     --shadow-card: 0 1px 2px rgba(29, 50, 35, 0.08), 0 6px 12px -2px rgba(29, 50, 35, 0.11),
       0 18px 32px -10px rgba(29, 50, 35, 0.2);
     --shadow-card-raised: 0 2px 4px rgba(29, 50, 35, 0.1), 0 12px 24px -6px rgba(29, 50, 35, 0.17),
@@ -366,11 +366,11 @@
     --truck3d-stage-glow: rgba(255, 255, 255, 0.04);
     --truck3d-stage-border: rgba(255, 255, 255, 0.1);
     --truck3d-frame: var(--gray-700);
-    --nav-edge: rgba(255, 255, 255, 0.15);
-    --nav-hover: rgba(255, 255, 255, 0.11);
-    --nav-inner: rgba(255, 255, 255, 0.045);
-    --shell-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
-    --bar-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+    --chosen-bg: var(--accent);
+    --chosen-text: var(--accent-text);
+    --shell-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+    --bar-edge: rgba(255, 255, 255, 0.15);
+    --bar-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
   }
 
   /* Grafit: slate #262b34 / white / light blue #7cc4ff */
@@ -401,11 +401,8 @@
     --dark-hover: #262b34;
     --on-dark-accent: #7cc4ff;
     --focus-ring: 0 0 0 3px rgba(124, 196, 255, 0.45);
-    --nav-bg: rgba(255, 255, 255, 0.065);
-    --chosen-bg: #f5f5f6;
-    --chosen-text: #45474c;
-    --bar: rgba(12, 14, 18, 0.62);
-    --pop: #3e4045;
+    --nav-bg: rgba(12, 14, 18, 0.62);
+    --bar: rgba(255, 255, 255, 0.065);
     --truck3d-stage: #20242b;
     --truck3d-floor: #3b414c;
   }
@@ -438,11 +435,8 @@
     --dark-hover: #222225;
     --on-dark-accent: #ff7aa8;
     --focus-ring: 0 0 0 3px rgba(255, 45, 120, 0.45);
-    --nav-bg: rgba(255, 255, 255, 0.05);
-    --chosen-bg: #d5d7db;
-    --chosen-text: #1c1c1e;
-    --bar: rgba(12, 12, 14, 0.78);
-    --pop: #28282c;
+    --nav-bg: rgba(12, 12, 14, 0.78);
+    --bar: rgba(255, 255, 255, 0.05);
     --truck3d-stage: #19191b;
     --truck3d-floor: #36363b;
   }

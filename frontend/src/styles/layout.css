@@ -112,6 +112,10 @@
     background-color 0.16s;
 }
 
+.app__nav :focus-visible {
+  box-shadow: var(--on-dark-focus-ring);
+}
+
 .nav-link:hover {
   background: var(--nav-hover);
 }
@@ -235,7 +239,7 @@
   mask-image: linear-gradient(to bottom, #000 55%, transparent);
 }
 
-/* A dark frosted bar: the light ink of the dark cards on it. */
+/* A frosted bar in the page's tone, with the ink's text (the menu is the dark one in RCVA). */
 .bar {
   position: relative;
   flex: 1 1 auto;
@@ -245,7 +249,7 @@
   align-items: center;
   padding: 0.625rem 0.625rem 0.625rem 1rem;
   border-radius: 28px;
-  color: var(--on-dark-text);
+  color: var(--text);
   background-color: var(--bar);
   background-image: var(--grain);
   border: 1px solid var(--bar-edge);
@@ -317,17 +321,13 @@
   min-width: 0;
   padding: 4px;
   border-radius: 999px;
-  color: var(--on-dark-text);
+  color: var(--text);
   text-decoration: none;
   transition: background-color 0.15s;
 }
 
 .job-status__link:hover {
-  background: var(--on-dark-control);
-}
-
-.job-status__link:focus-visible {
-  box-shadow: var(--on-dark-focus-ring);
+  background: var(--chip-hover);
 }
 
 .job-status__link .badge {
@@ -344,22 +344,22 @@
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  background: var(--on-dark-control);
-  border: 1px solid var(--on-dark-control-border);
+  background: var(--chip-surface);
+  border: 1px solid var(--chip-border);
   border-radius: 999px;
 }
 
 .job-status__fact .icon {
-  color: var(--on-dark-muted);
+  color: var(--text-muted);
 }
 
 .job-status__fact--success .icon {
-  color: var(--on-dark-success);
+  color: var(--success);
 }
 
 .job-status__fact--danger,
 .job-status__fact--danger .icon {
-  color: var(--on-dark-danger);
+  color: var(--danger);
 }
 
 /* A sentence after the chips, up to two lines (e.g. a PROVEN cause); all of it is in the title. */
@@ -375,31 +375,18 @@
 }
 
 .job-status__message.text--muted {
-  color: var(--on-dark-muted);
+  color: var(--text-muted);
 }
 
 .job-status__message.text--error {
-  color: var(--on-dark-danger);
+  color: var(--danger);
 }
 
-/* "Pokreni optimizaciju" on the dark bar: a light pill with the accent's text, as on the dark cards. */
+/* "Pokreni optimizaciju" in the bar: a pill as tall as the bell, as in smartLoad+. */
 .top-bar button.button--primary {
   flex: none;
   height: 2.875rem;
   padding: 0 1.25rem;
-  border-radius: 999px;
-  color: var(--accent-on-light);
-  background: var(--cream);
-  border-color: var(--cream);
-}
-
-.top-bar button.button--primary:hover:not(:disabled) {
-  background: var(--white);
-  border-color: var(--white);
-}
-
-.top-bar button.button--primary:focus-visible {
-  box-shadow: var(--on-dark-focus-ring);
 }
 
 /* A narrow bar keeps the status, trucks and kilometres. */
@@ -425,7 +412,7 @@
   position: absolute;
   inset: 0;
   width: 35%;
-  background: linear-gradient(90deg, transparent, var(--on-dark-accent), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
   animation: top-bar-progress 1.4s ease-in-out infinite;
 }
 
@@ -462,9 +449,9 @@
   height: 2.875rem;
   padding: 0;
   border-radius: 999px;
-  color: var(--on-dark-text);
-  background: var(--on-dark-control);
-  border: 1px solid var(--on-dark-control-border);
+  color: var(--text);
+  background: var(--chip-surface);
+  border: 1px solid var(--chip-border);
   box-shadow: none;
   transition:
     background-color 0.15s ease,
@@ -474,7 +461,7 @@
 
 .tray button.tray__button:hover,
 .tray button.tray__button[aria-expanded='true'] {
-  background: var(--on-dark-control-hover);
+  background: var(--chip-hover);
 }
 
 /* Press: the button gives a little under the finger. */
@@ -482,22 +469,18 @@
   scale: 0.96;
 }
 
-.tray button.tray__button:focus-visible {
-  box-shadow: var(--on-dark-focus-ring);
-}
-
-/* The user: a light disc on the dark bar. */
+/* The user: a disc in the accent, like the open screen in the menu. */
 .tray button.tray__button--user,
 .tray button.tray__button--user:hover,
 .tray button.tray__button--user[aria-expanded='true'] {
-  color: var(--dark-grey);
-  background: var(--cream);
-  border-color: var(--cream);
+  color: var(--chosen-text);
+  background: var(--chosen-bg);
+  border-color: var(--chosen-bg);
 }
 
 .tray button.tray__button--user:hover,
 .tray button.tray__button--user[aria-expanded='true'] {
-  box-shadow: 0 0 0 3px var(--on-dark-control-border);
+  box-shadow: 0 0 0 3px var(--bar-edge);
 }
 
 .tray__icon {
@@ -562,8 +545,8 @@
   height: 20px;
   padding: 0 5px;
   border-radius: 999px;
-  color: var(--dark-grey);
-  background: var(--on-dark-accent);
+  color: var(--accent-text);
+  background: var(--accent);
   font-size: 0.72rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -594,7 +577,7 @@
   gap: 0.875rem;
   padding: 1.125rem;
   border-radius: 24px;
-  color: var(--on-dark-text);
+  color: var(--text);
   background-color: var(--pop);
   background-image: var(--grain);
   border: 1px solid var(--bar-edge);
@@ -645,14 +628,12 @@
   text-align: center;
 }
 
-.popover__empty .icon {
-  width: auto;
-  height: auto;
-  color: var(--on-dark-muted);
+.popover__empty svg {
+  color: var(--text-muted);
 }
 
 .popover small {
-  color: var(--on-dark-muted);
+  color: var(--text-muted);
   font-size: var(--text-sm);
 }
 
@@ -674,30 +655,14 @@
   height: 2.75rem;
   flex: none;
   border-radius: 999px;
-  color: var(--dark-grey);
-  background: var(--cream);
-}
-
-.popover__avatar .icon {
-  width: auto;
-  height: auto;
+  color: var(--chosen-text);
+  background: var(--chosen-bg);
 }
 
 .popover button.popover__action {
   height: 2.75rem;
   border-radius: 999px;
-  color: var(--on-dark-text);
-  background: var(--on-dark-control);
-  border-color: var(--on-dark-control-border);
   box-shadow: none;
-}
-
-.popover button.popover__action:hover {
-  background: var(--on-dark-control-hover);
-}
-
-.popover :focus-visible {
-  box-shadow: var(--on-dark-focus-ring);
 }
 
 .notices {
@@ -717,9 +682,9 @@
   gap: 0.625rem;
   padding: 0.625rem 0.75rem;
   border-radius: 16px;
-  color: var(--on-dark-text);
-  background: var(--on-dark-row);
-  border: 1px solid var(--on-dark-line);
+  color: var(--text);
+  background: var(--chip-surface);
+  border: 1px solid var(--chip-border);
   box-shadow: none;
   font-weight: normal;
   text-align: left;
@@ -727,7 +692,7 @@
 }
 
 .notices button.notice-item:hover {
-  background: var(--on-dark-control-hover);
+  background: var(--chip-hover);
 }
 
 .notice-item .icon {
@@ -737,11 +702,11 @@
 }
 
 .notice-item--done .icon {
-  color: var(--on-dark-success);
+  color: var(--success);
 }
 
 .notice-item--failed .icon {
-  color: var(--on-dark-warning);
+  color: var(--warning);
 }
 
 .notice-item > span {
@@ -757,7 +722,7 @@
 
 .notice-item small,
 .notice-item time {
-  color: var(--on-dark-muted);
+  color: var(--text-muted);
   font-size: var(--text-xs);
 }
 

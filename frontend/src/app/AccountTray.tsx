@@ -1,3 +1,5 @@
+// The bell and the user are lucide's, as in smartLoad+ (same icons and sizes; owner, 21.11.2026).
+import { Bell, BellOff, CircleUserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../components/Icon'
 import type { JobNotice } from './jobNotices'
@@ -67,7 +69,7 @@ export function AccountTray({
         onClick={() => toggle('bell')}
       >
         <span key={ring} className={`tray__icon tray__icon--bell${ring ? ' is-ringing' : ''}`}>
-          <Icon name="bell" size={20} />
+          <Bell aria-hidden="true" size={20} />
         </span>
         {notices.length > 0 && (
           <span key={`b${ring}`} className={`tray__badge${ring ? ' is-landing' : ''}`} aria-hidden="true">
@@ -85,7 +87,7 @@ export function AccountTray({
         onClick={() => toggle('user')}
       >
         <span className="tray__icon tray__icon--user">
-          <Icon name="user" size={24} />
+          <CircleUserRound aria-hidden="true" size={24} />
         </span>
       </button>
 
@@ -93,7 +95,7 @@ export function AccountTray({
         <h2 className="popover__title">Obaveštenja</h2>
         {notices.length === 0 ? (
           <div className="popover__empty">
-            <Icon name="bell-off" size={28} />
+            <BellOff aria-hidden="true" size={28} />
             <p>Nema novih obaveštenja.</p>
             <small>Ovde stiže kraj optimizacije dok ste na drugom ekranu.</small>
           </div>
@@ -125,7 +127,7 @@ export function AccountTray({
       <div className="popover" role="dialog" aria-label="Korisnik" data-open={open === 'user' || undefined} inert={open !== 'user'}>
         <div className="popover__user">
           <span className="popover__avatar" aria-hidden="true">
-            <Icon name="user" size={26} />
+            <CircleUserRound aria-hidden="true" size={26} />
           </span>
           <span>
             <strong>Niste prijavljeni</strong>
