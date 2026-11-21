@@ -349,9 +349,12 @@ function Steps() {
       <p>
         U koraku <Link to={PATHS.time}>Vreme</Link> zadajte vremensko ograničenje, na brojčaniku (jedan krug je 60
         sekundi, do 10 minuta) ili upisom u sekundama, i kliknite „Pokreni optimizaciju“; aplikacija prelazi na
-        korak Rezultat. Optimizacija traži najbolje rešenje dok ne istekne zadato vreme. Zadato vreme se pamti, pa ga
-        koristi i dugme „Pokreni optimizaciju“ gore desno (prvi put 60 sekundi). Dok optimizacija radi, to dugme broji
-        koliko je vremena prošlo („Računam… 0:12 / 1:00“), a isto piše i u koraku Rezultat, uz traku do zadatog vremena.
+        korak Rezultat. Optimizacija traži najbolje rešenje dok ne istekne zadato vreme. Ispod polja piše preporuka
+        prema broju pošiljki (npr. „Preporučeno: najmanje 20 s za 28 pošiljki.“); kraće vreme daje upozorenje, jer
+        rešenje tada može biti lošije, ponekad i sa jednim kamionom više. Dok niste sami izabrali vreme, polje je
+        popunjeno preporukom. Zadato vreme se pamti; dugme „Optimizuj“ gore desno ga koristi, ali nikad manje od
+        preporuke. Dok optimizacija radi, to dugme broji koliko je vremena prošlo („Računam… 0:12 / 1:00“), a pod
+        pokazivačem postaje „Prekini“ (na uređaju), i isto piše u koraku Rezultat, uz traku do zadatog vremena.
       </p>
       <p>
         Dok optimizacija radi, možete raditi na drugim ekranima. Kada se završi, a niste u koraku Rezultat, zvonce
@@ -643,8 +646,9 @@ function Tips() {
         </>
       )}
       <li>
-        <strong>Dajte dovoljno vremena.</strong> Za tridesetak pošiljki je obično dovoljno 30 do 60 sekundi; za više
-        pošiljki, ili kada rešenje nije nađeno, probajte 120 sekundi ili više. Duže vreme retko daje lošije rešenje.
+        <strong>Dajte dovoljno vremena.</strong> Držite se preporuke u koraku Vreme: do 10 pošiljki 10 s, do 30
+        pošiljki 20 s, do 50 pošiljki 40 s, do 75 pošiljki 2 minuta, a za više 3 minuta. Kod velikih poslova i duže
+        vreme može još da pomogne. Duže vreme retko daje lošije rešenje.
       </li>
       {ON_DEVICE && (
         <>

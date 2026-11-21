@@ -1155,6 +1155,12 @@
 }
 
 /* The step "Vreme": the stopwatch beside the field and the button. */
+/* "Preporučeno: najmanje 20 s za 28 pošiljki" (timeLimit.ts, measured 21.11.2026). */
+.time-step__advice {
+  margin: 0;
+  color: var(--text-muted);
+}
+
 .time-step {
   display: flex;
   flex-wrap: wrap;

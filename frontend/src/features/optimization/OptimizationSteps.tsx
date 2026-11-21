@@ -14,7 +14,8 @@ import { completedJob, isLastJobBusy, useLastJob } from './lastJobContext'
 import { StepNav } from './OptimizationLayout'
 import { announceTruckStarts, stepContext } from './steps'
 import { TimerDial } from './TimerDial'
-import { loadTimeLimit, parseTimeLimit, saveTimeLimit } from './timeLimit'
+import { formatShipmentCount } from '../../format/count'
+import { DEFAULT_TIME_LIMIT_SECONDS, parseTimeLimit, recommendedTimeLimit, saveTimeLimit, storedTimeLimit } from './timeLimit'
 
 // ---- 2. Lokacije kamiona ---------------------------------------------------------------------
 
@@ -51,15 +52,27 @@ export function TruckLocationsStep() {
 /** The time limit (a stopwatch tied to the field, as smartLoad+'s "Trajanje"), and the start. */
 export function TimeStep() {
   const { state, start } = useLastJob()
+  const api = useApi()
   const navigate = useNavigate()
   const id = useId()
-  const [text, setText] = useState(() => String(loadTimeLimit()))
+  // How many shipments the job plans (all of them): the recommended time follows from it.
+  const loadShipments = useCallback(() => api.listShipments(), [api])
+  const [shipments] = useAsyncData(loadShipments)
+  const count = shipments.status === 'success' ? shipments.data.length : null
+  const recommended = count === null ? null : recommendedTimeLimit(count)
+  // null until the user chooses a time: then the field shows the recommendation.
+  const [chosen, setChosen] = useState<string | null>(() => {
+    const stored = storedTimeLimit()
+    return stored === null ? null : String(stored)
+  })
+  const text = chosen ?? String(recommended ?? DEFAULT_TIME_LIMIT_SECONDS)
   const [error, setError] = useState<string | null>(null)
   const seconds = parseTimeLimit(text)
+  const tooShort = seconds !== null && recommended !== null && seconds < recommended
   const busy = isLastJobBusy(state)
 
   function change(next: string) {
-    setText(next)
+    setChosen(next)
     setError(null)
     const parsed = parseTimeLimit(next)
     if (parsed !== null) saveTimeLimit(parsed)
@@ -107,10 +120,25 @@ export function TimeStep() {
                 </span>
               ) : (
                 <span id={`${id}-limit-hint`} className="text--muted">
-                  U sekundama. Brojčanik ide do 10 minuta; duže vreme upišite ovde. Pamti se i za dugme gore desno.
+                  U sekundama. Brojčanik ide do 10 minuta; duže vreme upišite ovde. Pamti se; dugme gore desno nikad ne uzima manje od preporuke.
                 </span>
               )}
             </div>
+            {recommended !== null && count !== null && (
+              <p className="time-step__advice">
+                Preporučeno: najmanje <strong>{recommended} s</strong> za {formatShipmentCount(count)}.
+              </p>
+            )}
+            {tooShort && (
+              <Notice tone="warning" title="Kraće od preporuke">
+                <p>
+                  Sa manje vremena optimizacija može da vrati lošije rute, ponekad i sa jednim kamionom više.
+                </p>
+                <button type="button" onClick={() => change(String(recommended))}>
+                  Koristi preporuku ({recommended} s)
+                </button>
+              </Notice>
+            )}
             {busy ? (
               <button type="button" className="button--primary run-clock" disabled>
                 <span className="spinner spinner--small" aria-hidden="true" />

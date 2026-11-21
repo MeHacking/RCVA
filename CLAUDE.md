@@ -117,6 +117,16 @@ klik vodi na Rezultate, otvaranje Rezultata ih briše). Profil: „Niste prijavl
   Testovi: `search.test.ts`, „stopping a job“ u `localClient.test.ts` (provereno na pokvarenom kodu),
   e2e `stopJob.local.spec.ts`, prepisan `topBar.spec.ts`; pun e2e posle toga 115 od 130, uzroci ispravljeni
   i svi pali testovi ponovo prolaze; pun prolaz posle poslednjih ispravki nije ponovljen.
+- **Preporučeno vreme (21–22.11.2026)**, korisnik se boji da će se solveru dati premalo vremena. Merenje
+  (privremeni testovi, nisu u repo-u): izmišljeni poslovi oblika kao korisnikovi (utovar u gradovima Balkana,
+  istovar po Švedskoj i Norveškoj, cerade iz Beograda, vazdušna linija ×1,25), po 2 posla, svako vreme posebno
+  (hlađenje zavisi od zadatog vremena), ovaj PC sa 8 jezgara. Odstupanje od najboljeg: do 10 pošiljki 0 % već
+  za 3 s; 20–40 pošiljki ispod 10 s ponekad +1 kamion, od 10 s ≤0,3 %; 50 pošiljki 20–40 s; 75 pošiljki do
+  90 s jednom +1 kamion (tek 180 s našlo kamion manje); 100 pošiljki 0,5–1,3 % na 60 s. Pravilo
+  (`recommendedTimeLimit`, „najmanje“): ≤10: 10 s, ≤30: 20 s, ≤50: 40 s (rezerva ×2), ≤75: 120 s, više: 180 s
+  (izmereno, bez rezerve). Korak Vreme: polje sa preporukom dok korisnik ne izabere, upozorenje „Kraće od
+  preporuke“ i „Koristi preporuku“; „Optimizuj“ iz trake uzima max(zapamćeno, preporuka) (`topBarTimeLimit`).
+  Telefon nije meren. Testovi: `timeLimit.test.ts`, e2e `timeAdvice.local.spec.ts`. Uputstvo dopunjeno.
 - Nije rađeno: uski prozori (telefon) nisu prilagođeni novom rasporedu.
 
 **Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad

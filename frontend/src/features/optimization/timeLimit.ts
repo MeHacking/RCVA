@@ -9,13 +9,37 @@ export function isTimeLimit(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
-export function loadTimeLimit(): number {
+/** The time the user chose in the step "Vreme"; null while they have not chosen one. */
+export function storedTimeLimit(): number | null {
   try {
-    const stored = Number(localStorage.getItem(KEY))
-    return isTimeLimit(stored) ? stored : DEFAULT_TIME_LIMIT_SECONDS
+    const raw = localStorage.getItem(KEY)
+    const stored = raw === null ? Number.NaN : Number(raw)
+    return isTimeLimit(stored) ? stored : null
   } catch {
-    return DEFAULT_TIME_LIMIT_SECONDS
+    return null
   }
+}
+
+/**
+ * The time recommended for this many shipments (owner, 21.11.2026: users may give the solver too
+ * little time). Measured on 21.11.2026 on invented jobs shaped like the owner's (pickups in a few
+ * Balkan cities, deliveries over Sweden and Norway, standard curtain trucks), on a fast 8-core PC:
+ * up to 10 shipments the best answer comes at once; 20-40 need about 10 s (with less, sometimes one
+ * truck more); 50 settle after 20-40 s: twice that, for slower computers. 75 and 100 shipments still
+ * improve up to 180 s (one job of 75 found a truck fewer only then): the measured times, without
+ * the margin (it would be 6 minutes), and even they are no guarantee.
+ */
+export function recommendedTimeLimit(shipments: number): number {
+  if (shipments <= 10) return 10
+  if (shipments <= 30) return 20
+  if (shipments <= 50) return 40
+  if (shipments <= 75) return 120
+  return 180
+}
+
+/** "Optimizuj" in the top bar, where no warning is seen: the chosen time, but never less than recommended. */
+export function topBarTimeLimit(shipments: number): number {
+  return Math.max(storedTimeLimit() ?? 0, recommendedTimeLimit(shipments))
 }
 
 export function saveTimeLimit(seconds: number): void {

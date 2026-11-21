@@ -3,7 +3,7 @@ import { useApi } from '../../api/apiContext'
 import { ApiError, describeError, isProvenInfeasible, type ApiClient } from '../../api/client'
 import type { OptimizationResult } from '../../api/types'
 import { isTerminal } from './jobStatus'
-import { loadTimeLimit } from './timeLimit'
+import { topBarTimeLimit } from './timeLimit'
 import { isLastJobBusy, LastJobContext, type LastJobState, type StartOptions } from './lastJobContext'
 
 const POLL_INTERVAL_MS = 1000
@@ -51,7 +51,7 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
         if (await locationsMissing(api)) return set({ kind: 'needsLocations', options })
         const created = await api.createOptimizationJob({
           // The one chosen in the step "Vreme" (also for the top bar's button).
-          timeLimitSeconds: options.timeLimitSeconds ?? loadTimeLimit(),
+          timeLimitSeconds: options.timeLimitSeconds ?? topBarTimeLimit((await api.listShipments()).length),
           truckIds: null,
           shipmentIds: null,
           // Sent only when asked for: the backend does not know them.

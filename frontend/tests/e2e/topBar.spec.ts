@@ -39,7 +39,8 @@ test('Optimizuj starts a job, counts the time and polls it to completion', async
   const clock = page.getByRole('banner').getByTestId('job-clock')
   await expect(button).toBeHidden()
   await expect(clock.locator('xpath=ancestor::button')).toBeDisabled()
-  await expect(clock).toHaveText(/^Računam… 0:0\d \/ 1:00$/)
+  // The mock's 5 shipments: the recommended 10 s (nothing chosen in the step Vreme).
+  await expect(clock).toHaveText(/^Računam… 0:0\d \/ 0:10$/)
   await expect(clock).not.toHaveText(/0:00 \//)
   // It ends on another screen, so it comes as a notification.
   await page.getByRole('navigation', { name: 'Glavna navigacija' }).getByRole('link', { name: 'Pregled' }).click()
