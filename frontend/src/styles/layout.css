@@ -15,7 +15,9 @@
   top: var(--shell-gap);
   bottom: var(--shell-gap);
   left: var(--shell-gap);
-  z-index: 10;
+  /* Above the row of top bars (as in smartLoad+): the page cover over that row would otherwise cut
+     the menu's shadow off, leaving a light rectangle next to the menu (owner, 21.11.2026). */
+  z-index: 11;
   width: var(--sidebar-width);
   display: flex;
   flex-direction: column;
