@@ -217,6 +217,12 @@
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
 
+  /* Viber's purple (its brand colour #665cac), the same in every theme (owner, 22.11.2026): white text
+     5.7 : 1; the newer, lighter #7360f2 gives only 4.4 : 1 */
+  --viber: #665cac;
+  --viber-hover: #574e96;
+  --viber-text: #ffffff;
+
   /* The light that passes over a primary button under the pointer */
   --shine: rgba(255, 255, 255, 0.3);
 

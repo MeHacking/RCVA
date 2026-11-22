@@ -151,6 +151,7 @@ describe.each(THEMES.map((theme) => theme.id))('theme %s', (theme) => {
     ['text on the top bar', color('--text'), solid('--bar', page), 4.5],
     ['a note on the top bar', color('--text-muted'), solid('--bar', page), 4.5],
     ['the user button', color('--chosen-text'), color('--chosen-bg'), 4.5],
+    ['the Viber button', color('--viber-text'), color('--viber'), 4.5],
     ['the number on the bell', color('--accent-text'), color('--accent'), 4.5],
     ['text in a popup of the top bar', color('--text'), solid('--pop', page), 4.5],
     ['a note in a popup of the top bar', color('--text-muted'), solid('--pop', page), 4.5],

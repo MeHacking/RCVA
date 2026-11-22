@@ -121,7 +121,7 @@ export function RouteTable({
                     {onViber && (
                       <button
                         type="button"
-                        className="button--small route-table__pdf"
+                        className="button--small route-table__pdf route-table__viber"
                         onClick={() => onViber(row)}
                         aria-label={`Pošalji na Viber: ${row.truckName}`}
                         title={row.driverPhone ? `Vozaču na broj ${row.driverPhone}` : 'Vozač nema broj telefona; biće zatražen'}

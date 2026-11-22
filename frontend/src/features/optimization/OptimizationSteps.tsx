@@ -1,7 +1,7 @@
 import { jobLabel } from '../../format/jobName'
 import { useCallback, useId, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { Play } from 'lucide-react'
+import { Box, Map as MapIcon, Play, Route } from 'lucide-react'
 import { useApi } from '../../api/apiContext'
 import { describeError } from '../../api/client'
 import { PATHS } from '../../app/paths'
@@ -184,13 +184,17 @@ export function ResultStep() {
     <>
       <PageHeader title="Rezultat" context={stepContext(PATHS.result)} />
       <nav className="result-views" aria-label="Prikaz rezultata">
+        {/* As pills with icons, clearer than tabs (owner, 22.11.2026). */}
         <NavLink end className="result-views__item" to={`${PATHS.result}${query}`}>
+          <Route aria-hidden="true" size={18} />
           Rute
         </NavLink>
         <NavLink className="result-views__item" to={`${PATHS.resultMap}${query}`}>
+          <MapIcon aria-hidden="true" size={18} />
           Mapa ruta
         </NavLink>
         <NavLink className="result-views__item" to={`${PATHS.result3d}${query}`}>
+          <Box aria-hidden="true" size={18} />
           3D prikaz kamiona
         </NavLink>
       </nav>

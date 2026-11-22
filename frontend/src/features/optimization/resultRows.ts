@@ -3,6 +3,13 @@ import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
 import type { BaseSettings, DistanceSource, Location, OptimizationResult, Shipment, StopType, Truck } from '../../api/types'
 
 /** Only the application on the device says where the distances come from. */
+/** The kind of kilometres, in short, for the card on the screen (the attribution is under the cards). */
+export const DISTANCE_KINDS: Record<DistanceSource, string> = {
+  'driving-hgv': 'po putu za kamione',
+  'driving-car': 'po putu za automobile',
+  airline: 'vazdušna linija, ne po putu',
+}
+
 export const DISTANCE_SOURCES: Record<DistanceSource, string> = {
   'driving-hgv': `po putu za teretna vozila (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,
   'driving-car': `po putu za automobile (${ORS_ATTRIBUTION}, ${OSM_ATTRIBUTION})`,

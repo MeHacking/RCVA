@@ -35,7 +35,7 @@ test('keeps a new truck and the last result after a page reload', async ({ page 
   await page.reload()
   await expect(routes).toBeVisible()
   await expect(page.locator('.stats')).toHaveText(summary ?? '')
-  await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
+  await expect(page.getByTestId('result-status')).toContainText('Rešeno')
   expect(errors).toEqual([])
 })
 

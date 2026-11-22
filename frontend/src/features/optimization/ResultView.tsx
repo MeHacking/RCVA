@@ -1,3 +1,6 @@
+import { ORS_ATTRIBUTION } from '../../api/local/openRouteService'
+import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
+import { formatShipmentCount } from '../../format/count'
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useSearchParams } from 'react-router'
@@ -15,7 +18,7 @@ import { ResultReport } from './ResultReport'
 import {
   buildTruckRows,
   buildUnassignedRows,
-  DISTANCE_SOURCES,
+  DISTANCE_KINDS,
   distanceScope,
   routesVersion,
   type ReferenceData,
@@ -151,6 +154,9 @@ export function ResultView({
       )}
 
       <Summary result={result} onExport={reference.status === 'success' ? () => savePdf(null) : null} />
+      {result.distanceSource && result.distanceSource !== 'airline' && (
+        <p className="result__attribution text--muted">Kilometraže: {ORS_ATTRIBUTION}, {OSM_ATTRIBUTION}.</p>
+      )}
       {pdfMessage(null)}
       <Validation result={result} />
       <ManualChangesNotice jobId={job.id} result={result} onChanged={(changed) => replaceResult(job.id, changed)} />
@@ -204,10 +210,13 @@ export function ResultView({
 /** Three cards of the result, then "Izvezi ceo rezultat (PDF)" as a fourth, dark one (once the names are loaded). */
 function Summary({ result, onExport }: { result: OptimizationResult; onExport: (() => void) | null }) {
   const atLowerBound = result.trucksUsed === result.trucksLowerBound
+  const status = resultStatus(result)
   return (
-    <div className="stats">
+    <div className="stats stats--result">
       <dl className="stat">
-        <dt>Kamioni</dt>
+        <dt>
+          <Icon name="truck" /> Kamioni
+        </dt>
         <dd className="stat__value">{result.trucksUsed}</dd>
         <dd className="stat__hint">
           {atLowerBound
@@ -216,23 +225,24 @@ function Summary({ result, onExport }: { result: OptimizationResult; onExport: (
         </dd>
       </dl>
       <dl className="stat">
-        <dt>Ukupna kilometraža</dt>
+        <dt>
+          <Icon name="map" /> Ukupna kilometraža
+        </dt>
         <dd className="stat__value">{formatKm(result.totalMeters)}</dd>
-        <dd className="stat__hint">{distanceScope(result)}</dd>
-        {result.distanceSource && (
-          <dd className="stat__hint" data-testid="distance-source">
-            {DISTANCE_SOURCES[result.distanceSource]}
-          </dd>
-        )}
+        {/* Short, without the providers (owner, 22.11.2026); their attribution is under the cards. */}
+        <dd className="stat__hint" data-testid="distance-source">
+          {result.distanceSource ? DISTANCE_KINDS[result.distanceSource] : distanceScope(result)}
+        </dd>
       </dl>
-      <dl className="stat">
-        <dt>Validator</dt>
-        <dd className={`stat__value ${result.validation.passed ? 'text--success' : 'text--error'}`}>
-          {result.validation.passed ? 'Prošao' : 'Nije prošao'}
+      {/* Whether a sound answer was found, in short (owner, 22.11.2026: instead of "Validator"). */}
+      <dl className="stat" data-testid="result-status">
+        <dt>
+          <Icon name={status.tone === 'success' ? 'check' : 'alert'} /> Status
+        </dt>
+        <dd className={`stat__value text--${status.tone === 'success' ? 'success' : status.tone === 'warning' ? 'warning' : 'error'}`}>
+          {status.label}
         </dd>
-        <dd className="stat__hint">
-          {result.validation.passed ? 'bez grešaka' : `grešaka: ${result.validation.violations.length}`}
-        </dd>
+        <dd className="stat__hint">{status.hint}</dd>
       </dl>
       {onExport && (
         <button type="button" className="stat stat-action" onClick={onExport}>
@@ -247,15 +257,20 @@ function Summary({ result, onExport }: { result: OptimizationResult; onExport: (
   )
 }
 
+/** The card "Status": a sound answer, all shipments or not, or one the validator refused. */
+function resultStatus(result: OptimizationResult): { tone: 'success' | 'warning' | 'danger'; label: string; hint: string } {
+  if (!result.validation.passed) {
+    return { tone: 'danger', label: 'Neispravno', hint: `validator: grešaka ${result.validation.violations.length}` }
+  }
+  const left = result.unassignedShipmentIds.length
+  if (left > 0) return { tone: 'warning', label: 'Delimično', hint: `nedodeljeno: ${formatShipmentCount(left)}` }
+  return { tone: 'success', label: 'Rešeno', hint: 'sve pošiljke raspoređene' }
+}
+
+/** Only a refusal is shown in full (the passed check is in the card "Status", owner 22.11.2026). */
 function Validation({ result }: { result: OptimizationResult }) {
   const { passed, violations } = result.validation
-  if (passed) {
-    return (
-      <Notice tone="success" title="Validator: rešenje je prošlo nezavisnu proveru">
-        <p>Kapacitet, dodela svake pošiljke, redosled preuzimanja i isporuka i kilometraža ponovo su provereni van solvera.</p>
-      </Notice>
-    )
-  }
+  if (passed) return null
   return (
     <Notice tone="danger" title="Validator: rešenje nije prošlo proveru" role="alert">
       <p>Neslaganje validatora i solvera je greška sistema, ne unetih podataka.</p>

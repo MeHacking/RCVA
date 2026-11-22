@@ -46,10 +46,13 @@ async function save(page: Page, name: string | null) {
 const table = (page: Page) => page.getByRole('table', { name: 'Sačuvane optimizacije' })
 
 test('keeps only saved jobs, by name; opens an older one everywhere, renames and deletes one', async ({ page }) => {
+  // Two jobs, saving, opening, renaming and deleting: longer than the usual 30 s.
+  test.setTimeout(60_000)
   const errors = collectPageErrors(page)
   await runJob(page, '1')
   const part = await save(page, 'Sever')
-  await expect(part).toContainText('Sačuvano u istoriji kao „Sever“.')
+  await expect(part).toContainText('Sačuvano')
+  await expect(part.getByRole('button', { name: 'Sačuvaj' })).toHaveCount(0)
   await expect(page.getByRole('main').getByText(/^Sever · završen/)).toBeVisible()
   await keepLocations(page)
   await runJob(page, '2')
@@ -64,7 +67,8 @@ test('keeps only saved jobs, by name; opens an older one everywhere, renames and
 
   // Saved under its usual name: its trucks and kilometres.
   await page.goto('/optimization/result')
-  await expect(await save(page, null)).toContainText(/Sačuvano u istoriji kao „\d+ kamiona? - [\d,]+ km“\./)
+  await save(page, null)
+  await expect(page.getByRole('main').getByText(/^\d+ kamiona? - [\d,]+ km · završen/)).toBeVisible()
   await page.getByRole('navigation').getByRole('link', { name: 'Istorija' }).click()
   await expect(rows).toHaveCount(3)
   await expect(rows.nth(1)).toContainText(/^\d+ kamiona? - [\d,]+ kmprikazan/)

@@ -1125,33 +1125,53 @@
 }
 
 /* The result's views: Rute, Mapa, 3D prikaz. */
+/* The result's views (Rute, Mapa ruta, 3D prikaz kamiona): pills with icons in a soft track, the
+   open one in the accent, as the open screen in the menu (owner, 22.11.2026). */
 .result-views {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 4px;
   margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border);
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
 .result-views__item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  margin-bottom: -1px;
-  border-bottom: 3px solid transparent;
-  color: var(--text-muted);
-  font-weight: var(--weight-semibold);
+  gap: 9px;
+  min-height: 2.75rem;
+  padding: 0 1.125rem 0 0.9rem;
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: var(--weight-medium);
   text-decoration: none;
+  transition:
+    background-color 0.16s,
+    color 0.16s;
 }
 
 .result-views__item:hover {
-  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .result-views__item[aria-current='page'] {
-  border-bottom-color: var(--accent);
-  color: var(--accent-on-light);
+  background: var(--chosen-bg);
+  color: var(--chosen-text);
+  font-weight: var(--weight-semibold);
+}
+
+/* The result's cards: big numbers. */
+.stats--result .stat__value {
+  font-size: 2rem;
+  font-weight: var(--weight-bold);
+  line-height: 1.2;
+}
+
+.result__attribution {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  font-size: var(--text-xs);
 }
 
 /* The step "Vreme": the stopwatch beside the field and the button. */
@@ -1725,24 +1745,30 @@ button.stat.stat-action:hover:not(:disabled) {
   text-align: left;
 }
 
-/* "Sačuvaj" at the end of the result (SaveResult.tsx): what is saved, and the button. */
+/* "Sačuvaj" at the end of the result (SaveResult.tsx): only the button, at the right, apart from
+   the unassigned shipments above it. */
 .save-result {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
-.save-result__text {
-  display: flex;
+.save-result__done {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0;
+  color: var(--success);
+  font-weight: var(--weight-semibold);
 }
 
 .save-result__error {
   flex-basis: 100%;
+  text-align: right;
 }
 
 .dialog__note {
@@ -1755,6 +1781,18 @@ button.stat.stat-action:hover:not(:disabled) {
   .dialog[open] {
     animation: none;
   }
+}
+
+/* "Viber": in Viber's purple in every theme. */
+.route-table button.route-table__viber {
+  color: var(--viber-text);
+  background: var(--viber);
+  border-color: var(--viber);
+}
+
+.route-table button.route-table__viber:hover:not(:disabled) {
+  background: var(--viber-hover);
+  border-color: var(--viber-hover);
 }
 
 .route-table__links a {

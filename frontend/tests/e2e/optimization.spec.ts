@@ -8,8 +8,9 @@ test('shows instructions before the first run', async ({ page }) => {
   await expect(page.getByText('Optimizacija još nije pokretana', { exact: true })).toBeVisible()
   await page.getByRole('navigation', { name: 'Koraci optimizacije' }).getByRole('link', { name: 'Vreme' }).click()
   await expect(page).toHaveURL('/optimization/time')
-  await expect(page.getByLabel('Vremensko ograničenje (s)')).toHaveValue('60')
-  await expect(page.getByRole('slider', { name: 'Trajanje' })).toHaveAttribute('aria-valuetext', '1 min')
+  // The recommendation for the mock's 5 shipments (nothing chosen yet).
+  await expect(page.getByLabel('Vremensko ograničenje (s)')).toHaveValue('10')
+  await expect(page.getByRole('slider', { name: 'Trajanje' })).toHaveAttribute('aria-valuetext', '10 s')
 })
 
 // User, 21.11.2026: Optimizacija in steps, as in smartLoad+; the menu item opens the step last open.
@@ -90,7 +91,7 @@ test('runs a job and shows summary, validator, routes and unassigned shipments',
   // The score is no card any more: its place is "Izvezi ceo rezultat (PDF)", the last card of the row.
   await expect(stats).not.toContainText(/hard|medium|soft/)
   await expect(stats.locator(':scope > *').last()).toHaveText(/^Izvezi ceo rezultat \(PDF\)/)
-  await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
+  await expect(page.getByTestId('result-status')).toContainText('Rešeno')
 
   const firstTruck = routes.getByRole('row', { name: /Šleper 1/ })
   // Only the count in the row (names can be long); the names and relations open in a window.

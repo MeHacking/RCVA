@@ -53,10 +53,9 @@ test('with a key the job uses road distances from ORS, asked once', async ({ pag
   const asked = await fakeOrs(page)
   await saveKey(page)
   await start(page)
-  await expect(page.getByTestId('distance-source')).toHaveText(
-    'po putu za teretna vozila (© openrouteservice.org by HeiGIT, © OpenStreetMap contributors)',
-    { timeout: 20_000 },
-  )
+  await expect(page.getByTestId('distance-source')).toHaveText('po putu za kamione', { timeout: 20_000 })
+  // The providers are named under the cards, not on them.
+  await expect(page.getByText('Kilometraže: © openrouteservice.org by HeiGIT, © OpenStreetMap contributors.')).toBeVisible()
   expect(asked).toEqual([{ profile: 'driving-hgv', key: 'probni-kljuc' }])
 
   // The distances are kept: after a reload a new job asks nothing. The trucks' last
@@ -131,7 +130,7 @@ test('moves a place lorries do not reach on its own, the job runs, and the resul
   )
   await saveKey(page)
   await start(page)
-  await expect(page.getByTestId('distance-source')).toHaveText(/^po putu za teretna vozila/, { timeout: 25_000 })
+  await expect(page.getByTestId('distance-source')).toHaveText('po putu za kamione', { timeout: 25_000 })
   await expect(page.getByRole('main').getByText('Pokretanje nije uspelo', { exact: true })).toHaveCount(0)
   expect(ors.snaps).toHaveLength(1)
   expect(ors.snaps[0].url).toBe('https://api.heigit.org/openrouteservice/v2/snap/driving-hgv/json')

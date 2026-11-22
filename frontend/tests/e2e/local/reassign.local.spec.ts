@@ -40,7 +40,7 @@ test('takes a shipment off a truck, puts it back, and gives the optimizer\'s res
   // Back onto the truck it came from (it fit there), from the unassigned list.
   await unassigned.getByRole('combobox', { name: `Dodaj ${firstShipment} u kamion` }).selectOption({ label: truck })
   await expect(page.getByText('Sve pošiljke su dodeljene kamionima.')).toBeVisible()
-  await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
+  await expect(page.getByTestId('result-status')).toContainText('Rešeno')
 
   // And the optimizer's result again.
   await manual.getByRole('button', { name: 'Vrati predlog optimizacije' }).click()

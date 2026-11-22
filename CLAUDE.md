@@ -139,6 +139,13 @@ klik vodi na Rezultate, otvaranje Rezultata ih briše). Profil: „Niste prijavl
   Pregleda, obaveštenja, mape, 3D, poruka 409 („Optimizacija je u toku“). **Zamka nađena e2e**: polje vremena je
   menjalo vrednost (60 → preporuka) kad stignu pošiljke, pa je kucanje baš tada davalo „1030“; sada se polje
   prikazuje tek posle učitavanja. Pun e2e 130 od 133, uzroci ispravljeni, pali ponovo prolaze.
+- **Rezultat, dorada (22.11.2026)**, korisnik: prikazi Rute / Mapa ruta / 3D prikaz kamiona su „pilule“ sa ikonicama
+  (lucide Route, Map, Box); zeleni validator uklonjen (crveno upozorenje ostaje kad ne prođe); kartica „Status“
+  umesto „Validator“ (Rešeno / Delimično / Neispravno, `resultStatus`); kilometraža kratko (`DISTANCE_KINDS`),
+  navod ORS i OSM u sitnom redu ispod kartica (`result__attribution`, uslovi korišćenja to traže); veći brojevi i
+  ikonice kao na Pregledu (`stats--result`). Dugme Viber u Viber ljubičastoj u svim temama (`--viber` #665cac;
+  novija #7360f2 sa belim tekstom daje 4,4 : 1, ispod 4,5). „Sačuvaj“ je samo dugme desno, odvojeno linijom od
+  nedodeljenih pošiljki (bez trake sa opisom); posle čuvanja „Sačuvano“ i „Preimenuj“.
 - Nije rađeno: uski prozori (telefon) nisu prilagođeni novom rasporedu.
 
 **Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad

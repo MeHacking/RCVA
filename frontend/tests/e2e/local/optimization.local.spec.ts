@@ -18,8 +18,8 @@ test('solves in the browser and shows open routes, the validator and the 3D plan
   const stats = page.locator('.stats')
   await expect(stats).toContainText('Kamioni2')
   await expect(stats).toContainText('jednako donjoj granici po kapacitetu')
-  await expect(stats).toContainText('od lokacije kamiona do poslednjeg istovara')
-  await expect(page.getByText('Validator: rešenje je prošlo nezavisnu proveru')).toBeVisible()
+  await expect(stats).toContainText('vazdušna linija, ne po putu')
+  await expect(page.getByTestId('result-status')).toContainText('Rešeno')
   await expect(page.getByText('Sve pošiljke su dodeljene kamionima.')).toBeVisible()
 
   // An open route from where the truck is (the scenario's trucks are at its base), without a return.

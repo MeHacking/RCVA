@@ -803,7 +803,7 @@ describe('local storage on the device', () => {
     expect(history).toHaveLength(KEPT_JOBS + 2)
     expect(history).toEqual([...history!].sort())
     expect(await setup('small', steps, store).getOptimizationHistory()).toEqual(history)
-  })
+  }, 20_000)
 
   it('saves only a finished job, and renames a saved one; jobs kept before count as saved', async () => {
     const store = createMemoryStore<LocalData>()

@@ -56,26 +56,20 @@ export function SaveResult({ job, result }: { job: OptimizationJob; result: Opti
     }
   }
 
+  // Only the button, at the right (owner, 22.11.2026: no bar describing it); the name is in the line
+  // above the cards.
   return (
-    <section className="panel save-result" aria-label="Čuvanje u istoriji">
+    <section className="save-result" aria-label="Čuvanje u istoriji">
       {saved ? (
-        <p className="save-result__text">
-          <BookmarkCheck aria-hidden="true" size={20} />
-          <span>
-            Sačuvano u istoriji kao <strong>„{jobLabel(job, result)}“</strong>.
+        <>
+          <span className="save-result__done">
+            <BookmarkCheck aria-hidden="true" size={18} />
+            Sačuvano
           </span>
-        </p>
-      ) : (
-        <p className="save-result__text">
-          <span>
-            Rezultat još nije sačuvan. Bez čuvanja ne ulazi u istoriju, a sledeća optimizacija ga zamenjuje.
-          </span>
-        </p>
-      )}
-      {saved ? (
-        <button type="button" onClick={() => setNaming('rename')}>
-          Preimenuj
-        </button>
+          <button type="button" onClick={() => setNaming('rename')}>
+            Preimenuj
+          </button>
+        </>
       ) : (
         <button type="button" className="button--primary" onClick={() => void save()} disabled={busy}>
           <Save aria-hidden="true" size={16} />
