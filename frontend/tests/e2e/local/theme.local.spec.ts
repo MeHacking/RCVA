@@ -7,6 +7,12 @@ import { collectPageErrors } from '../consoleGuard.ts'
 const pageColour = (page: import('@playwright/test').Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor)
 
+/** The colours of the logo in the menu: its four parts, bottom to top. */
+const logoColours = (page: import('@playwright/test').Page) =>
+  page
+    .locator('.brand__logo-part')
+    .evaluateAll((parts) => parts.map((p) => getComputedStyle(p).backgroundColor))
+
 test('changes the theme, keeps it on the device and goes back to Višnja', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/settings')
@@ -17,6 +23,8 @@ test('changes the theme, keeps it on the device and goes back to Višnja', async
   await expect(page.locator('html')).not.toHaveAttribute('data-theme')
   const visnjaColour = await pageColour(page)
   expect(visnjaColour).toBe('rgb(243, 231, 211)')
+  // The logo in its own colours: outline, light edge, the box, the arrow.
+  expect(await logoColours(page)).toEqual(['rgb(52, 57, 63)', 'rgb(250, 249, 248)', 'rgb(212, 177, 136)', 'rgb(208, 3, 45)'])
 
   // Dark: the page, the colour scheme of the fields and the accent change.
   await page.locator('.theme-option--grafit').click()
@@ -24,6 +32,8 @@ test('changes the theme, keeps it on the device and goes back to Višnja', async
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'grafit')
   await expect.poll(() => pageColour(page)).toBe('rgb(38, 43, 52)')
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('dark')
+  // The logo follows: the arrow in Grafit's light blue, the box cool grey.
+  await expect.poll(() => logoColours(page)).toEqual(['rgb(26, 30, 37)', 'rgb(250, 249, 248)', 'rgb(185, 197, 211)', 'rgb(124, 196, 255)'])
 
   // Kept after a reload, and the other screens have it too.
   await page.reload()

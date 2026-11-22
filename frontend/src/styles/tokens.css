@@ -248,6 +248,13 @@
   --swatch-neon-nav: #121214;
   --swatch-neon-ink: #d5d7db;
   --swatch-neon-accent: #ff2d78;
+
+  /* The logo in the menu, in four colours that follow the theme (owner, 22.11.2026; the masks are
+     public/logo-*.png, from npm run icons). Višnja: the colours of the logo itself. */
+  --logo-ink: #34393f;
+  --logo-light: #faf9f8;
+  --logo-box: #d4b188;
+  --logo-arrow: #d0032d;
 }
 
 /*
@@ -288,6 +295,9 @@
     --on-dark-accent: #ffa36b;
     --focus-ring: 0 0 0 3px rgba(184, 67, 11, 0.32);
     --nav-bg: rgba(20, 33, 61, 0.96);
+    --logo-ink: #14213d;
+    --logo-box: #e2cca6;
+    --logo-arrow: #ff6b1a;
     --chosen-bg: var(--accent);
     --bar: rgba(255, 253, 249, 0.6);
     --bar-edge: rgba(20, 33, 61, 0.15);
@@ -330,6 +340,9 @@
     --on-dark-accent: #ff9b85;
     --focus-ring: 0 0 0 3px rgba(184, 54, 27, 0.3);
     --nav-bg: rgba(29, 74, 53, 0.96);
+    --logo-ink: #1d4a35;
+    --logo-box: #d9c096;
+    --logo-arrow: #f2462e;
     --chosen-bg: var(--accent);
     --bar: rgba(255, 251, 243, 0.55);
     --bar-edge: rgba(29, 74, 53, 0.15);
@@ -408,6 +421,9 @@
     --on-dark-accent: #7cc4ff;
     --focus-ring: 0 0 0 3px rgba(124, 196, 255, 0.45);
     --nav-bg: rgba(12, 14, 18, 0.62);
+    --logo-ink: #1a1e25;
+    --logo-box: #b9c5d3;
+    --logo-arrow: #7cc4ff;
     --bar: rgba(255, 255, 255, 0.065);
     --truck3d-stage: #20242b;
     --truck3d-floor: #3b414c;
@@ -442,6 +458,9 @@
     --on-dark-accent: #ff7aa8;
     --focus-ring: 0 0 0 3px rgba(255, 45, 120, 0.45);
     --nav-bg: rgba(12, 12, 14, 0.78);
+    --logo-ink: #121214;
+    --logo-box: #d5d7db;
+    --logo-arrow: #ff2d78;
     --bar: rgba(255, 255, 255, 0.05);
     --truck3d-stage: #19191b;
     --truck3d-floor: #36363b;

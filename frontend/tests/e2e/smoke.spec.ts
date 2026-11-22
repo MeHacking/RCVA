@@ -59,10 +59,19 @@ test('unknown path shows a not-found message', async ({ page }) => {
 
 test('shows the logo in the sidebar and has it as the favicon', async ({ page, request }) => {
   await page.goto('/')
-  const logo = page.getByRole('navigation', { name: 'Glavna navigacija' }).locator('img.brand__logo')
-  await expect(logo).toHaveAttribute('src', '/logo.png')
-  // Loaded, not a broken image.
-  expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(256)
+  // In the menu the logo is four masks by colour, so it can take the theme's colours.
+  const parts = page.getByRole('navigation', { name: 'Glavna navigacija' }).locator('.brand__logo-part')
+  await expect(parts).toHaveCount(4)
+  for (const part of ['ink', 'light', 'box', 'arrow']) {
+    expect(await page.locator(`.brand__logo-part--${part}`).evaluate((e) => getComputedStyle(e).maskImage)).toContain(`/logo-${part}.png`)
+    // Served, and a PNG of the logo's size (256 x 256).
+    const mask = await request.get(`/logo-${part}.png`)
+    expect(mask.status()).toBe(200)
+    const body = await mask.body()
+    expect([body.readUInt32BE(16), body.readUInt32BE(20)]).toEqual([256, 256])
+  }
+  const logo = await request.get('/logo.png')
+  expect(logo.status()).toBe(200)
   await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute('href', '/favicon.ico')
   const favicon = await request.get('/favicon.ico')
   expect(favicon.status()).toBe(200)

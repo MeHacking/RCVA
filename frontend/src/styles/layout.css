@@ -40,11 +40,47 @@
   padding: 0 0.25rem;
 }
 
-/* The application's logo (public/logo.png, made by scripts/make-icons.mjs). */
+/*
+ * The application's logo in the theme's colours (BrandLogo.tsx): four masks of public/logo.png by
+ * colour (scripts/make-icons.mjs), each filled with its --logo-* token and added up, so the
+ * soft edges between the colours come back as in the image.
+ */
 .brand__logo {
+  position: relative;
+  display: block;
   width: 2.5rem;
   height: 2.5rem;
   flex: none;
+  isolation: isolate;
+}
+
+.brand__logo-part {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: plus-lighter;
+  -webkit-mask: var(--part) center / contain no-repeat;
+  mask: var(--part) center / contain no-repeat;
+  background: var(--fill);
+}
+
+.brand__logo-part--ink {
+  --part: url('/logo-ink.png');
+  --fill: var(--logo-ink);
+}
+
+.brand__logo-part--light {
+  --part: url('/logo-light.png');
+  --fill: var(--logo-light);
+}
+
+.brand__logo-part--box {
+  --part: url('/logo-box.png');
+  --fill: var(--logo-box);
+}
+
+.brand__logo-part--arrow {
+  --part: url('/logo-arrow.png');
+  --fill: var(--logo-arrow);
 }
 
 .brand__name {

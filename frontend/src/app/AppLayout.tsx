@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { apiMode, apiModeLabel } from '../api/apiMode'
 import { BackgroundWaves } from '../components/BackgroundWaves'
+import { BrandLogo } from '../components/BrandLogo'
 import { Icon } from '../components/Icon'
 import { AccountTray } from './AccountTray'
 import { NAV_ITEMS } from './navItems'
@@ -26,7 +27,7 @@ export function AppLayout() {
       <BackgroundWaves />
       <nav className="app__nav" aria-label="Glavna navigacija">
         <div className="brand">
-          <img className="brand__logo" src="/logo.png" alt="" width={40} height={40} />
+          <BrandLogo />
           <span className="brand__name">
             RCVA
             <span className="brand__tagline">Rutiranje i Vizualizacija</span>
