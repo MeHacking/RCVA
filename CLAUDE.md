@@ -4,7 +4,7 @@ Ovaj fajl je radni dnevnik projekta za ljude i za Claude sesije i agente. Claude
 automatski učitava u svakoj sesiji pokrenutoj u `RCVA/` ili ispod. **Ažurirati ga na kraju
 svakog većeg koraka** (odeljci „Stanje“ i „Sledeći koraci“).
 
-Poslednje ažuriranje: 21.11.2026 (Optimizacija u koracima, Istorija, mapa kamiona, ikonice iz smartLoad+, vremensko
+Poslednje ažuriranje: 22.11.2026 (Podešavanja i Uputstvo kao u smartLoad+; pre toga Optimizacija u koracima, Istorija, mapa kamiona, ikonice iz smartLoad+, vremensko
 ograničenje i brojač); videti „Gde smo stali“.
 Sve je push-ovano na `origin/main` 21.11.2026 (korisnik je tražio push na kraju, jer nije bio tu).
 
@@ -35,6 +35,8 @@ Merenje 20.11.2026 (`../smartLoad+/docs/measurements/2026-11-20-concurrency.md`)
 jednu optimizaciju odjednom (`newSingleThreadExecutor`). Nije mereno na većem poslu.
 
 ## Gde smo stali (03.11.2026)
+
+**Podešavanja i Uputstvo kao u smartLoad+ (urađeno 22.11.2026)**, na zahtev korisnika: kartice levo, desno lepljiva kartica „Sadržaj“ sa ikonicom po delu i izabranim delom u „pilulama“ (`--chosen-bg`); na uskoj strani red čipova iznad. Zajedničko: `components/SectionNav.tsx`, `hooks/useScrollSpy.ts` (prenos `sectionNav.tsx`; `readingLine`), `.section-layout` u `layout.css`. Podešavanja: svaki deo svoja kartica (`SettingsPart` sa `id`, lucide ikonicom, `partRef`), naslovi bez velikih slova i bez brojeva; teme u jednom redu, sličica kao u smartLoad+ (meni sa pilulom, traka); „Sačuvaj“ ispod tri kartice obrasca sa napomenom da se čuvaju zajedno; Zaboravljanje lokacija i Brisanje podataka više nisu višnja kartice (ikonica i dugme u boji greške). Uputstvo: jedna kartica sa poglavljima (linija između, ikonica u naslovu), podnaslovi „1. …“ bez kružića, obične liste, saveti bez pločica; „Sadržaj“ zadržao linkove, otvaranje podnaslova i oznaku dela. `.number-badge` uklonjen. Provereno: tsc, lint, build, Vitest 862, e2e 41 (Uputstvo, smoke, teme, podaci, geokodiranje, kilometraže, linije, zvonce, brisanje pošiljki; `smoke` nepoznata adresa pao jednom na hladnom serveru, sam prolazi); snimci 1440 i 900 px (Višnja). Pun e2e nije pokretan.
 
 **Pet zahteva od 21.11.2026 (urađeno, redom 5, 4, 2, 3, 1 po izboru korisnika; svi predlozi prihvaćeni)**:
 - **5. Vremensko ograničenje**: izmereno (Vitest, 3 s): posao je trajao 6055 ms, jer je preporuka dodatnog kamiona

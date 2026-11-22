@@ -1,12 +1,16 @@
 import { useApi } from '../../api/apiContext'
+import { Trash2 } from 'lucide-react'
 import { AdminActionPanel } from './AdminActionPanel'
+import type { PartRef } from './SettingsPart'
 
 /** The factory reset: everything on the device goes, as on the first start. */
-export function FactoryResetPanel() {
+export function FactoryResetPanel({ partRef }: { partRef: PartRef }) {
   const api = useApi()
   return (
     <AdminActionPanel
-      n={7}
+      id="brisanje"
+      icon={Trash2}
+      partRef={partRef}
       title="Brisanje svih podataka"
       about={
         <>

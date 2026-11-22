@@ -314,24 +314,10 @@ fieldset.field {
   max-width: 34rem;
 }
 
-/* A part's number in a cherry circle, before its heading (the guide, the settings). */
-.number-badge {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  color: var(--accent-text);
-  background: var(--accent);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0;
-}
-
 /*
- * Settings: numbered parts, as in the guide. Each part has what it does on the left and its
- * fields on the right (one column when narrow); a line between parts; saving at the bottom.
+ * Podešavanja as in smartLoad+ (owner, 22.11.2026): a card per part, its title with the icon it
+ * has in the contents and what it does under it, then its fields. Headings in their own case,
+ * not in capitals, as there.
  */
 .settings {
   container-type: inline-size;
@@ -339,39 +325,40 @@ fieldset.field {
 
 .settings-part {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3) var(--space-6);
-  padding: var(--space-5) 0;
-  border-top: 1px solid var(--border);
+  gap: 1.25rem;
+  padding: var(--space-5);
+  /* So "go to" in the contents stops below the sticky top bar, not under it. */
+  scroll-margin-top: calc(var(--topbar-height) + var(--space-4));
 }
 
-.settings-part:first-of-type {
-  padding-top: 0;
-  border-top: 0;
-}
-
-/* The last thing in its card (the data part): the card's own padding is enough below it. */
-.settings-part:last-child {
-  padding-bottom: 0;
-}
-
-@container (min-width: 52rem) {
-  .settings-part {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  }
-}
-
-.settings-part__about h2 {
+.settings-part__head h2 {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: var(--weight-medium);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-.settings-part__about p {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-sm);
-  line-height: 1.6;
+.settings-part__head h2 svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  opacity: 0.85;
+}
+
+.settings-part__head p {
+  max-width: 75ch;
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.settings-part__head p + p {
+  margin-top: var(--space-2);
 }
 
 .settings-part__fields {
@@ -380,6 +367,17 @@ fieldset.field {
 
 .settings-part__fields .field:last-child {
   margin-bottom: 0;
+}
+
+/* The themes take the card's whole width, all five in a row as in smartLoad+. */
+.theme-part .settings-part__fields {
+  max-width: none;
+}
+
+/* What cannot be undone: the icon in the colour of danger, the button too. */
+.admin-action .settings-part__head h2 svg {
+  color: var(--danger);
+  opacity: 1;
 }
 
 /* Podešavanja > Izgled (ThemePanel): a card per theme with a small picture of the application in
@@ -432,16 +430,40 @@ fieldset.field {
 
 .theme-option__preview {
   display: flex;
-  height: 4rem;
+  gap: 5px;
+  height: 4.25rem;
+  padding: 5px;
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--t-page);
   box-shadow: inset 0 0 0 1px var(--swatch-edge);
 }
 
+/* A small picture of the application, as in smartLoad+: the menu with the chosen screen, the
+   top bar, text and a button. RCVA's menu is dark in every theme, so its marks are light. */
 .theme-option__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   width: 28%;
+  padding: 5px 4px;
+  border-radius: var(--radius-sm);
   background: var(--t-nav);
+}
+
+.theme-option__pill {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--t-accent);
+}
+
+.theme-option__dot {
+  width: 70%;
+  height: 4px;
+  margin-left: 2px;
+  border-radius: 2px;
+  background: #fff;
+  opacity: 0.4;
 }
 
 .theme-option__page {
@@ -449,13 +471,25 @@ fieldset.field {
   flex: 1;
   flex-direction: column;
   gap: 5px;
-  padding: 9px;
+}
+
+.theme-option__bar {
+  height: 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #fff 60%, var(--t-page));
+  box-shadow: inset 0 0 0 1px var(--swatch-edge);
+}
+
+.theme-option--grafit .theme-option__bar,
+.theme-option--neon .theme-option__bar {
+  background: color-mix(in srgb, var(--t-ink) 12%, var(--t-page));
 }
 
 .theme-option__line {
   width: 80%;
-  height: 5px;
-  border-radius: 3px;
+  height: 4px;
+  margin-left: 3px;
+  border-radius: 2px;
   background: var(--t-ink);
   opacity: 0.35;
 }
@@ -466,9 +500,9 @@ fieldset.field {
 
 .theme-option__button {
   width: 45%;
-  height: 11px;
-  margin-top: auto;
-  border-radius: 6px;
+  height: 10px;
+  margin: auto 0 0 auto;
+  border-radius: 5px;
   background: var(--t-accent);
 }
 
@@ -561,9 +595,8 @@ fieldset.field {
 }
 
 /* Export and import of the data on the device: two buttons of one size, in the bottom right
-   corner of the card (as wide as the fields above; under the text when narrow). */
+   corner of the card. */
 .device-data .settings-part__fields {
-  align-self: end;
   justify-self: end;
   width: min(100%, 32rem);
 }
@@ -584,18 +617,24 @@ button.data-action {
   margin: var(--space-3) 0 0;
 }
 
+/* Saving the three parts of the form, under their cards. */
 .settings-form__footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+  margin-bottom: var(--card-gap);
+  padding: 0 var(--space-2);
 }
 
 .settings-form__footer p {
   margin: 0;
+  font-size: var(--text-sm);
+}
+
+.settings-form__footer p.text--muted {
+  flex: 1 1 16rem;
 }
 
 /* Tables (dense) */
@@ -1340,12 +1379,6 @@ button.button--danger:hover:not(:disabled) {
 
 :is(.panel--cherry, .panel--dark, .table-wrap--dark) :focus-visible {
   box-shadow: var(--on-dark-focus-ring);
-}
-
-/* A part's number on a dark card: cream with the cherry number (cherry on cherry is not seen). */
-:is(.panel--cherry, .panel--dark) .number-badge {
-  color: var(--accent-on-light);
-  background: var(--cream);
 }
 
 /* The other labels of a form on a dark card (a checkbox's, a group's legend). */

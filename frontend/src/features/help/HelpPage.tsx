@@ -1,9 +1,18 @@
+import {
+  BookOpen,
+  ChevronRight,
+  Cpu,
+  Lightbulb,
+  ListChecks,
+  MessageSquareWarning,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { apiMode } from '../../api/apiMode'
 import { PATHS } from '../../app/paths'
-import { Icon } from '../../components/Icon'
 import { PageHeader } from '../../components/PageHeader'
+import { readingLine } from '../../hooks/useScrollSpy'
 import { NOT_FOUND_MESSAGE, PROVEN_TITLE } from '../optimization/jobStatus'
 
 // The user guide: how to use the application, how the optimization works, and how to get
@@ -19,17 +28,18 @@ const CAN_SHORTEN = apiMode() !== 'server'
 interface Chapter {
   id: string
   title: string
+  icon: LucideIcon
   body: ReactNode
 }
 
 export function HelpPage() {
   const chapters: Chapter[] = [
-    { id: 'ukratko', title: 'Ukratko', body: <Overview /> },
+    { id: 'ukratko', title: 'Ukratko', icon: BookOpen, body: <Overview /> },
     // Not "koraci": that is the id of the subheading "Koraci" (Subheading takes ids from the text).
-    { id: 'upotreba', title: 'Kako se koristi, korak po korak', body: <Steps /> },
-    { id: 'algoritam', title: 'Kako radi optimizacija', body: <Algorithm /> },
-    { id: 'saveti', title: 'Saveti za najbolje rezultate', body: <Tips /> },
-    { id: 'poruke', title: 'Poruke i šta znače', body: <Messages /> },
+    { id: 'upotreba', title: 'Kako se koristi, korak po korak', icon: ListChecks, body: <Steps /> },
+    { id: 'algoritam', title: 'Kako radi optimizacija', icon: Cpu, body: <Algorithm /> },
+    { id: 'saveti', title: 'Saveti za najbolje rezultate', icon: Lightbulb, body: <Tips /> },
+    { id: 'poruke', title: 'Poruke i šta znače', icon: MessageSquareWarning, body: <Messages /> },
   ]
   return (
     <section className="help">
@@ -40,15 +50,20 @@ export function HelpPage() {
           prikazani.
         </p>
       )}
-      <div className="help__layout">
-        <div className="help__text">
-          {chapters.map((c) => (
-            <section key={c.id} id={c.id} className="panel help__chapter" aria-labelledby={`${c.id}-title`}>
-              <h2 id={`${c.id}-title`}>{c.title}</h2>
-              {c.body}
+      {/* As in smartLoad+ (owner, 22.11.2026): one card with the chapters one under another, and
+          the contents beside it with an icon per chapter. */}
+      <div className="section-layout">
+        <article className="panel help__text">
+          {chapters.map(({ id, title, icon: Glyph, body }) => (
+            <section key={id} id={id} className="help__chapter" aria-labelledby={`${id}-title`}>
+              <h2 id={`${id}-title`}>
+                <Glyph aria-hidden="true" />
+                {title}
+              </h2>
+              {body}
             </section>
           ))}
-        </div>
+        </article>
         <Contents chapters={chapters} />
       </div>
     </section>
@@ -62,10 +77,7 @@ export function HelpPage() {
 function Subheading({ n, children }: { n: number; children: string }) {
   return (
     <h3 id={slug(children)} data-number={n} data-title={children}>
-      <span className="number-badge">
-        {n}
-        <span className="visually-hidden">. </span>
-      </span>
+      <span className="help__number">{`${n}. `}</span>
       {children}
     </h3>
   )
@@ -112,7 +124,7 @@ function Contents({ chapters }: { chapters: Chapter[] }) {
       })
     }
     // The part being read: the last heading that has passed the line under the top bar.
-    const line = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) * 16 + 40
+    const line = readingLine
     let frame = 0
     const update = () => {
       frame = 0
@@ -139,8 +151,8 @@ function Contents({ chapters }: { chapters: Chapter[] }) {
   }, [])
 
   return (
-    <nav className="panel panel--dark help__contents" aria-label="Sadržaj uputstva">
-      <h2>Sadržaj</h2>
+    <nav className="panel section-nav help__contents" aria-label="Sadržaj uputstva">
+      <p className="section-nav__title">Sadržaj</p>
       <ol className="help__contents-chapters">
         {chapters.map((c) => {
           const subs = subheadings[c.id] ?? []
@@ -151,13 +163,14 @@ function Contents({ chapters }: { chapters: Chapter[] }) {
             <li key={c.id}>
               <a
                 href={`#${c.id}`}
-                className={`help__contents-link help__contents-chapter${isOpen ? ' help__contents-chapter--open' : ''}`}
+                className={`section-nav__item help__contents-chapter${isOpen ? ' help__contents-chapter--open' : ''}`}
                 aria-current={isCurrent ? 'location' : undefined}
                 aria-expanded={subs.length > 0 ? isOpen : undefined}
                 onClick={() => setOpen(c.id)}
               >
+                <c.icon aria-hidden="true" />
                 <span>{c.title}</span>
-                {subs.length > 0 && <Icon name="chevron" size={14} />}
+                {subs.length > 0 && <ChevronRight aria-hidden="true" className="help__contents-chevron" />}
               </a>
               {isOpen && subs.length > 0 && (
                 <ul className="help__contents-sub">
@@ -165,7 +178,7 @@ function Contents({ chapters }: { chapters: Chapter[] }) {
                     <li key={s.id}>
                       <a
                         href={`#${s.id}`}
-                        className="help__contents-link help__contents-subheading"
+                        className="section-nav__item help__contents-subheading"
                         aria-current={s.id === current ? 'location' : undefined}
                       >
                         <span className="help__contents-number">{`${s.number}. `}</span>
@@ -625,7 +638,7 @@ function Algorithm() {
 
 function Tips() {
   return (
-    <ul className="help__tips">
+    <ul>
       <li>
         <strong>Ispravite nejasne lokacije pre pokretanja.</strong> Pošiljka bez koordinata ne može u optimizaciju.
       </li>

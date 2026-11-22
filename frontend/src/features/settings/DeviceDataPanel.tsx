@@ -1,3 +1,4 @@
+import { Database } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useApi } from '../../api/apiContext'
 import { describeError } from '../../api/client'
@@ -6,7 +7,7 @@ import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { formatDateTime } from '../../format/time'
 import { clearAfterReload, keepForReload, readAfterReload } from './afterReload'
-import { SettingsPart } from './SettingsPart'
+import { SettingsPart, type PartRef } from './SettingsPart'
 
 // Export and import of all data on the device (step 4d): the only backup of what the
 // browser keeps, and the way to move it to another device. An import first checks the
@@ -20,7 +21,7 @@ type ImportState =
   | { kind: 'replacing'; fileName: string; content: string; summary: DeviceDataSummary }
   | { kind: 'error'; message: string }
 
-export function DeviceDataPanel() {
+export function DeviceDataPanel({ partRef }: { partRef: PartRef }) {
   const api = useApi()
   const fileInput = useRef<HTMLInputElement>(null)
   const [exported, setExported] = useState<string | null>(null)
@@ -81,103 +82,104 @@ export function DeviceDataPanel() {
   const review = state.kind === 'review' || state.kind === 'replacing' ? state : null
 
   return (
-    <div className="panel device-data">
-      <SettingsPart
-        n={5}
-        title="Podaci na uređaju"
-        about={
-          <>
-            <p className="text--muted">
-              Pošiljke, kamioni i rezultati čuvaju se samo u ovom pregledaču: brisanje podataka sajta briše sve.
-            </p>
-            <p className="text--muted">
-              „Izvezi podatke“ pravi jedan fajl sa svim podacima i zapamćenim koordinatama, kilometražama i linijama po
-              putu, ali bez ključa za OpenRouteService. Taj fajl je rezervna kopija i način da se podaci prenesu na
-              drugi uređaj.
-            </p>
-          </>
-        }
+    <SettingsPart
+      id="podaci"
+      icon={Database}
+      title="Podaci na uređaju"
+      partRef={partRef}
+      className="device-data"
+      about={
+        <>
+          <p className="text--muted">
+            Pošiljke, kamioni i rezultati čuvaju se samo u ovom pregledaču: brisanje podataka sajta briše sve.
+          </p>
+          <p className="text--muted">
+            „Izvezi podatke“ pravi jedan fajl sa svim podacima i zapamćenim koordinatama, kilometražama i linijama po
+            putu, ali bez ključa za OpenRouteService. Taj fajl je rezervna kopija i način da se podaci prenesu na
+            drugi uređaj.
+          </p>
+        </>
+      }
       >
-        <div className="data-actions">
-          <button type="button" className="data-action" onClick={() => void exportData()}>
-            <Icon name="download" size={16} />
-            Izvezi podatke
-          </button>
-          <button
-            type="button"
-            className="data-action"
-            onClick={() => fileInput.current?.click()}
-            disabled={state.kind === 'checking' || state.kind === 'replacing'}
-          >
-            <Icon name="upload" size={16} />
-            Uvezi podatke…
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".json,application/json"
-            className="visually-hidden"
-            tabIndex={-1}
-            aria-label="Fajl sa podacima"
-            onChange={(e) => void chooseFile(e)}
-          />
-        </div>
+      <div className="data-actions">
+        <button type="button" className="data-action" onClick={() => void exportData()}>
+          <Icon name="download" size={16} />
+          Izvezi podatke
+        </button>
+        <button
+          type="button"
+          className="data-action"
+          onClick={() => fileInput.current?.click()}
+          disabled={state.kind === 'checking' || state.kind === 'replacing'}
+        >
+          <Icon name="upload" size={16} />
+          Uvezi podatke…
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".json,application/json"
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-label="Fajl sa podacima"
+          onChange={(e) => void chooseFile(e)}
+        />
+      </div>
 
-        {exported && (
-          <p role="status" className="text--success">
-            Napravljen je fajl {exported}.
-          </p>
-        )}
-        {exportError && (
-          <p role="alert" className="text--error">
-            Izvoz nije uspeo: {exportError}
-          </p>
-        )}
-        {imported && (
-          <p role="status" className="text--success">
-            {imported}
-          </p>
-        )}
-        {state.kind === 'checking' && <p role="status">Provera fajla…</p>}
-        {state.kind === 'error' && (
-          <p role="alert" className="text--error">
-            Fajl nije uvezen: {state.message} Podaci na uređaju nisu menjani.
-          </p>
-        )}
+      {exported && (
+        <p role="status" className="text--success">
+          Napravljen je fajl {exported}.
+        </p>
+      )}
+      {exportError && (
+        <p role="alert" className="text--error">
+          Izvoz nije uspeo: {exportError}
+        </p>
+      )}
+      {imported && (
+        <p role="status" className="text--success">
+          {imported}
+        </p>
+      )}
+      {state.kind === 'checking' && <p role="status">Provera fajla…</p>}
+      {state.kind === 'error' && (
+        <p role="alert" className="text--error">
+          Fajl nije uvezen: {state.message} Podaci na uređaju nisu menjani.
+        </p>
+      )}
 
-        {review && (
-          <Notice tone="warning" title="Uvoz zamenjuje sve podatke na uređaju" role="status">
-            <p>
-              Fajl {review.fileName}, izvezen {formatDateTime(review.summary.exportedAt)}, sadrži:
-            </p>
-            <ul className="device-data__summary" aria-label="Sadržaj fajla">
-              <li>pošiljke: {review.summary.shipments}</li>
-              <li>mesta: {review.summary.locations}</li>
-              <li>kamioni: {review.summary.trucks}</li>
-              <li>tipovi kamiona: {review.summary.truckTypes}</li>
-              <li>rezultati optimizacije: {review.summary.results}</li>
-              <li>
-                zapamćene koordinate: {review.summary.geocodes}, kilometraže: {review.summary.distances}, linije po
-                putu: {review.summary.routeLines}
-              </li>
-            </ul>
-            <p>Sadašnji podaci na ovom uređaju se brišu. Ključ za OpenRouteService ostaje.</p>
-            <div className="form-actions">
-              <button
-                type="button"
-                className="button--danger"
-                onClick={() => void replace()}
-                disabled={state.kind === 'replacing'}
-              >
-                {state.kind === 'replacing' ? 'Uvoz…' : 'Zameni podatke'}
-              </button>
-              <button type="button" onClick={() => setState({ kind: 'idle' })} disabled={state.kind === 'replacing'}>
-                Odustani
-              </button>
-            </div>
-          </Notice>
-        )}
-      </SettingsPart>
-    </div>
+      {review && (
+        <Notice tone="warning" title="Uvoz zamenjuje sve podatke na uređaju" role="status">
+          <p>
+            Fajl {review.fileName}, izvezen {formatDateTime(review.summary.exportedAt)}, sadrži:
+          </p>
+          <ul className="device-data__summary" aria-label="Sadržaj fajla">
+            <li>pošiljke: {review.summary.shipments}</li>
+            <li>mesta: {review.summary.locations}</li>
+            <li>kamioni: {review.summary.trucks}</li>
+            <li>tipovi kamiona: {review.summary.truckTypes}</li>
+            <li>rezultati optimizacije: {review.summary.results}</li>
+            <li>
+              zapamćene koordinate: {review.summary.geocodes}, kilometraže: {review.summary.distances}, linije po
+              putu: {review.summary.routeLines}
+            </li>
+          </ul>
+          <p>Sadašnji podaci na ovom uređaju se brišu. Ključ za OpenRouteService ostaje.</p>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="button--danger"
+              onClick={() => void replace()}
+              disabled={state.kind === 'replacing'}
+            >
+              {state.kind === 'replacing' ? 'Uvoz…' : 'Zameni podatke'}
+            </button>
+            <button type="button" onClick={() => setState({ kind: 'idle' })} disabled={state.kind === 'replacing'}>
+              Odustani
+            </button>
+          </div>
+        </Notice>
+      )}
+    </SettingsPart>
   )
 }

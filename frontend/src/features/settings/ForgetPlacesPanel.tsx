@@ -1,12 +1,16 @@
 import { useApi } from '../../api/apiContext'
+import { MapPinOff } from 'lucide-react'
 import { AdminActionPanel } from './AdminActionPanel'
+import type { PartRef } from './SettingsPart'
 
 /** Forgets where every place is, for places found wrong; the shipments and trucks stay. */
-export function ForgetPlacesPanel() {
+export function ForgetPlacesPanel({ partRef }: { partRef: PartRef }) {
   const api = useApi()
   return (
     <AdminActionPanel
-      n={6}
+      id="lokacije"
+      icon={MapPinOff}
+      partRef={partRef}
       title="Zaboravljanje svih lokacija"
       about={
         <>

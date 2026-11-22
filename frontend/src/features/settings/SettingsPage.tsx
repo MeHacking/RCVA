@@ -1,50 +1,76 @@
+import { Database, MapPin, MapPinOff, Palette, Route, Trash2, Truck } from 'lucide-react'
 import { useCallback, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { useApi } from '../../api/apiContext'
 import { ApiError, describeError } from '../../api/client'
 import type { DeviceSettings, OrsProfile } from '../../api/types'
 import { OsmAttribution } from '../../components/OsmAttribution'
 import { PageHeader } from '../../components/PageHeader'
+import { SectionNav, type NavPart } from '../../components/SectionNav'
+import { useScrollSpy } from '../../hooks/useScrollSpy'
 import { EmptyState, ErrorState, LoadingState } from '../../components/states'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { DeviceDataPanel } from './DeviceDataPanel'
 import { FactoryResetPanel } from './FactoryResetPanel'
 import { ForgetPlacesPanel } from './ForgetPlacesPanel'
-import { SettingsPart } from './SettingsPart'
+import { SettingsPart, type PartRef } from './SettingsPart'
 import { ThemePanel } from './ThemePanel'
 
-/** Settings of the application on the device; the mock and the backend have none. */
+/** The look; the browser's own, so it is there whatever the data source says. */
+const LOOK: NavPart = { id: 'izgled', title: 'Izgled', icon: Palette }
+
+/** The parts the application on the device has, in the contents as in smartLoad+ (owner, 22.11.2026). */
+const DEVICE_PARTS: NavPart[] = [
+  { id: 'koordinate', title: 'Koordinate mesta', icon: MapPin },
+  { id: 'kilometraze', title: 'Kilometraže', icon: Route },
+  { id: 'dodatni-kamion', title: 'Dodatni kamion', icon: Truck },
+  { id: 'podaci', title: 'Podaci na uređaju', icon: Database },
+  { id: 'lokacije', title: 'Zaboravljanje lokacija', icon: MapPinOff },
+  { id: 'brisanje', title: 'Brisanje podataka', icon: Trash2 },
+]
+
+/**
+ * Settings of the application on the device; the mock and the backend have none. Laid out as in
+ * smartLoad+: a card per part on the left, and the contents beside them that follow the reading.
+ */
 export function SettingsPage() {
   const api = useApi()
   const load = useCallback(() => api.getDeviceSettings(), [api])
   const [settings, reload] = useAsyncData(load)
+  const onDevice = settings.status === 'success' && settings.data !== null
+  const parts = onDevice ? [LOOK, ...DEVICE_PARTS] : [LOOK]
+  const { active, goTo, partRef } = useScrollSpy(parts.map((p) => p.id))
 
   return (
     <section className="settings">
       <PageHeader title="Podešavanja" note="Izgled, podaci i servisi" />
-      {/* The look is the browser's own, so it is there whatever the data source says. */}
-      <ThemePanel />
-      {settings.status === 'loading' && <LoadingState label="Učitavanje podešavanja…" />}
-      {settings.status === 'error' && (
-        <ErrorState title="Podešavanja nisu učitana" message={settings.message} onRetry={reload} />
-      )}
-      {settings.status === 'success' &&
-        (settings.data ? (
-          <>
-            <SettingsForm initial={settings.data} />
-            <DeviceDataPanel />
-            <ForgetPlacesPanel />
-            <FactoryResetPanel />
-          </>
-        ) : (
-          <EmptyState title="Nema podešavanja">Podešavanja postoje samo u aplikaciji na uređaju.</EmptyState>
-        ))}
+      <div className="section-layout">
+        <div className="settings__parts">
+          <ThemePanel partRef={partRef} />
+          {settings.status === 'loading' && <LoadingState label="Učitavanje podešavanja…" />}
+          {settings.status === 'error' && (
+            <ErrorState title="Podešavanja nisu učitana" message={settings.message} onRetry={reload} />
+          )}
+          {settings.status === 'success' &&
+            (settings.data ? (
+              <>
+                <SettingsForm initial={settings.data} partRef={partRef} />
+                <DeviceDataPanel partRef={partRef} />
+                <ForgetPlacesPanel partRef={partRef} />
+                <FactoryResetPanel partRef={partRef} />
+              </>
+            ) : (
+              <EmptyState title="Nema podešavanja">Podešavanja postoje samo u aplikaciji na uređaju.</EmptyState>
+            ))}
+        </div>
+        <SectionNav parts={parts} active={active} goTo={goTo} label="Delovi podešavanja" />
+      </div>
     </section>
   )
 }
 
 type Field = 'contactEmail' | 'orsApiKey' | 'orsProfile' | 'extraTruckSavingPercent'
 
-function SettingsForm({ initial }: { initial: DeviceSettings }) {
+function SettingsForm({ initial, partRef }: { initial: DeviceSettings; partRef: PartRef }) {
   const api = useApi()
   const id = useId()
   const [geocodingEnabled, setGeocodingEnabled] = useState(initial.geocodingEnabled)
@@ -103,10 +129,12 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
   )
 
   return (
-    <form className="panel settings-form" onSubmit={handleSubmit} noValidate aria-label="Podešavanja aplikacije">
+    <form className="settings-form" onSubmit={handleSubmit} noValidate aria-label="Podešavanja aplikacije">
       <SettingsPart
-        n={2}
+        id="koordinate"
+        icon={MapPin}
         title="Koordinate mesta"
+        partRef={partRef}
         about={
           <>
             <p className="text--muted">
@@ -151,8 +179,10 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
       </SettingsPart>
 
       <SettingsPart
-        n={3}
+        id="kilometraze"
+        icon={Route}
         title="Kilometraže"
+        partRef={partRef}
         about={
           <>
             <p className="text--muted">
@@ -203,8 +233,10 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
       </SettingsPart>
 
       <SettingsPart
-        n={4}
+        id="dodatni-kamion"
+        icon={Truck}
         title="Preporuka dodatnog kamiona"
+        partRef={partRef}
         about={
           <p className="text--muted">
             Posle optimizacije aplikacija proba i sa jednim kamionom više i predloži ga kada je kilometara bar toliko
@@ -228,6 +260,7 @@ function SettingsForm({ initial }: { initial: DeviceSettings }) {
       </SettingsPart>
 
       <div className="settings-form__footer">
+        <p className="text--muted">Koordinate mesta, kilometraže i preporuka dodatnog kamiona čuvaju se zajedno.</p>
         {formError && (
           <p role="alert" className="text--error">
             Čuvanje nije uspelo: {formError}

@@ -2,20 +2,26 @@ import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { describeError } from '../../api/client'
 import { ADMIN_PASSWORD } from './adminPassword'
 import { keepForReload } from './afterReload'
-import { SettingsPart } from './SettingsPart'
+import type { LucideIcon } from 'lucide-react'
+import { SettingsPart, type PartRef } from './SettingsPart'
 
 /**
  * Something at the bottom of the settings that cannot be undone, done once the administrator's
  * password is given. Then the page reloads, so every screen starts from the data as it is now.
  */
 export function AdminActionPanel({
-  n,
+  id: partId,
+  icon,
+  partRef,
   title,
   about,
   action,
   act,
 }: {
-  n: number
+  /** the part's id in the contents */
+  id: string
+  icon: LucideIcon
+  partRef: PartRef
   title: string
   about: ReactNode
   /** the button */
@@ -46,33 +52,31 @@ export function AdminActionPanel({
   }
 
   return (
-    <div className="panel panel--cherry factory-reset">
-      <SettingsPart n={n} title={title} about={about}>
-        <form onSubmit={(e) => void handleSubmit(e)} noValidate aria-label={title}>
-          <div className="field">
-            <label htmlFor={`${id}-password`}>Administratorska lozinka</label>
-            <input
-              id={`${id}-password`}
-              type="password"
-              autoComplete="off"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? `${id}-error` : undefined}
-            />
-            {error && (
-              <span id={`${id}-error`} className="field__error" role="alert">
-                {error}
-              </span>
-            )}
-          </div>
-          <div className="form-actions">
-            <button type="submit" className="button--primary" disabled={working || password === ''}>
-              {working ? 'Brisanje…' : action}
-            </button>
-          </div>
-        </form>
-      </SettingsPart>
-    </div>
+    <SettingsPart id={partId} icon={icon} title={title} about={about} partRef={partRef} className="admin-action">
+      <form onSubmit={(e) => void handleSubmit(e)} noValidate aria-label={title}>
+        <div className="field">
+          <label htmlFor={`${id}-password`}>Administratorska lozinka</label>
+          <input
+            id={`${id}-password`}
+            type="password"
+            autoComplete="off"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-error` : undefined}
+          />
+          {error && (
+            <span id={`${id}-error`} className="field__error" role="alert">
+              {error}
+            </span>
+          )}
+        </div>
+        <div className="form-actions">
+          <button type="submit" className="button--danger" disabled={working || password === ''}>
+            {working ? 'Brisanje…' : action}
+          </button>
+        </div>
+      </form>
+    </SettingsPart>
   )
 }
