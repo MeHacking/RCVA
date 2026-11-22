@@ -258,6 +258,70 @@ fieldset.field {
   margin-bottom: var(--space-1);
 }
 
+/* A choice of a few options as pills in one bar, the chosen one in the accent, as the
+   Segmented control in smartLoad+ (owner, 22.11.2026). Radio buttons, so the arrow keys move
+   between the options. */
+.switch-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.switch-bar__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 2.5rem;
+  padding: 0 18px 0 15px;
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    scale 0.12s var(--ease-out);
+}
+
+.switch-bar__option svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+}
+
+.switch-bar__option:hover:not(:has(:checked)) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.switch-bar__option:active {
+  scale: 0.97;
+}
+
+.switch-bar__option:has(:checked) {
+  background: var(--chosen-bg);
+  color: var(--chosen-text);
+  font-weight: 550;
+}
+
+.switch-bar__option:has(:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-bar__option {
+    transition: none;
+  }
+
+  .switch-bar__option:active {
+    scale: none;
+  }
+}
+
 .field-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -175,3 +175,20 @@ test('past 10 km it names only that place, shows it on the map, and offers no mo
   await expect(offer.getByRole('button')).toHaveCount(0)
   expect(errors).toEqual([])
 })
+
+test('the roads are chosen in a switch bar, and the choice is kept after a reload', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  await page.goto('/settings')
+  const roads = page.getByRole('group', { name: 'Putevi za' })
+  await expect(roads.getByRole('radio', { name: 'teretna vozila' })).toBeChecked()
+  // Choosing with the arrow keys, as radio buttons do.
+  await roads.getByRole('radio', { name: 'teretna vozila' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(roads.getByRole('radio', { name: 'automobile' })).toBeChecked()
+  await page.getByRole('button', { name: 'Sačuvaj' }).click()
+  await expect(page.getByText('Podešavanja su sačuvana.')).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('group', { name: 'Putevi za' }).getByRole('radio', { name: 'automobile' })).toBeChecked()
+  await expect(page.getByRole('combobox', { name: 'Putevi za' })).toHaveCount(0)
+  expect(errors).toEqual([])
+})

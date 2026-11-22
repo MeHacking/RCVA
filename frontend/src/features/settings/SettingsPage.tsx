@@ -1,4 +1,4 @@
-import { Database, MapPin, MapPinOff, Palette, Route, Trash2, Truck } from 'lucide-react'
+import { Car, Database, MapPin, MapPinOff, Palette, Route, Trash2, Truck, type LucideIcon } from 'lucide-react'
 import { useCallback, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { useApi } from '../../api/apiContext'
 import { ApiError, describeError } from '../../api/client'
@@ -67,6 +67,12 @@ export function SettingsPage() {
     </section>
   )
 }
+
+/** The vehicles whose roads OpenRouteService follows, as a switch of two pills (owner, 22.11.2026). */
+const PROFILES: Array<{ value: OrsProfile; label: string; icon: LucideIcon }> = [
+  { value: 'driving-hgv', label: 'teretna vozila', icon: Truck },
+  { value: 'driving-car', label: 'automobile', icon: Car },
+]
 
 type Field = 'contactEmail' | 'orsApiKey' | 'orsProfile' | 'extraTruckSavingPercent'
 
@@ -216,20 +222,30 @@ function SettingsForm({ initial, partRef }: { initial: DeviceSettings; partRef: 
           {fieldError('orsApiKey')}
         </div>
 
-        <div className="field">
-          <label htmlFor={`${id}-orsProfile`}>Putevi za</label>
-          <select
-            id={`${id}-orsProfile`}
-            value={orsProfile}
-            onChange={(e) => setOrsProfile(e.target.value as OrsProfile)}
-            aria-invalid={errors.orsProfile ? true : undefined}
-            aria-describedby={described('orsProfile', false)}
-          >
-            <option value="driving-hgv">teretna vozila</option>
-            <option value="driving-car">automobile</option>
-          </select>
+        <fieldset
+          className="field"
+          aria-invalid={errors.orsProfile ? true : undefined}
+          aria-describedby={described('orsProfile', false)}
+        >
+          <legend>Putevi za</legend>
+          <div className="switch-bar">
+            {PROFILES.map(({ value, label, icon: Glyph }) => (
+              <label key={value} className="switch-bar__option">
+                <input
+                  type="radio"
+                  name={`${id}-orsProfile`}
+                  className="visually-hidden"
+                  value={value}
+                  checked={orsProfile === value}
+                  onChange={() => setOrsProfile(value)}
+                />
+                <Glyph aria-hidden="true" />
+                {label}
+              </label>
+            ))}
+          </div>
           {fieldError('orsProfile')}
-        </div>
+        </fieldset>
       </SettingsPart>
 
       <SettingsPart
