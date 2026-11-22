@@ -1,3 +1,4 @@
+import { Box, Map as MapIcon } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { Link } from 'react-router'
 import { PATHS } from '../../app/paths'
@@ -105,8 +106,15 @@ export function RouteTable({
                     </button>
                   </td>
                   <td className="actions route-table__links">
-                    <Link to={`${PATHS.result3d}${query}`}>3D prikaz</Link>
-                    <Link to={`${PATHS.resultMap}${query}`}>Mapa</Link>
+                    {/* Links that look like the buttons beside them, with icons (owner, 22.11.2026). */}
+                    <Link className="link-button" to={`${PATHS.result3d}${query}`}>
+                      <Box aria-hidden="true" size={14} />
+                      3D prikaz
+                    </Link>
+                    <Link className="link-button" to={`${PATHS.resultMap}${query}`}>
+                      <MapIcon aria-hidden="true" size={14} />
+                      Mapa
+                    </Link>
                     {onDriverPdf && (
                       <button
                         type="button"
