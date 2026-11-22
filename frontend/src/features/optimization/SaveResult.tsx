@@ -60,16 +60,12 @@ export function SaveResult({ job, result }: { job: OptimizationJob; result: Opti
   // above the cards.
   return (
     <section className="save-result" aria-label="Čuvanje u istoriji">
+      {/* Renamed only in Istorija (owner, 22.11.2026). */}
       {saved ? (
-        <>
-          <span className="save-result__done">
-            <BookmarkCheck aria-hidden="true" size={18} />
-            Sačuvano
-          </span>
-          <button type="button" onClick={() => setNaming('rename')}>
-            Preimenuj
-          </button>
-        </>
+        <span className="save-result__done">
+          <BookmarkCheck aria-hidden="true" size={18} />
+          Sačuvano
+        </span>
       ) : (
         <button type="button" className="button--primary" onClick={() => void save()} disabled={busy}>
           <Save aria-hidden="true" size={16} />

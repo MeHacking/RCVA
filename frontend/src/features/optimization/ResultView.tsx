@@ -1,5 +1,3 @@
-import { ORS_ATTRIBUTION } from '../../api/local/openRouteService'
-import { OSM_ATTRIBUTION } from '../../api/local/nominatim'
 import { formatShipmentCount } from '../../format/count'
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
@@ -154,9 +152,6 @@ export function ResultView({
       )}
 
       <Summary result={result} onExport={reference.status === 'success' ? () => savePdf(null) : null} />
-      {result.distanceSource && result.distanceSource !== 'airline' && (
-        <p className="result__attribution text--muted">Kilometraže: {ORS_ATTRIBUTION}, {OSM_ATTRIBUTION}.</p>
-      )}
       {pdfMessage(null)}
       <Validation result={result} />
       <ManualChangesNotice jobId={job.id} result={result} onChanged={(changed) => replaceResult(job.id, changed)} />

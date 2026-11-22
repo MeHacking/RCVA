@@ -54,8 +54,6 @@ test('with a key the job uses road distances from ORS, asked once', async ({ pag
   await saveKey(page)
   await start(page)
   await expect(page.getByTestId('distance-source')).toHaveText('po putu za kamione', { timeout: 20_000 })
-  // The providers are named under the cards, not on them.
-  await expect(page.getByText('Kilometraže: © openrouteservice.org by HeiGIT, © OpenStreetMap contributors.')).toBeVisible()
   expect(asked).toEqual([{ profile: 'driving-hgv', key: 'probni-kljuc' }])
 
   // The distances are kept: after a reload a new job asks nothing. The trucks' last

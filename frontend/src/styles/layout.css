@@ -1169,11 +1169,6 @@
   line-height: 1.2;
 }
 
-.result__attribution {
-  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
-  font-size: var(--text-xs);
-}
-
 /* The step "Vreme": the stopwatch beside the field and the button. */
 /* "Preporučeno: najmanje 20 s za 28 pošiljki" (timeLimit.ts, measured 21.11.2026). */
 .time-step__advice {
@@ -1880,16 +1875,30 @@ button.stat.stat-action:hover:not(:disabled) {
 }
 
 /* Istorija: the kept jobs. */
-.history-table__shown,
 .history-table__note {
   display: block;
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
-.history-table__shown {
-  color: var(--accent-on-light);
-  font-weight: var(--weight-semibold);
+/* "Obriši" and "Preimenuj" in Istorija: round icon buttons, so the row fits. */
+.history-table button.button--icon {
+  width: var(--control-height);
+  padding: 0;
+}
+
+/* The column of the eye that marks the one shown (as in smartLoad+), without a title. */
+.table .history-table__eye {
+  width: 2.5rem;
+  padding-right: 0;
+  color: var(--accent);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.history-table__eye svg {
+  display: block;
+  margin: 0 auto;
 }
 
 /* The trucks' map on Kamioni: a pin per place (TruckMap.tsx). */

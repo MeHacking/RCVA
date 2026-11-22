@@ -1,3 +1,4 @@
+import { Eye } from 'lucide-react'
 import { defaultJobName } from '../../format/jobName'
 import { NameDialog } from '../optimization/NameDialog'
 import { useCallback, useState } from 'react'
@@ -129,6 +130,10 @@ export function HistoryPage() {
             <table className="table history-table" aria-label="Sačuvane optimizacije">
               <thead>
                 <tr>
+                  {/* The eye's column, without a title (owner, 22.11.2026). */}
+                  <th scope="col" className="history-table__eye">
+                    <span className="visually-hidden">Prikazana</span>
+                  </th>
                   <th scope="col">Naziv</th>
                   <th scope="col">Pokrenut</th>
                   <th scope="col">Status</th>
@@ -151,9 +156,17 @@ export function HistoryPage() {
                   const duration = jobDurationSeconds(job)
                   return (
                     <tr key={job.id} aria-current={job.id === shownId ? 'true' : undefined}>
+                      {/* As in smartLoad+ (owner, 22.11.2026): an eye on the one shown, in a column of its own. */}
+                      <td className="history-table__eye">
+                        {job.id === shownId && (
+                          <>
+                            <Eye aria-hidden="true" size={18} />
+                            <span className="visually-hidden">prikazana</span>
+                          </>
+                        )}
+                      </td>
                       <td>
                         {summary.name}
-                        {job.id === shownId && <span className="history-table__shown">prikazan</span>}
                       </td>
                       <td>{formatDateTime(job.createdAt)}</td>
                       <td>
@@ -215,13 +228,20 @@ export function HistoryPage() {
                               }}
                               disabled={!isTerminal(job.status)}
                               aria-label={`Obriši: ${summary.name}`}
+                              title="Obriši"
+                              className="button--icon"
                             >
                               <Icon name="trash" size={14} />
-                              Obriši
                             </button>
-                            <button type="button" onClick={() => setRenaming(summary)} aria-label={`Preimenuj: ${summary.name}`}>
+                            {/* Icons only, so the row fits; the names are for screen readers and the tooltip. */}
+                            <button
+                              type="button"
+                              onClick={() => setRenaming(summary)}
+                              aria-label={`Preimenuj: ${summary.name}`}
+                              title="Preimenuj"
+                              className="button--icon"
+                            >
                               <Icon name="edit" size={14} />
-                              Preimenuj
                             </button>
                           </span>
                         )}

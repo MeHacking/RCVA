@@ -71,8 +71,11 @@ test('keeps only saved jobs, by name; opens an older one everywhere, renames and
   await expect(page.getByRole('main').getByText(/^\d+ kamiona? - [\d,]+ km · završen/)).toBeVisible()
   await page.getByRole('navigation').getByRole('link', { name: 'Istorija' }).click()
   await expect(rows).toHaveCount(3)
-  await expect(rows.nth(1)).toContainText(/^\d+ kamiona? - [\d,]+ kmprikazan/)
+  await expect(rows.nth(1)).toContainText(/\d+ kamiona? - [\d,]+ km/)
   await expect(rows.nth(2)).toContainText('Sever')
+  // An eye marks the one shown, as in smartLoad+; the other has only its place.
+  await expect(rows.nth(1).locator('.history-table__eye svg')).toHaveCount(1)
+  await expect(rows.nth(2).locator('.history-table__eye svg')).toHaveCount(0)
 
   // Opened: Rezultati and the map show "Sever".
   await page.getByRole('button', { name: 'Otvori: Sever' }).click()
@@ -88,7 +91,8 @@ test('keeps only saved jobs, by name; opens an older one everywhere, renames and
   const dialog = page.getByRole('dialog', { name: 'Novo ime' })
   await dialog.getByLabel('Ime').fill('Jug')
   await dialog.getByRole('button', { name: 'Sačuvaj ime' }).click()
-  await expect(rows.nth(2)).toContainText('Jugprikazan')
+  await expect(rows.nth(2)).toContainText('Jug')
+  await expect(rows.nth(2).locator('.history-table__eye svg')).toHaveCount(1)
 
   // Deleted after asking; the shown job is then gone from Rezultati too.
   await page.getByRole('button', { name: 'Obriši: Jug' }).click()
