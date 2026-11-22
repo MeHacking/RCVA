@@ -181,7 +181,7 @@ describe('mock truck removal', () => {
     await api.createOptimizationJob(REQUEST)
     const queued = await rejection(api.deleteTruck(1))
     expect(queued.status).toBe(409)
-    expect(queued.message).toMatch(/Optimizacija #1 je u toku/)
+    expect(queued.message).toMatch(/Optimizacija je u toku/)
 
     advance(QUEUED_MS)
     expect((await rejection(api.deleteTruck(1))).status).toBe(409)

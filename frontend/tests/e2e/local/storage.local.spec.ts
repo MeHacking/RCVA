@@ -71,11 +71,11 @@ test('shows a job cut off by a reload as failed, and can start a new one', async
   await page.getByLabel('Vremensko ograničenje (s)').fill('60')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()
   // The job's state is in the step Rezultat (the top bar holds the steps there).
-  const progress = page.getByRole('main').getByRole('status').filter({ hasText: /^Posao #1/ })
+  const progress = page.getByRole('main').getByRole('status').filter({ hasText: /^Optimizacija/ })
   await expect(progress).toContainText(/U toku|U redu čekanja/)
 
   await page.reload()
-  await expect(page.getByText('Posao #1: greška solvera')).toBeVisible()
+  await expect(page.getByText('Greška solvera', { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Nazad: vreme' }).click()
   await page.getByLabel('Vremensko ograničenje (s)').fill('2')
   await page.getByRole('main').getByRole('button', { name: 'Pokreni optimizaciju' }).click()

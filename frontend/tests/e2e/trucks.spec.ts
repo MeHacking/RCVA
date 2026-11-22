@@ -343,7 +343,7 @@ test('refuses removal while an optimization is running', async ({ page }) => {
   await page.getByRole('group', { name: 'Potvrda uklanjanja: Šleper 1' }).getByRole('button', { name: 'Da, ukloni' }).click()
 
   await expect(page.getByRole('alert')).toContainText(
-    'Kamion „Šleper 1“ nije uklonjen: Optimizacija #1 je u toku; kamion se može ukloniti kada se završi. (HTTP 409)',
+    'Kamion „Šleper 1“ nije uklonjen: Optimizacija je u toku; kamion se može ukloniti kada se završi. (HTTP 409)',
   )
   await expect(page.getByRole('row', { name: /Šleper 1/ })).toBeVisible()
 })

@@ -51,6 +51,8 @@ export function createHttpClient(baseUrl = '/api/v1', fetchImpl: typeof fetch = 
     listOptimizationJobs: async () => null,
     deleteOptimizationJob: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema brisanje poslova.' })),
+    saveOptimizationJob: () =>
+      Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema čuvanje u istoriji.' })),
     cancelOptimizationJob: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Backend nema prekidanje poslova.' })),
     getOptimizationResult: (id) => request('GET', `/optimization-jobs/${id}/result`),

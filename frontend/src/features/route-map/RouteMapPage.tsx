@@ -1,3 +1,4 @@
+import { jobLabel } from '../../format/jobName'
 import { lazy, Suspense } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { apiMode } from '../../api/apiMode'
@@ -70,9 +71,10 @@ function RouteList({ job, result }: { job: OptimizationJob; result: Optimization
   return (
     <>
       {jobId !== null && jobId !== job.id && (
-        <Notice tone="warning" title={`Posao #${jobId} nije dostupan`} role="status">
+        <Notice tone="warning" title="Tražena optimizacija nije dostupna" role="status">
           <p>
-            Prikazane su rute posla #{job.id}. Raniji posao otvorite iz <Link to="/history">Istorije</Link>.
+            Prikazane su rute optimizacije „{jobLabel(job, result)}“. Sačuvanu optimizaciju otvorite iz{' '}
+            <Link to="/history">Istorije</Link>.
           </p>
         </Notice>
       )}

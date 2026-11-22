@@ -162,6 +162,13 @@ export interface ApiClient {
    * cannot stop one), 409 once it has ended.
    */
   cancelOptimizationJob(id: number): Promise<void>
+  /**
+   * NOT IN SPEC v2 ("Sačuvaj", as in smartLoad+, owner 22.11.2026): puts a completed job into
+   * Istorija, or renames a saved one; `name` null: named by its result. Only saved jobs are listed;
+   * one not saved is forgotten when the next job is created. 409 for a job that has not completed,
+   * and when Istorija is full (KEPT_JOBS saved); 404 for an unknown job (and over HTTP).
+   */
+  saveOptimizationJob(id: number, name: string | null): Promise<OptimizationJob>
   /** Only for COMPLETED jobs; 409 otherwise */
   getOptimizationResult(id: number): Promise<OptimizationResult>
   /** GET /optimization-jobs/{id}/trucks/{truckId}/load-plan; 409 when the truck has no cargo dimensions */

@@ -258,7 +258,7 @@ describe('replacing the data on the device with a file', () => {
     const { id } = await api.createOptimizationJob(REQUEST)
     const content = await exported(api)
     const error = await rejection(api.replaceDeviceData(content))
-    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija #${id} je u toku; podaci se mogu uvesti kada se završi.` })
+    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija je u toku; podaci se mogu uvesti kada se završi.` })
     release()
     await settle(api, id)
 

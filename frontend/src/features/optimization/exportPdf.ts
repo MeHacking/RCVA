@@ -10,14 +10,19 @@ const desktopBridge = () => (window as Window & { rcvaDesktop?: DesktopBridge })
 
 export type PdfOutcome = { kind: 'saved'; path: string } | { kind: 'cancelled' } | { kind: 'printed' }
 
-export function reportFileName(jobId: number): string {
-  return `rcva-rezultat-posao-${jobId}.pdf`
+/** A name as part of a file name: without what a file name cannot hold, spaces as hyphens. */
+function fileNamePart(text: string, fallback: string): string {
+  return text.trim().replace(/[\\/:*?"<>|\s]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') || fallback
 }
 
-/** "rcva-Šleper-1-posao-12.pdf": the driver's PDF of one truck, without what a file name cannot hold. */
-export function truckReportFileName(jobId: number, truckName: string): string {
-  const name = truckName.trim().replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'kamion'
-  return `rcva-${name}-posao-${jobId}.pdf`
+/** "rcva-rezultat-Sever-nedelja-47.pdf": the whole result, by the optimization's name (owner, 22.11.2026: no numbers). */
+export function reportFileName(jobName: string): string {
+  return `rcva-rezultat-${fileNamePart(jobName, 'optimizacija')}.pdf`
+}
+
+/** "rcva-Šleper-1-Sever-nedelja-47.pdf": the driver's PDF of one truck. */
+export function truckReportFileName(jobName: string, truckName: string): string {
+  return `rcva-${fileNamePart(truckName, 'kamion')}-${fileNamePart(jobName, 'optimizacija')}.pdf`
 }
 
 /**

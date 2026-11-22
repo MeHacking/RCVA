@@ -97,7 +97,7 @@ describe('noticeFor', () => {
   it('says how many trucks and kilometres a completed job has', () => {
     const notice = noticeFor(job(7, 'COMPLETED'), result(), at)
     expect(notice).toMatchObject({ kind: 'done', title: 'Optimizacija je završena', at: '2026-11-20T10:05:00.000Z' })
-    expect(notice.detail).toBe('Posao #7: kamioni 2, 1001,5 km')
+    expect(notice.detail).toBe('Kamioni 2, 1001,5 km')
   })
 
   it('warns when the validator did not pass', () => {

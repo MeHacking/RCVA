@@ -105,7 +105,7 @@ export function TruckLocations({
                         <div className="truck-proposal">
                           <span>
                             <PlaceName location={start.proposal.location} />
-                            <span className="text--muted"> · poslednja isporuka u optimizaciji #{start.proposal.jobId}</span>
+                            <span className="text--muted"> · poslednja isporuka u poslednjoj optimizaciji</span>
                           </span>
                           <div className="truck-proposal__actions">
                             <button

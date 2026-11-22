@@ -47,7 +47,7 @@ test('Optimizuj starts a job, counts the time and polls it to completion', async
   const bell = page.getByRole('button', { name: /^Obaveštenja/ })
   await expect(bell).toHaveAccessibleName('Obaveštenja (1 novo)', { timeout: 10_000 })
   await bell.click()
-  await expect(page.getByRole('dialog', { name: 'Obaveštenja' })).toContainText(/Posao #1: kamioni 2, /)
+  await expect(page.getByRole('dialog', { name: 'Obaveštenja' })).toContainText(/Kamioni 2, /)
   expect(errors).toEqual([])
 })
 

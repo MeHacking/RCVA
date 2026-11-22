@@ -1,3 +1,4 @@
+import { jobLabel } from '../../format/jobName'
 import { createPortal } from 'react-dom'
 import type { OptimizationJob, OptimizationResult, Truck } from '../../api/types'
 import { formatDateTime } from '../../format/time'
@@ -47,11 +48,11 @@ export function ResultReport({
           <div>
             <h1>Ruta i utovar</h1>
             <p className="report__meta">
-              Posao #{job.id} · završen {formatDateTime(job.finishedAt)}
+              {jobLabel(job, result)} · završen {formatDateTime(job.finishedAt)}
             </p>
           </div>
         </header>
-        <TruckPage row={truck} jobId={job.id} plan={loadPlans.get(truck.truckId)} truck={truckOf(reference, truck.truckId)} />
+        <TruckPage row={truck} jobName={jobLabel(job, result)} plan={loadPlans.get(truck.truckId)} truck={truckOf(reference, truck.truckId)} />
         {result.distanceSource && <p className="report__note">Kilometraže: {DISTANCE_SOURCES[result.distanceSource]}.</p>}
       </article>,
       document.body,
@@ -68,7 +69,7 @@ export function ResultReport({
         <div>
           <h1>Rezultat optimizacije</h1>
           <p className="report__meta">
-            Posao #{job.id} · završen {formatDateTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
+            {jobLabel(job, result)} · završen {formatDateTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
           </p>
         </div>
       </header>
@@ -161,7 +162,7 @@ export function ResultReport({
         <TruckPage
           key={row.truckId}
           row={row}
-          jobId={job.id}
+          jobName={jobLabel(job, result)}
           plan={loadPlans.get(row.truckId)}
           truck={truckOf(reference, row.truckId)}
         />
@@ -176,12 +177,12 @@ const truckOf = (reference: ReferenceData, truckId: number) => reference.trucks.
 /** A truck's page, the same in the whole report and in its driver's PDF. */
 function TruckPage({
   row,
-  jobId,
+  jobName,
   plan: entry,
   truck,
 }: {
   row: TruckRow
-  jobId: number
+  jobName: string
   /** undefined: still being asked for */
   plan: LoadPlanEntry | undefined
   truck: Truck | undefined
@@ -193,7 +194,7 @@ function TruckPage({
     <section className="report__truck" aria-label={row.truckName}>
       <h2>{row.truckName}</h2>
       <p className="report__meta">
-        Posao #{jobId} · {formatKm(row.totalMeters)} · {fill(row)}
+        {jobName} · {formatKm(row.totalMeters)} · {fill(row)}
       </p>
       {driver && <p className="report__driver">Vozač: {driver}</p>}
       <h3>Stanice redom</h3>

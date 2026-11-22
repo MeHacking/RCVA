@@ -1,3 +1,5 @@
+import { defaultJobName } from '../../format/jobName'
+import { NameDialog } from '../optimization/NameDialog'
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useApi } from '../../api/apiContext'
@@ -28,15 +30,11 @@ const TONES: Record<JobStatus, BadgeTone> = {
   FAILED: 'danger',
 }
 
-/**
- * Istorija (user, 21.11.2026): the optimizations kept on the device, newest first. "Otvori" shows
- * one on Rezultati (and on Mapa ruta and 3D prikaz, with its PDF), instead of the last one.
- */
-/** A kept job for the search: its number, when it started, its state, trucks and kilometres. */
+/** A saved job for the search: its name, when it started, its state, trucks and kilometres. */
 function matchesJob(summary: JobSummary, query: string): boolean {
   const { job } = summary
   return matchesQuery(query, [
-    `#${job.id}`,
+    summary.name,
     formatDateTime(job.createdAt),
     JOB_STATUS_LABELS[job.status],
     ...summary.truckNames,
@@ -45,10 +43,16 @@ function matchesJob(summary: JobSummary, query: string): boolean {
   ])
 }
 
+/**
+ * Istorija (user, 21.11.2026): the optimizations saved on the device ("Sačuvaj" at the end of the
+ * result, 22.11.2026), newest first, by their names (no numbers). "Otvori" shows one on Rezultati
+ * (and on Mapa ruta and 3D prikaz, with its PDF), instead of the last one; "Preimenuj" names it.
+ */
 export function HistoryPage() {
   const api = useApi()
   const navigate = useNavigate()
-  const { state, open, close } = useLastJob()
+  const { state, open, close, updateJob } = useLastJob()
+  const [renaming, setRenaming] = useState<JobSummary | null>(null)
   const load = useCallback(() => api.listOptimizationJobs(), [api])
   const [jobs, reload] = useAsyncData(load)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
@@ -70,12 +74,24 @@ export function HistoryPage() {
       await api.deleteOptimizationJob(summary.job.id)
       close(summary.job.id)
       setConfirmingId(null)
-      setMessage({ tone: 'success', text: `Posao #${summary.job.id} je obrisan.` })
+      setMessage({ tone: 'success', text: `„${summary.name}“ je obrisana.` })
       reload()
     } catch (error) {
-      setMessage({ tone: 'danger', text: `Posao #${summary.job.id} nije obrisan: ${describeError(error)}` })
+      setMessage({ tone: 'danger', text: `„${summary.name}“ nije obrisana: ${describeError(error)}` })
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function rename(summary: JobSummary, name: string | null) {
+    setRenaming(null)
+    if (name === null) return
+    try {
+      const job = await api.saveOptimizationJob(summary.job.id, name || null)
+      updateJob(job)
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'danger', text: `Ime nije promenjeno: ${describeError(error)}` })
     }
   }
 
@@ -83,7 +99,7 @@ export function HistoryPage() {
     <section>
       <PageHeader
         title="Istorija"
-        tools={<SearchBox value={query} onChange={setQuery} placeholder="Pretraži: posao, datum, kamion…" label="Pretraga istorije" />}
+        tools={<SearchBox value={query} onChange={setQuery} placeholder="Pretraži: naziv, datum, kamion…" label="Pretraga istorije" />}
       />
       {jobs.status === 'loading' && <LoadingState label="Učitavanje istorije…" />}
       {jobs.status === 'error' && <ErrorState title="Istorija nije učitana" message={jobs.message} onRetry={reload} />}
@@ -91,8 +107,8 @@ export function HistoryPage() {
         <EmptyState title="Istorija nije dostupna">Istoriju optimizacija čuva samo aplikacija na uređaju.</EmptyState>
       )}
       {jobs.status === 'success' && jobs.data?.length === 0 && (
-        <EmptyState title="Još nema optimizacija">
-          Svaka pokrenuta optimizacija se ovde čuva sa rezultatom, pa joj se možete vratiti kasnije.
+        <EmptyState title="Još nema sačuvanih optimizacija">
+          Optimizacija se ovde čuva dugmetom „Sačuvaj“ na kraju rezultata, pa joj se možete vratiti kasnije.
         </EmptyState>
       )}
       {message && (
@@ -102,8 +118,8 @@ export function HistoryPage() {
         <section className="panel truck-card" aria-labelledby="history-title">
           <h2 id="history-title">Sačuvane optimizacije</h2>
           <p className="text--muted">
-            Uređaj čuva poslednjih 50 optimizacija sa rezultatima. „Otvori“ prikazuje rezultat na ekranu Rezultati, a
-            onda i na mapi ruta i u 3D prikazu, sa PDF-om za vozače.
+            Optimizacije sačuvane dugmetom „Sačuvaj“ na kraju rezultata (najviše 50). „Otvori“ prikazuje rezultat na
+            ekranu Rezultati, a onda i na mapi ruta i u 3D prikazu, sa PDF-om za vozače.
             {busy && ' Dok optimizacija radi, drugi rezultat se ne može otvoriti.'}
           </p>
           {query.trim() && !jobs.data.some((summary) => matchesJob(summary, query)) && (
@@ -113,7 +129,7 @@ export function HistoryPage() {
             <table className="table history-table" aria-label="Sačuvane optimizacije">
               <thead>
                 <tr>
-                  <th scope="col">Posao</th>
+                  <th scope="col">Naziv</th>
                   <th scope="col">Pokrenut</th>
                   <th scope="col">Status</th>
                   <th scope="col">Kamioni</th>
@@ -136,7 +152,7 @@ export function HistoryPage() {
                   return (
                     <tr key={job.id} aria-current={job.id === shownId ? 'true' : undefined}>
                       <td>
-                        #{job.id}
+                        {summary.name}
                         {job.id === shownId && <span className="history-table__shown">prikazan</span>}
                       </td>
                       <td>{formatDateTime(job.createdAt)}</td>
@@ -165,8 +181,8 @@ export function HistoryPage() {
                       </td>
                       <td className="actions">
                         {confirmingId === job.id ? (
-                          <span className="confirm-inline" role="group" aria-label={`Potvrda brisanja: posao #${job.id}`}>
-                            <span>Obrisati posao?</span>
+                          <span className="confirm-inline" role="group" aria-label={`Potvrda brisanja: ${summary.name}`}>
+                            <span>Obrisati optimizaciju?</span>
                             <button
                               type="button"
                               className="button--danger"
@@ -186,7 +202,7 @@ export function HistoryPage() {
                               className="button--primary"
                               onClick={() => show(summary)}
                               disabled={busy || !isTerminal(job.status)}
-                              aria-label={`Otvori posao #${job.id}`}
+                              aria-label={`Otvori: ${summary.name}`}
                             >
                               <Icon name="results" size={14} />
                               Otvori
@@ -198,10 +214,14 @@ export function HistoryPage() {
                                 setConfirmingId(job.id)
                               }}
                               disabled={!isTerminal(job.status)}
-                              aria-label={`Obriši posao #${job.id}`}
+                              aria-label={`Obriši: ${summary.name}`}
                             >
                               <Icon name="trash" size={14} />
                               Obriši
+                            </button>
+                            <button type="button" onClick={() => setRenaming(summary)} aria-label={`Preimenuj: ${summary.name}`}>
+                              <Icon name="edit" size={14} />
+                              Preimenuj
                             </button>
                           </span>
                         )}
@@ -213,6 +233,19 @@ export function HistoryPage() {
             </table>
           </div>
         </section>
+      )}
+      {renaming && (
+        <NameDialog
+          title="Novo ime"
+          text="Ime pod kojim se optimizacija vidi u istoriji."
+          name={renaming.name}
+          usualName={defaultJobName(
+            renaming.trucksUsed === null || renaming.totalMeters === null
+              ? null
+              : { trucksUsed: renaming.trucksUsed, totalMeters: renaming.totalMeters },
+          )}
+          onDone={(name) => void rename(renaming, name)}
+        />
       )}
     </section>
   )

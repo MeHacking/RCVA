@@ -1,3 +1,4 @@
+import { defaultJobName } from '../../format/jobName'
 import type { Scenario } from '../../fixtures'
 import { ApiError, type ApiClient } from '../client'
 import {
@@ -32,6 +33,9 @@ interface JobRecord {
   id: number
   createdAtMs: number
   timeLimitSeconds: number
+  /** "Sačuvaj" (NOT IN SPEC v2): as on the device, only saved jobs are listed */
+  saved: boolean
+  name: string | null
 }
 
 /**
@@ -90,6 +94,8 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
       scoreSoft: null,
       feasible: null,
       trucksLowerBound: null,
+      saved: job.saved,
+      name: job.name,
     }
     if (elapsed < queuedMs) return view
     view.status = 'RUNNING'
@@ -185,7 +191,7 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
           throw new ApiError({
             title: 'Kamion se koristi',
             status: 409,
-            detail: `Optimizacija #${running.id} je u toku; kamion se može ukloniti kada se završi.`,
+            detail: 'Optimizacija je u toku; kamion se može ukloniti kada se završi.',
           })
         }
         trucks.splice(index, 1)
@@ -198,7 +204,7 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
           throw new ApiError({
             title: 'Optimizacija je u toku',
             status: 409,
-            detail: `Optimizacija #${running.id} je u toku; kamioni se mogu ukloniti kada se završi.`,
+            detail: 'Optimizacija je u toku; kamioni se mogu ukloniti kada se završi.',
           })
         }
         return trucks.splice(0)
@@ -256,7 +262,11 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
             causes: scenario.outcome.causes,
           })
         }
-        const job: JobRecord = { id: nextJobId++, createdAtMs: now(), timeLimitSeconds: request.timeLimitSeconds }
+        const job: JobRecord = { id: nextJobId++, createdAtMs: now(), timeLimitSeconds: request.timeLimitSeconds, saved: false, name: null }
+        // A new job replaces the one not saved before it.
+        for (const [id, other] of jobs) {
+          if (!other.saved && TERMINAL_JOB_STATUSES.includes(jobView(other).status)) jobs.delete(id)
+        }
         jobs.set(job.id, job)
         return { id: job.id, status: 'QUEUED' as JobStatus }
       }),
@@ -275,12 +285,14 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
     listOptimizationJobs: () =>
       respond(() =>
         [...jobs.values()]
+          .filter((record) => record.saved)
           .sort((a, b) => b.id - a.id)
           .map((record) => {
             const job = jobView(record)
             const result = job.status === 'COMPLETED' && scenario.outcome.kind === 'COMPLETED' ? scenario.outcome.result : null
             return {
               job,
+              name: record.name?.trim() || defaultJobName(result),
               shipmentCount: shipments.length,
               trucksUsed: result?.trucksUsed ?? null,
               totalMeters: result?.totalMeters ?? null,
@@ -295,11 +307,22 @@ export function createMockApiClient(options: MockApiOptions): ApiClient {
     cancelOptimizationJob: () =>
       Promise.reject(new ApiError({ title: 'Ne postoji', status: 404, detail: 'Probni podaci nemaju prekidanje poslova.' })),
 
+    saveOptimizationJob: (id, name) =>
+      respond(() => {
+        const record = findJob(id)
+        if (!record.saved && (jobView(record).status !== 'COMPLETED' || scenario.outcome.kind !== 'COMPLETED')) {
+          throw new ApiError({ title: 'Nema rezultata', status: 409, detail: 'Sačuvati se može samo završena optimizacija.' })
+        }
+        record.saved = true
+        record.name = name?.trim() || null
+        return jobView(record)
+      }),
+
     deleteOptimizationJob: (id) =>
       respond(() => {
         const job = jobView(findJob(id))
         if (job.status === 'QUEUED' || job.status === 'RUNNING') {
-          throw new ApiError({ title: 'Optimizacija je u toku', status: 409, detail: `Posao #${id} još nije završen.` })
+          throw new ApiError({ title: 'Optimizacija je u toku', status: 409, detail: 'Optimizacija još nije završena.' })
         }
         jobs.delete(id)
       }),

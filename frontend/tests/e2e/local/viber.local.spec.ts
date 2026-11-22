@@ -46,7 +46,7 @@ test("sends the driver's PDF to the chat with the driver's number", async ({ pag
   const { printed, opened } = await seen(page)
   // Only that truck's part, then the chat with its driver.
   expect(printed).toHaveLength(1)
-  expect(printed[0]).toMatchObject({ title: 'rcva-Šleper-1-posao-1', trucks: 1 })
+  expect(printed[0]).toMatchObject({ title: 'rcva-Šleper-1-Poslednja-optimizacija', trucks: 1 })
   expect(printed[0].text).not.toContain('Šleper 2')
   expect(opened).toEqual(['viber://chat?number=%2B381641234567'])
   expect(errors).toEqual([])
@@ -79,7 +79,7 @@ test('asks for the number of a driver without one, keeps it on the truck, then s
   await expect(dialog).toHaveCount(0)
   await expect(page.getByText('priložite u Viber razgovoru sa +46 70 123 45 67.')).toBeVisible()
   const { printed, opened } = await seen(page)
-  expect(printed.map((p) => p.title)).toEqual(['rcva-Šleper-2-posao-1'])
+  expect(printed.map((p) => p.title)).toEqual(['rcva-Šleper-2-Poslednja-optimizacija'])
   expect(opened).toEqual(['viber://chat?number=%2B46701234567'])
 
   // Kept on the truck: the next time no question.

@@ -127,6 +127,18 @@ klik vodi na Rezultate, otvaranje Rezultata ih briše). Profil: „Niste prijavl
   (izmereno, bez rezerve). Korak Vreme: polje sa preporukom dok korisnik ne izabere, upozorenje „Kraće od
   preporuke“ i „Koristi preporuku“; „Optimizuj“ iz trake uzima max(zapamćeno, preporuka) (`topBarTimeLimit`).
   Telefon nije meren. Testovi: `timeLimit.test.ts`, e2e `timeAdvice.local.spec.ts`. Uputstvo dopunjeno.
+- **Čuvanje optimizacija i imena (22.11.2026)**, korisnik: poslovi bez „#“ i brojeva, sa imenom; čuva se samo
+  dugmetom „Sačuvaj“ kao u smartLoad+. Odluke: podrazumevano ime „N kamiona - X km“ (`format/jobName.ts`,
+  `defaultJobName`, `jobLabel`), postojeći poslovi ostaju kao sačuvani (`saved` nedostaje = sačuvan), pre nove
+  optimizacije pitanje ako rezultat nije sačuvan (`window.confirm`, `UNSAVED_QUESTION`; e2e `consoleGuard` ga
+  prihvata, ostale dijaloge odbija), nesačuvana se svuda zove „Poslednja optimizacija“. API (NOT IN SPEC v2):
+  `OptimizationJob.saved/name`, `JobSummary.name`, `saveOptimizationJob(id, name)` (čuva i preimenuje; 409 dok nije
+  završena i kad ima 50 sačuvanih, ekran tada nudi brisanje najstarije); nov posao briše nesačuvane
+  (`dropOldJobs`); Istorija prikazuje samo sačuvane. Ekran: `SaveResult.tsx` na kraju Rezultata, `NameDialog.tsx`
+  (posle „Sačuvaj“ i „Preimenuj“ u Istoriji). Brojevi uklonjeni i iz PDF-a i imena fajlova („rcva-Šleper-1-Sever.pdf“),
+  Pregleda, obaveštenja, mape, 3D, poruka 409 („Optimizacija je u toku“). **Zamka nađena e2e**: polje vremena je
+  menjalo vrednost (60 → preporuka) kad stignu pošiljke, pa je kucanje baš tada davalo „1030“; sada se polje
+  prikazuje tek posle učitavanja. Pun e2e 130 od 133, uzroci ispravljeni, pali ponovo prolaze.
 - Nije rađeno: uski prozori (telefon) nisu prilagođeni novom rasporedu.
 
 **Iz smartLoad-a, 20.11.2026** (korisnik: drugar je dodao sitnice u smartLoad, preneti one za uređivanje; smartLoad

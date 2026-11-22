@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { OptimizationResult } from '../../src/api/types'
-import { truckReportFileName, viberChatUrl } from '../../src/features/optimization/exportPdf'
+import { reportFileName, truckReportFileName, viberChatUrl } from '../../src/features/optimization/exportPdf'
 import { buildTruckRows, buildUnassignedRows, type ReferenceData } from '../../src/features/optimization/resultRows'
 import { SCENARIOS } from '../../src/fixtures'
 
@@ -67,10 +67,11 @@ describe('a truck for its driver', () => {
     }
   })
 
-  it('names the PDF after the truck, without what a file name cannot hold', () => {
-    expect(truckReportFileName(12, 'Šleper 1')).toBe('rcva-Šleper-1-posao-12.pdf')
-    expect(truckReportFileName(3, ' Cerada 2/A: "nova" ')).toBe('rcva-Cerada-2-A-nova-posao-3.pdf')
-    expect(truckReportFileName(3, '///')).toBe('rcva-kamion-posao-3.pdf')
+  it('names the PDF after the truck and the optimization, without what a file name cannot hold', () => {
+    expect(truckReportFileName('Sever 47', 'Šleper 1')).toBe('rcva-Šleper-1-Sever-47.pdf')
+    expect(truckReportFileName('3 kamiona - 1001,5 km', ' Cerada 2/A: "nova" ')).toBe('rcva-Cerada-2-A-nova-3-kamiona-1001,5-km.pdf')
+    expect(truckReportFileName('  ', '///')).toBe('rcva-kamion-optimizacija.pdf')
+    expect(reportFileName('Poslednja optimizacija')).toBe('rcva-rezultat-Poslednja-optimizacija.pdf')
   })
 })
 

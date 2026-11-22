@@ -51,25 +51,24 @@ export function observeJob(
 /** The notification for a job that has ended. */
 export function noticeFor(job: OptimizationJob, result: OptimizationResult | null, at: Date): JobNotice {
   const base = { id: `${job.id}-${at.getTime()}`, at: at.toISOString() }
-  const name = `Posao #${job.id}`
   switch (job.status) {
     case 'COMPLETED':
       if (result && !result.validation.passed) {
-        return { ...base, kind: 'failed', title: 'Validator nije prošao', detail: `${name}: rezultat ne poštuje sva pravila.` }
+        return { ...base, kind: 'failed', title: 'Validator nije prošao', detail: 'Rezultat ne poštuje sva pravila.' }
       }
       return {
         ...base,
         kind: 'done',
         title: 'Optimizacija je završena',
-        detail: result ? `${name}: kamioni ${result.trucksUsed}, ${formatKm(result.totalMeters)}` : name,
+        detail: result ? `Kamioni ${result.trucksUsed}, ${formatKm(result.totalMeters)}` : 'Rezultat je spreman.',
       }
     case 'INFEASIBLE':
       return job.infeasibilityKind === 'NOT_FOUND'
-        ? { ...base, kind: 'failed', title: 'Rešenje nije nađeno', detail: `${name}: ${NOT_FOUND_MESSAGE}` }
-        : { ...base, kind: 'failed', title: 'Nije izvodljivo', detail: name }
+        ? { ...base, kind: 'failed', title: 'Rešenje nije nađeno', detail: NOT_FOUND_MESSAGE }
+        : { ...base, kind: 'failed', title: 'Nije izvodljivo', detail: 'Optimizacija nije našla izvodljivo rešenje.' }
     case 'CANCELLED':
-      return { ...base, kind: 'failed', title: 'Optimizacija je otkazana', detail: name }
+      return { ...base, kind: 'failed', title: 'Optimizacija je otkazana', detail: 'Računanje je prekinuto.' }
     default:
-      return { ...base, kind: 'failed', title: 'Optimizacija nije uspela', detail: `${name}: greška solvera.` }
+      return { ...base, kind: 'failed', title: 'Optimizacija nije uspela', detail: 'Greška solvera.' }
   }
 }

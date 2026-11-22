@@ -13,3 +13,8 @@ export function plural(n: number, one: string, few: string, many: string): strin
 export function formatShipmentCount(n: number): string {
   return `${n} ${plural(n, 'pošiljka', 'pošiljke', 'pošiljki')}`
 }
+
+/** "1 kamion", "3 kamiona", "5 kamiona" */
+export function formatTruckCount(n: number): string {
+  return `${n} ${plural(n, 'kamion', 'kamiona', 'kamiona')}`
+}

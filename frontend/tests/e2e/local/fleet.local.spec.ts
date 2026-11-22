@@ -90,7 +90,7 @@ test('proposes each truck its last delivery, used only once confirmed', async ({
   const locations = page.getByRole('table', { name: 'Lokacije kamiona' })
   const row = locations.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Šleper 1', exact: true }) })
   await expect(row).toContainText('Beograd – magacin')
-  await expect(row).toContainText('poslednja isporuka u optimizaciji #1')
+  await expect(row).toContainText('poslednja isporuka u poslednjoj optimizaciji')
   await page.getByRole('button', { name: 'Potvrdi predlog za Šleper 1' }).click()
   await expect(row).toContainText('Sačuvano')
   await expect(row).not.toContainText('poslednja isporuka')
@@ -102,7 +102,7 @@ test('proposes each truck its last delivery, used only once confirmed', async ({
   await expect(check).toContainText('Čeka odgovor: 1 kamion.')
   await page.getByRole('button', { name: 'Zadrži sadašnju lokaciju za Šleper 2' }).click()
   await check.getByRole('button', { name: 'Pokreni optimizaciju' }).click()
-  await expect(page.getByRole('main').getByText('Posao #2')).toBeVisible({ timeout: 60_000 })
+  await expect(routesTable(page)).toBeVisible({ timeout: 60_000 })
   expect(errors).toEqual([])
 })
 
@@ -195,7 +195,6 @@ test('advises one more truck when it saves kilometres, and follows the advice', 
   // The same week again: Šleper 1 and 2 stay at the base (their last deliveries are only proposed).
   await page.getByRole('button', { name: 'Zadrži sve sadašnje lokacije' }).click()
   await page.getByRole('region', { name: 'Gde su kamioni?' }).getByRole('button', { name: 'Pokreni optimizaciju' }).click()
-  await expect(page.getByRole('main').getByText('Posao #2')).toBeVisible({ timeout: 60_000 })
   await expect(routesTable(page)).toBeVisible({ timeout: 60_000 })
   await expect(page.locator('.stats')).toContainText('Kamioni3')
   expect(errors).toEqual([])

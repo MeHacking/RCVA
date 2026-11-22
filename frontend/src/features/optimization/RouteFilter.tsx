@@ -1,3 +1,4 @@
+import { jobLabel } from '../../format/jobName'
 import { useSearchParams } from 'react-router'
 import type { OptimizationJob, OptimizationResult } from '../../api/types'
 import { formatKm } from '../../format/units'
@@ -44,7 +45,7 @@ export function RouteFilter({
         </button>
       ))}
       <span className="route-filter__meta text--muted">
-        Posao #{job.id} · ukupno {formatKm(result.totalMeters)}
+        {jobLabel(job, result)} · ukupno {formatKm(result.totalMeters)}
       </span>
     </div>
   )

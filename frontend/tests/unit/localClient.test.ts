@@ -1,3 +1,4 @@
+import { defaultJobName } from '../../src/format/jobName'
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, type ApiClient } from '../../src/api/client'
 import { createMemoryStore, DeviceStoreError, type DeviceStore } from '../../src/api/local/deviceStore'
@@ -511,7 +512,7 @@ describe('local storage on the device', () => {
     const api = setup('small', (input, options) => held.then(() => steps(input, options)))
     const { id } = await api.createOptimizationJob(REQUEST)
     const error = await rejection(api.deleteAllTrucks())
-    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija #${id} je u toku; kamioni se mogu ukloniti kada se završi.` })
+    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija je u toku; kamioni se mogu ukloniti kada se završi.` })
     expect(await api.listTrucks()).toHaveLength(3)
     release()
     await settle(api, id)
@@ -761,26 +762,68 @@ describe('local storage on the device', () => {
     await after.deleteTruck(1)
   })
 
-  it(`keeps only the last ${KEPT_JOBS} jobs`, async () => {
+  it(`keeps a job only when saved, at most ${KEPT_JOBS} of them; a new job replaces one not saved`, async () => {
     const store = createMemoryStore<LocalData>()
     const api = setup('small', steps, store)
-    let last = 0
-    for (let i = 0; i < KEPT_JOBS + 2; i++) {
-      last = (await api.createOptimizationJob(REQUEST)).id
-      await settle(api, last)
+    const first = (await api.createOptimizationJob(REQUEST)).id
+    await settle(api, first)
+    expect((await api.getOptimizationJob(first)).saved).toBe(false)
+    expect(await api.listOptimizationJobs()).toEqual([])
+    expect(await api.saveOptimizationJob(first, '  Sever  ')).toMatchObject({ id: first, saved: true, name: 'Sever' })
+
+    const second = (await api.createOptimizationJob(REQUEST)).id
+    await settle(api, second)
+    const third = (await api.createOptimizationJob(REQUEST)).id
+    await settle(api, third)
+    // The second was not saved: the third replaced it.
+    expect((await rejection(api.getOptimizationJob(second))).status).toBe(404)
+    expect((await api.getLatestOptimizationJob())?.id).toBe(third)
+    expect((await api.listOptimizationJobs())!.map((s) => [s.job.id, s.name])).toEqual([[first, 'Sever']])
+    // Saved without a name: called by its result; an empty name goes back to that.
+    const result = await api.getOptimizationResult(third)
+    await api.saveOptimizationJob(third, null)
+    await api.saveOptimizationJob(first, '')
+    expect((await api.listOptimizationJobs())!.map((s) => s.name)).toEqual([defaultJobName(result), defaultJobName(await api.getOptimizationResult(first))])
+
+    // Full: no more than KEPT_JOBS saved.
+    for (let i = 2; i < KEPT_JOBS; i++) {
+      const id = (await api.createOptimizationJob(REQUEST)).id
+      await settle(api, id)
+      await api.saveOptimizationJob(id, null)
     }
-    expect((await rejection(api.getOptimizationJob(1))).status).toBe(404)
-    expect((await rejection(api.getOptimizationJob(2))).status).toBe(404)
-    expect((await api.getOptimizationJob(3)).status).toBe('COMPLETED')
-    expect((await api.getLatestOptimizationJob())?.id).toBe(last)
+    const extra = (await api.createOptimizationJob(REQUEST)).id
+    await settle(api, extra)
+    expect((await rejection(api.saveOptimizationJob(extra, null))).problem).toMatchObject({ status: 409, title: 'Istorija je puna' })
     await written()
-    expect(storedData(store).jobs).toHaveLength(KEPT_JOBS)
+    expect(storedData(store).jobs).toHaveLength(KEPT_JOBS + 1)
+    expect((await api.listOptimizationJobs())!).toHaveLength(KEPT_JOBS)
 
     // When each was started is kept for all of them, also after a restart (the dashboard's chart).
     const history = await api.getOptimizationHistory()
     expect(history).toHaveLength(KEPT_JOBS + 2)
     expect(history).toEqual([...history!].sort())
     expect(await setup('small', steps, store).getOptimizationHistory()).toEqual(history)
+  })
+
+  it('saves only a finished job, and renames a saved one; jobs kept before count as saved', async () => {
+    const store = createMemoryStore<LocalData>()
+    // Held running until let go.
+    let letGo = () => {}
+    const gate = new Promise<void>((resolve) => (letGo = resolve))
+    const api = setup('small', (input, options) => gate.then(() => steps(input, options)), store)
+    const id = (await api.createOptimizationJob(REQUEST)).id
+    expect((await rejection(api.saveOptimizationJob(id, null))).status).toBe(409)
+    letGo()
+    await settle(api, id)
+    await api.saveOptimizationJob(id, null)
+    expect((await rejection(api.saveOptimizationJob(999, null))).status).toBe(404)
+    // A job stored before 22.11.2026 has no "saved": it is listed.
+    await written()
+    const old = store.snapshot() as { data: LocalData }
+    delete (old.data.jobs[0] as { saved?: boolean }).saved
+    const again = setup('small', steps, createMemoryStore<LocalData>(old))
+    expect((await again.listOptimizationJobs())!.map((s) => s.job.id)).toEqual([id])
+    expect((await again.getOptimizationJob(id)).saved).toBe(true)
   })
 
   it('lists the kept jobs newest first for Istorija, and deletes a finished one', async () => {
@@ -792,12 +835,15 @@ describe('local storage on the device', () => {
     const first = (await api.createOptimizationJob(REQUEST)).id
     await settle(api, first)
     const result = await api.getOptimizationResult(first)
+    await api.saveOptimizationJob(first, null)
     gate = new Promise((resolve) => (letGo = resolve))
     const second = (await api.createOptimizationJob({ ...REQUEST, timeLimitSeconds: 7 })).id
 
+    // Only the saved one is listed.
     const list = (await api.listOptimizationJobs())!
-    expect(list.map((s) => s.job.id)).toEqual([second, first])
-    const done = list[1]
+    expect(list.map((s) => s.job.id)).toEqual([first])
+    const done = list[0]
+    expect(done.name).toBe(defaultJobName(result))
     expect(done.job.status).toBe('COMPLETED')
     expect(done).toMatchObject({
       shipmentCount: (await api.listShipments()).length,
@@ -808,8 +854,7 @@ describe('local storage on the device', () => {
     })
     const names = new Map((await api.listTrucks()).map((t) => [t.id, t.name]))
     expect(done.truckNames).toEqual(result.routes.map((r) => names.get(r.truckId)))
-    expect(list[0]).toMatchObject({ trucksUsed: null, totalMeters: null, unassignedCount: null, truckNames: [] })
-    expect(list[0].job.timeLimitSeconds).toBe(7)
+    expect((await api.getOptimizationJob(second)).saved).toBe(false)
 
     // Not while it waits or runs.
     expect((await rejection(api.deleteOptimizationJob(second))).status).toBe(409)
@@ -820,7 +865,7 @@ describe('local storage on the device', () => {
     expect((await api.listOptimizationJobs())!.find((s) => s.job.id === first)).toMatchObject({ manual: true, unassignedCount: 1 })
 
     await api.deleteOptimizationJob(first)
-    expect((await api.listOptimizationJobs())!.map((s) => s.job.id)).toEqual([second])
+    expect((await api.listOptimizationJobs())!.map((s) => s.job.id)).toEqual([])
     expect((await rejection(api.getOptimizationResult(first))).status).toBe(404)
     expect((await rejection(api.deleteOptimizationJob(first))).status).toBe(404)
     expect(storedData(store).jobs.map((j) => j.id)).toEqual([second])
@@ -1490,6 +1535,8 @@ describe('road distances from OpenRouteService on the device', () => {
       const api = client(createMemoryStore<LocalData>(), fake)
       const airline = await solve(api)
       const airlineJob = await lastJobId(api)
+      // Saved, so the next job does not replace it.
+      await api.saveOptimizationJob(airlineJob, null)
       await withKey(api)
       const road = await solve(api)
       const roadJob = await lastJobId(api)
@@ -1636,7 +1683,7 @@ describe('an empty device and a new week', () => {
     const api = device(SCENARIOS.small, createMemoryStore<LocalData>(), (input, options) => held.then(() => steps(input, options)))
     const { id } = await api.createOptimizationJob(REQUEST)
     const error = await rejection(api.deleteAllShipments())
-    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija #${id} je u toku; pošiljke se mogu ukloniti kada se završi.` })
+    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija je u toku; pošiljke se mogu ukloniti kada se završi.` })
     expect(await api.listShipments()).toHaveLength(5)
     release()
     await settle(api, id)

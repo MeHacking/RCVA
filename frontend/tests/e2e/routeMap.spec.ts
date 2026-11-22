@@ -139,7 +139,7 @@ test('warns about an unknown job or truck and shows all routes', async ({ page }
   await runJob(page)
   await navigate(page, '/route-map?job=99&truck=42')
 
-  await expect(page.getByText('Posao #99 nije dostupan')).toBeVisible()
+  await expect(page.getByText('Tražena optimizacija nije dostupna')).toBeVisible()
   await expect(page.getByText('Kamion #42 nema rutu u ovom rezultatu')).toBeVisible()
   await expect(routeCards(page)).toHaveCount(2)
 })

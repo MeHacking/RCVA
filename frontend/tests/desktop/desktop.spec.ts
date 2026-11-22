@@ -170,7 +170,7 @@ test('imports, solves in its Web Worker, and keeps the data after a restart', as
   await page.getByRole('button', { name: `Pošalji na Viber: ${truckName}` }).click()
   await page.getByLabel('Telefon vozača (za Viber)').fill('+381 64 123 4567')
   await page.getByRole('button', { name: 'Sačuvaj i pošalji' }).click()
-  const viberPdf = path.join(userData, 'viber', `rcva-${truckName.replace(/\s+/g, '-')}-posao-1.pdf`)
+  const viberPdf = path.join(userData, 'viber', `rcva-${truckName.replace(/\s+/g, '-')}-Poslednja-optimizacija.pdf`)
   await expect(page.getByText(`PDF je sačuvan: ${viberPdf}. Otvoren je Viber razgovor sa +381 64 123 4567`)).toBeVisible({ timeout: 15_000 })
   expect(readFileSync(viberPdf).toString('latin1').match(/\/Type\s*\/Page[^s]/g)).toHaveLength(1)
   expect(await app.evaluate(() => (globalThis as unknown as { calls: string[] }).calls)).toEqual([

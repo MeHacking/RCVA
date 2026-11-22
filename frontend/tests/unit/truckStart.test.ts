@@ -103,7 +103,7 @@ describe('where a truck is', () => {
 
     const { id } = await api.createOptimizationJob(REQUEST)
     const busy = await rejection(api.setTruckStart(1, { place: { name: 'Primerovo', postalCode: null, country: null } }))
-    expect(busy.problem).toMatchObject({ status: 409, detail: `Optimizacija #${id} je u toku; lokacija kamiona se može menjati kada se završi.` })
+    expect(busy.problem).toMatchObject({ status: 409, detail: `Optimizacija je u toku; lokacija kamiona se može menjati kada se završi.` })
     expect(fake.asked).toEqual([])
     release()
     await settle(api, id)

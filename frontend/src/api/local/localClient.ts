@@ -1,3 +1,4 @@
+import { defaultJobName } from '../../format/jobName'
 import type { Scenario } from '../../fixtures'
 import { missingTrucks, standardJobTruck, toJobTruck } from '../../domain/fleet'
 import { haversineMatrix, haversineMeters, type LatLon } from '../../domain/optimization/distance'
@@ -159,6 +160,13 @@ export interface LocalJob {
   loadPlans?: Record<number, ArrangedLoadPlan>
   /** missing in jobs stored before road distances existed */
   distanceSource?: DistanceSource
+  /**
+   * added 22.11.2026: false until "Sačuvaj" puts it into Istorija; missing (jobs kept before, all
+   * of them listed then) counts as saved
+   */
+  saved?: boolean
+  /** the name it was given; missing or null: named by its result */
+  name?: string | null
 }
 
 /** A truck's load plan arranged by hand ("Uredi" on the 3D screen). */
@@ -526,7 +534,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       throw new ApiError({
         title: 'Optimizacija je u toku',
         status: 409,
-        detail: `Optimizacija #${running.id} je u toku; ${allowed} kada se završi.`,
+        detail: `Optimizacija je u toku; ${allowed} kada se završi.`,
       })
     }
   }
@@ -646,6 +654,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       addedTruckIds: new Set(),
       result: null,
       distanceSource: source,
+      saved: false,
     }
     jobs.set(job.id, job)
     jobLog.push(job.createdAt)
@@ -813,10 +822,14 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     for (const old of keys.slice(0, keys.length - KEPT_ROUTE_LINES)) delete routeLineCache[old]
   }
 
+  /**
+   * A new job replaces the one not saved before it (owner, 22.11.2026: only "Sačuvaj" keeps an
+   * optimization). Saved ones stay until deleted; "Sačuvaj" refuses more than KEPT_JOBS.
+   */
   function dropOldJobs(): void {
-    const ids = [...jobs.keys()].sort((a, b) => b - a)
-    for (const id of ids.slice(KEPT_JOBS)) {
-      if (TERMINAL_JOB_STATUSES.includes((jobs.get(id) as LocalJob).status)) jobs.delete(id)
+    const newest = Math.max(...jobs.keys())
+    for (const [id, job] of jobs) {
+      if (id !== newest && job.saved === false && TERMINAL_JOB_STATUSES.includes(job.status)) jobs.delete(id)
     }
   }
 
@@ -935,6 +948,8 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
       scoreSoft: job.score?.soft ?? null,
       feasible: job.status === 'COMPLETED' ? true : job.status === 'INFEASIBLE' ? false : null,
       trucksLowerBound: job.trucksLowerBound,
+      saved: job.saved !== false,
+      name: job.name ?? null,
     }
   }
 
@@ -1024,7 +1039,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           throw new ApiError({
             title: 'Kamion se koristi',
             status: 409,
-            detail: `Optimizacija #${running.id} je u toku; kamion se može ukloniti kada se završi.`,
+            detail: 'Optimizacija je u toku; kamion se može ukloniti kada se završi.',
           })
         }
         trucks.splice(index, 1)
@@ -1102,11 +1117,13 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
     listOptimizationJobs: () =>
       respond(() =>
         [...jobs.values()]
+          .filter((job) => job.saved !== false)
           .sort((a, b) => b.id - a.id)
           .map((job) => {
             const result = job.status === 'COMPLETED' ? job.result : null
             return {
               job: view(job),
+              name: job.name?.trim() || defaultJobName(result),
               shipmentCount: job.input.shipments.length,
               trucksUsed: result?.trucksUsed ?? null,
               totalMeters: result?.totalMeters ?? null,
@@ -1117,6 +1134,26 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           }),
       ),
 
+    saveOptimizationJob: (id, name) =>
+      change(() => {
+        const job = findJob(id)
+        // A saved one (also kept from before, without a result) may be renamed.
+        if (job.saved === false && (job.status !== 'COMPLETED' || !job.result)) {
+          throw new ApiError({ title: 'Nema rezultata', status: 409, detail: 'Sačuvati se može samo završena optimizacija.' })
+        }
+        const saved = [...jobs.values()].filter((other) => other.saved !== false).length
+        if (job.saved === false && saved >= KEPT_JOBS) {
+          throw new ApiError({
+            title: 'Istorija je puna',
+            status: 409,
+            detail: `U istoriji je ${saved} sačuvanih optimizacija; obrišite neku da biste sačuvali novu.`,
+          })
+        }
+        job.saved = true
+        job.name = name?.trim() || null
+        return view(job)
+      }),
+
     deleteOptimizationJob: (id) =>
       change(() => {
         const job = findJob(id)
@@ -1124,7 +1161,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           throw new ApiError({
             title: 'Optimizacija je u toku',
             status: 409,
-            detail: `Posao #${id} još nije završen; može se obrisati kada se završi.`,
+            detail: 'Optimizacija još nije završena; može se obrisati kada se završi.',
           })
         }
         jobs.delete(id)
@@ -1141,7 +1178,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           // The solver's worker is ended; run() marks the job CANCELLED.
           running.get(id)?.abort()
         } else {
-          throw new ApiError({ title: 'Posao je završen', status: 409, detail: `Posao #${id} je već završen.` })
+          throw new ApiError({ title: 'Posao je završen', status: 409, detail: 'Optimizacija je već završena.' })
         }
       }),
 
@@ -1403,7 +1440,7 @@ export function createLocalApiClient(options: LocalApiOptions): ApiClient {
           throw new ApiError({
             title: 'Optimizacija je u toku',
             status: 409,
-            detail: `Optimizacija #${running.id} je u toku; podaci se mogu uvesti kada se završi.`,
+            detail: 'Optimizacija je u toku; podaci se mogu uvesti kada se završi.',
           })
         }
         // The key is never in a file: the device keeps its own.

@@ -1,3 +1,4 @@
+import { jobLabel } from '../../format/jobName'
 import { useCallback, useId, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Play } from 'lucide-react'
@@ -89,6 +90,17 @@ export function TimeStep() {
     void navigate(PATHS.result)
     const kind = await start({ timeLimitSeconds: seconds })
     if (kind === 'needsLocations') void navigate(PATHS.truckLocations)
+  }
+
+  // The field only once the shipments are counted: its value (the recommendation) must not change
+  // under the user's typing (a value typed while it changed was joined to it: "10" + "30").
+  if (shipments.status === 'loading') {
+    return (
+      <>
+        <PageHeader title="Vremensko ograničenje" context={stepContext(PATHS.time)} />
+        <LoadingState label="Učitavanje pošiljki…" />
+      </>
+    )
   }
 
   return (
@@ -183,9 +195,13 @@ export function ResultStep() {
         </NavLink>
       </nav>
       {state.kind === 'tracking' && state.fromHistory && (
-        <Notice tone="info" title={`Prikazan je posao #${state.jobId} iz Istorije`} role="status">
+        <Notice
+          tone="info"
+          title={state.job ? `Prikazana je optimizacija „${jobLabel(state.job, state.result)}“ iz Istorije` : 'Prikazana je optimizacija iz Istorije'}
+          role="status"
+        >
           <p>
-            Nova optimizacija ga zamenjuje poslednjom; ostali poslovi su u <Link to="/history">Istoriji</Link>.
+            Nova optimizacija je zamenjuje; sačuvane su u <Link to="/history">Istoriji</Link>.
           </p>
         </Notice>
       )}

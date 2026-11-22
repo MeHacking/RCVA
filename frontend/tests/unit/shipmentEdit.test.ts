@@ -276,7 +276,7 @@ describe('correcting a shipment on the device', () => {
     const error = await rejection(
       api.updateShipment(101, { ldmTenths: 10, delivery: { name: 'Novostad', postalCode: null, country: null } }),
     )
-    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija #${id} je u toku; pošiljke se mogu menjati kada se završi.` })
+    expect(error.problem).toMatchObject({ status: 409, detail: `Optimizacija je u toku; pošiljke se mogu menjati kada se završi.` })
     expect((await api.listShipments()).find((s) => s.id === 101)?.ldmTenths).toBe(40)
     // Refused before the lookup: nothing is asked for a change that cannot be made.
     expect(fake.asked).toEqual([])
@@ -478,7 +478,7 @@ describe('removing one shipment on the device', () => {
       held.then(() => steps(input, options)),
     )
     const { id } = await api.createOptimizationJob(REQUEST)
-    const detail = `Optimizacija #${id} je u toku; pošiljke se mogu menjati kada se završi.`
+    const detail = `Optimizacija je u toku; pošiljke se mogu menjati kada se završi.`
     expect((await rejection(api.deleteShipment(101))).problem).toMatchObject({ status: 409, detail })
     const created = api.createShipment({
       ldmTenths: 5,

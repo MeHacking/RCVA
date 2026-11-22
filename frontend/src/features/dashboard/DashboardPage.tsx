@@ -1,3 +1,4 @@
+import { jobLabel } from '../../format/jobName'
 import { ArrowRight } from 'lucide-react'
 import { useCallback, useId } from 'react'
 import { Link, useNavigate } from 'react-router'
@@ -205,7 +206,7 @@ function LastJobPanel({ trucks, shipments }: { trucks: Truck[]; shipments: Shipm
           <Badge tone={result.validation.passed ? 'success' : 'danger'}>
             {result.validation.passed ? 'Validator: prošao' : 'Validator: nije prošao'}
           </Badge>
-          <span className="text--muted">Posao #{job.id}</span>
+          <span className="text--muted">{jobLabel(job, result)}</span>
         </p>
         <dl className="dashboard-facts">
           <div>

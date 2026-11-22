@@ -23,7 +23,7 @@ test('prints the report alone: the summary, then each truck on a page of its own
   await expect(report).toBeHidden()
   await page.getByRole('button', { name: 'Izvezi ceo rezultat (PDF)' }).click()
   // The browser names the file after the page title, set for the print and put back.
-  expect(await page.evaluate(() => (window as unknown as { printed: string[] }).printed)).toEqual(['rcva-rezultat-posao-1'])
+  expect(await page.evaluate(() => (window as unknown as { printed: string[] }).printed)).toEqual(['rcva-rezultat-Poslednja-optimizacija'])
   expect(await page.title()).not.toContain('rcva-rezultat')
 
   // In print: the report alone, each truck from a new page.
@@ -31,7 +31,8 @@ test('prints the report alone: the summary, then each truck on a page of its own
   await expect(report).toBeVisible()
   await expect(page.locator('#root')).toBeHidden()
   await expect(report.getByRole('heading', { level: 1 })).toHaveText('Rezultat optimizacije')
-  await expect(report).toContainText('Posao #1')
+  await expect(report).toContainText('Poslednja optimizacija')
+  await expect(report).not.toContainText('Posao #')
   const trucks = report.locator('.report__truck')
   await expect(trucks).toHaveCount(2)
   await expect(trucks.first().getByRole('heading', { level: 2 })).toHaveText('Šleper 1')
@@ -87,7 +88,7 @@ test("prints a driver's PDF with that truck alone, then the whole report again",
 
   await page.getByRole('button', { name: 'PDF za vozača: Šleper 1' }).click()
   const [printed] = await page.evaluate(() => (window as unknown as { printed: Array<{ title: string; text: string; trucks: number; drawings: number; numbers: string[] }> }).printed)
-  expect(printed.title).toBe('rcva-Šleper-1-posao-1')
+  expect(printed.title).toBe('rcva-Šleper-1-Poslednja-optimizacija')
   expect(printed.trucks).toBe(1)
   // Its load in 3D, a block per shipment numbered from the doors.
   expect(printed.drawings).toBe(1)

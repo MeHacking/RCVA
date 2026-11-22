@@ -223,8 +223,8 @@ function Steps() {
         traci: <strong>Pošiljke</strong> (uvoz iz Excel-a ili unos jedne po jedne), <strong>Lokacije kamiona</strong>{' '}
         (potvrda gde su kamioni), <strong>Vreme</strong> (vremensko ograničenje i pokretanje) i{' '}
         <strong>Rezultat</strong> (rute, mapa ruta i 3D prikaz, za sve kamione ili jedan). Na dnu svakog koraka su
-        „Nazad“ i „Dalje“; meni otvara korak na kome ste poslednji put bili. Kamione uređujete u meniju Kamioni, a ranije
-        optimizacije su u Istoriji.
+        „Nazad“ i „Dalje“; meni otvara korak na kome ste poslednji put bili. Kamione uređujete u meniju Kamioni, a
+        sačuvane optimizacije su u Istoriji.
       </p>
       <Subheading n={1}>Uvoz pošiljki iz Excel-a</Subheading>
       <p>
@@ -499,11 +499,14 @@ function Steps() {
       {ON_DEVICE && (
         <>
           <p>
-            <strong>Istorija</strong> (u meniju) čuva poslednjih 50 optimizacija sa rezultatima: kada je pokrenuta,
-            status, kamioni, kilometraža, pošiljke i koliko je trajala od zadatog vremena. „Otvori“ prikazuje taj rezultat
-            u koraku Rezultat, pa i na mapi ruta i u 3D prikazu, sa PDF-om za vozače; gornja traka tada piše „(iz
-            Istorije)“. Dok optimizacija radi, drugi rezultat se ne može otvoriti. „Obriši“ (uz potvrdu) briše
-            optimizaciju i njen rezultat; grafik na Pregledu je i dalje broji kao pokrenutu.
+            Optimizacija se čuva samo dugmetom <strong>„Sačuvaj“</strong> na kraju rezultata; tada joj možete dati ime
+            (ako ga ne date, zove se po rezultatu, npr. „3 kamiona - 1001,5 km“). Nesačuvana optimizacija se zove
+            „Poslednja optimizacija“ i zamenjuje je sledeća; pre toga aplikacija pita da li je u redu da se izgubi.{' '}
+            <strong>Istorija</strong> (u meniju) čuva do 50 sačuvanih optimizacija, po imenu: kada je pokrenuta, status,
+            kamioni, kilometraža, pošiljke i koliko je trajala od zadatog vremena. „Otvori“ prikazuje taj rezultat u
+            koraku Rezultat, pa i na mapi ruta i u 3D prikazu, sa PDF-om za vozače. Dok optimizacija radi, drugi rezultat
+            se ne može otvoriti. „Preimenuj“ menja ime, a „Obriši“ (uz potvrdu) briše optimizaciju i njen rezultat; grafik
+            na Pregledu je i dalje broji kao pokrenutu. Kada je istorija puna, „Sačuvaj“ nudi da se obriše najstarija.
           </p>
           <Subheading n={6}>Podešavanja i podaci na uređaju</Subheading>
           <ul>

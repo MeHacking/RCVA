@@ -32,7 +32,8 @@ test('a job that ends on another screen leaves a notification that leads to the 
   const popup = page.getByRole('dialog', { name: 'Obaveštenja' })
   await expect(popup).toBeVisible()
   await expect(popup).toContainText('Optimizacija je završena')
-  await expect(popup).toContainText(/Posao #\d+: kamioni \d+, [\d.,]+ km/)
+  await expect(popup).toContainText(/Kamioni \d+, [\d.,]+ km/)
+  await expect(popup).not.toContainText('#')
   await popup.getByRole('button', { name: /Optimizacija je završena/ }).click()
   await expect(page).toHaveURL(/\/optimization\/result$/)
   await expect(bell).toHaveAccessibleName('Obaveštenja')
@@ -41,7 +42,7 @@ test('a job that ends on another screen leaves a notification that leads to the 
   // A job that had ended before the page was opened is not news.
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Pregled', level: 1 })).toBeVisible()
-  await expect(page.getByRole('main')).toContainText(/Posao #\d+/, { timeout: 20_000 })
+  await expect(page.getByRole('main')).toContainText('Poslednja optimizacija', { timeout: 20_000 })
   await expect(bell).toHaveAccessibleName('Obaveštenja')
   expect(errors).toEqual([])
 })

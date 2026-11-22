@@ -45,6 +45,8 @@ export interface LastJobContextValue {
   cancel: () => Promise<void>
   /** The result of the tracked job changed (shipments moved by hand). */
   replaceResult: (jobId: number, result: OptimizationResult) => void
+  /** The tracked job changed (saved into Istorija, renamed). */
+  updateJob: (job: OptimizationJob) => void
   /**
    * Istorija: shows a kept job on Rezultati, Mapa ruta and 3D prikaz instead of the last one,
    * until another job is opened or started. Not while a job is being started or runs.
@@ -53,6 +55,9 @@ export interface LastJobContextValue {
   /** The job was deleted: when it is the one shown, nothing is shown any more. */
   close: (jobId: number) => void
 }
+
+/** Asked before a new job replaces a result not saved into Istorija (as smartLoad+). */
+export const UNSAVED_QUESTION = 'Rezultat nije sačuvan u istoriji i biće izgubljen. Nastaviti?'
 
 export const LastJobContext = createContext<LastJobContextValue | null>(null)
 

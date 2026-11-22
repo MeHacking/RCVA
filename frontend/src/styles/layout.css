@@ -1725,6 +1725,26 @@ button.stat.stat-action:hover:not(:disabled) {
   text-align: left;
 }
 
+/* "Sačuvaj" at the end of the result (SaveResult.tsx): what is saved, and the button. */
+.save-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.save-result__text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.save-result__error {
+  flex-basis: 100%;
+}
+
 .dialog__note {
   display: block;
   color: var(--text-muted);

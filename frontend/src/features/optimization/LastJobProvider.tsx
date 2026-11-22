@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useApi } from '../../api/apiContext'
 import { ApiError, describeError, isProvenInfeasible, type ApiClient } from '../../api/client'
-import type { OptimizationResult } from '../../api/types'
+import type { OptimizationJob, OptimizationResult } from '../../api/types'
 import { isTerminal } from './jobStatus'
 import { topBarTimeLimit } from './timeLimit'
-import { isLastJobBusy, LastJobContext, type LastJobState, type StartOptions } from './lastJobContext'
+import { isLastJobBusy, LastJobContext, UNSAVED_QUESTION, type LastJobState, type StartOptions } from './lastJobContext'
 
 const POLL_INTERVAL_MS = 1000
 
@@ -17,6 +17,11 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
   const api = useApi()
   const [state, setState] = useState<LastJobState>({ kind: 'idle' })
   const trackedJobId = state.kind === 'tracking' ? state.jobId : null
+  // The state as it is now, for start() (asked whether to drop a result not saved).
+  const latest = useRef(state)
+  useEffect(() => {
+    latest.current = state
+  }, [state])
 
   useEffect(() => {
     let cancelled = false
@@ -45,6 +50,16 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
       const set = (next: LastJobState) => {
         setState(next)
         return next.kind
+      }
+      // As smartLoad+ (owner, 22.11.2026): a new job replaces a result not saved, so ask first.
+      const shown = latest.current
+      if (
+        shown.kind === 'tracking' &&
+        shown.job?.status === 'COMPLETED' &&
+        shown.job.saved === false &&
+        !window.confirm(UNSAVED_QUESTION)
+      ) {
+        return shown.kind
       }
       set({ kind: 'starting', since: Date.now() })
       try {
@@ -106,6 +121,13 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  // After "Sačuvaj" (or a new name): the job as the API now has it.
+  const updateJob = useCallback(
+    (job: OptimizationJob) =>
+      setState((previous) => (previous.kind === 'tracking' && previous.jobId === job.id ? { ...previous, job } : previous)),
+    [],
+  )
+
   const open = useCallback(
     (jobId: number) =>
       setState((previous) =>
@@ -133,8 +155,8 @@ export function LastJobProvider({ children }: { children: ReactNode }) {
   }, [api, trackedJobId])
 
   const value = useMemo(
-    () => ({ state, start, cancel, replaceResult, open, close }),
-    [state, start, cancel, replaceResult, open, close],
+    () => ({ state, start, cancel, replaceResult, updateJob, open, close }),
+    [state, start, cancel, replaceResult, updateJob, open, close],
   )
   return <LastJobContext value={value}>{children}</LastJobContext>
 }

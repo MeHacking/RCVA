@@ -1,3 +1,4 @@
+import { jobLabel } from '../../format/jobName'
 import { useCallback, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useApi } from '../../api/apiContext'
@@ -101,7 +102,7 @@ function LoadPlans({
               {row.truckName}
             </button>
           ))}
-          <span className="route-filter__meta text--muted">Posao #{job.id}</span>
+          <span className="route-filter__meta text--muted">{jobLabel(job, result)}</span>
         </div>
       )}
       {truck ? (

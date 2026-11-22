@@ -67,9 +67,9 @@ function JobOutcome({ state }: { state: LastJobState }) {
         </>
       )
     case 'tracking': {
-      const { job, result, pollError, jobId, options } = state
-      if (pollError) return <ErrorState title={`Praćenje posla #${jobId} nije uspelo`} message={pollError} />
-      if (!job) return <LoadingState label={`Učitavanje statusa posla #${jobId}…`} />
+      const { job, result, pollError, options } = state
+      if (pollError) return <ErrorState title="Praćenje optimizacije nije uspelo" message={pollError} />
+      if (!job) return <LoadingState label="Učitavanje stanja optimizacije…" />
 
       switch (job.status) {
         case 'QUEUED':
@@ -83,7 +83,7 @@ function JobOutcome({ state }: { state: LastJobState }) {
           )
         case 'INFEASIBLE':
           return job.infeasibilityKind === 'NOT_FOUND' ? (
-            <Notice tone="warning" title={`Posao #${job.id}: rešenje nije nađeno`} role="status">
+            <Notice tone="warning" title="Rešenje nije nađeno" role="status">
               <p>{NOT_FOUND_MESSAGE}</p>
               {job.trucksLowerBound !== null && (
                 <p className="text--muted">
@@ -102,12 +102,12 @@ function JobOutcome({ state }: { state: LastJobState }) {
               )}
             </Notice>
           ) : (
-            <Notice tone="danger" title={`Posao #${job.id}: ${JOB_STATUS_LABELS.INFEASIBLE.toLowerCase()}`} role="alert" />
+            <Notice tone="danger" title={JOB_STATUS_LABELS.INFEASIBLE} role="alert" />
           )
         case 'CANCELLED':
-          return <Notice tone="info" title={`Posao #${job.id} je otkazan`} />
+          return <Notice tone="info" title="Optimizacija je otkazana" />
         case 'FAILED':
-          return <ErrorState title={`Posao #${job.id}: greška solvera`} message="Solver je prijavio grešku." />
+          return <ErrorState title="Greška solvera" message="Solver je prijavio grešku." />
       }
     }
   }
@@ -121,7 +121,7 @@ function JobProgress({ job }: { job: OptimizationJob }) {
       <span className="spinner" aria-hidden="true" />
       <div className="job-progress__body">
         <p className="job-progress__title" role="status">
-          Posao #{job.id}{' '}
+          Optimizacija{' '}
           <Badge tone="info" pulse>
             {JOB_STATUS_LABELS[job.status]}
           </Badge>

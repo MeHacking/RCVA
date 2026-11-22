@@ -25,6 +25,8 @@ import { RouteTable } from './RouteTable'
 import { useLoadPlans } from './useLoadPlans'
 import { useReferenceData } from './useReferenceData'
 import { ViberPhoneDialog } from './ViberPhoneDialog'
+import { SaveResult } from './SaveResult'
+import { jobLabel } from '../../format/jobName'
 import { AccessPointsNotice } from './AccessPointsNotice'
 import { ExtraTruckNotice, ShortageActions } from './FleetActions'
 import { useLastJob, type StartOptions } from './lastJobContext'
@@ -100,7 +102,7 @@ export function ResultView({
   /** `truck`: only its part, for its driver; null: the whole result */
   function savePdf(truck: TruckRow | null) {
     void printReport(truck?.truckId ?? null, async () => {
-      const outcome = await exportPdf(truck ? truckReportFileName(job.id, truck.truckName) : reportFileName(job.id))
+      const outcome = await exportPdf(truck ? truckReportFileName(jobLabel(job, result), truck.truckName) : reportFileName(jobLabel(job, result)))
       return outcome.kind === 'saved' ? { tone: 'success', text: `PDF je sačuvan: ${outcome.path}` } : null
     })
   }
@@ -114,7 +116,7 @@ export function ResultView({
       return
     }
     void printReport(row.truckId, async () => {
-      const outcome = await sendPdfToViber(truckReportFileName(job.id, row.truckName), phone)
+      const outcome = await sendPdfToViber(truckReportFileName(jobLabel(job, result), row.truckName), phone)
       if (outcome.kind === 'printed') {
         return { tone: 'success', text: `Sačuvajte PDF u prozoru za štampu, pa ga priložite u Viber razgovoru sa ${phone}.` }
       }
@@ -141,7 +143,7 @@ export function ResultView({
   return (
     <div className="result">
       <p className="text--muted result__meta">
-        Posao #{job.id} · završen {formatDateTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
+        {jobLabel(job, result)} · završen {formatDateTime(job.finishedAt)} · vremensko ograničenje {job.timeLimitSeconds} s
         {jobDurationSeconds(job) !== null && ` · trajalo ${formatClock(jobDurationSeconds(job) as number)}`}
       </p>
       {reference.status === 'success' && (
@@ -193,6 +195,8 @@ export function ResultView({
           <Unassigned result={result} reference={reference.data} reassign={reassign} />
         </>
       )}
+      {/* The backend keeps no Istorija. */}
+      {apiMode() !== 'server' && <SaveResult job={job} result={result} />}
     </div>
   )
 }

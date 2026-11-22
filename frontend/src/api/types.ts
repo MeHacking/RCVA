@@ -174,11 +174,20 @@ export interface OptimizationJob {
   scoreSoft: number | null
   feasible: boolean | null
   trucksLowerBound: number | null
+  /**
+   * NOT IN SPEC v2 (owner, 22.11.2026): false until the user saves the optimization into Istorija
+   * ("Sačuvaj"); missing (the backend, jobs kept before) counts as saved.
+   */
+  saved?: boolean
+  /** NOT IN SPEC v2: the name it was given; missing or null: named by its result */
+  name?: string | null
 }
 
 /** NOT IN SPEC v2: a kept job as the list in Istorija shows it */
 export interface JobSummary {
   job: OptimizationJob
+  /** NOT IN SPEC v2: what Istorija calls it (its name, or its result: "3 kamiona - 1001,5 km") */
+  name: string
   /** shipments the job planned */
   shipmentCount: number
   /** with a result (COMPLETED), as it is now (also after shipments moved by hand); null otherwise */
