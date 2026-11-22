@@ -77,7 +77,10 @@ export function HelpPage() {
 function Subheading({ n, children }: { n: number; children: string }) {
   return (
     <h3 id={slug(children)} data-number={n} data-title={children}>
-      <span className="help__number">{`${n}. `}</span>
+      <span className="help__number">
+        {n}
+        <span className="visually-hidden">. </span>
+      </span>
       {children}
     </h3>
   )

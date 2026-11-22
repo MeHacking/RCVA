@@ -3,6 +3,7 @@ import { useApi } from '../../api/apiContext'
 import { describeError } from '../../api/client'
 import type { TruckType } from '../../api/types'
 import { Icon } from '../../components/Icon'
+import { PencilIcon, TrashIcon } from '../../components/MotionIcons'
 import { formatDimensionsMm, formatKg, formatLdm } from '../../format/units'
 import { PAYLOAD_SUPPORTED } from './truckFormValidation'
 import { STANDARD_TYPE } from './truckTemplates'
@@ -117,18 +118,19 @@ export function TruckTypes({
                 ) : (
                   <span className="confirm-inline">
                     <button type="button" onClick={() => onEdit(type)} aria-label={`Izmeni tip ${type.name}`}>
+                      <PencilIcon />
                       Izmeni
                     </button>
                     <button
                       type="button"
-                      className="button--primary"
+                      className="button--delete"
                       onClick={() => {
                         setDeleteError(null)
                         setConfirmingId(type.id)
                       }}
                       aria-label={`Ukloni tip ${type.name}`}
                     >
-                      <Icon name="trash" size={14} />
+                      <TrashIcon />
                       Ukloni
                     </button>
                   </span>

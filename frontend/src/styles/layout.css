@@ -3813,29 +3813,72 @@ button.truck-3d__shipment[aria-pressed='true'] {
   font-weight: var(--weight-semibold);
 }
 
-/* A numbered part inside a chapter: its number, then its title. */
+/* A numbered part inside a chapter: its number in a filled circle, then its title (owner,
+   22.11.2026: in so much text the numbers must stand out). */
 .help__chapter h3 {
-  margin: var(--space-5) 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-3);
   font-size: 1.05rem;
   font-weight: var(--weight-semibold);
 }
 
 .help__number {
-  color: var(--accent);
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  color: var(--accent-text);
+  background: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
-/* Lists as in smartLoad+: the browser's own bullets and numbers. */
 .help__chapter ul,
 .help__chapter ol {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   margin: 0 0 var(--space-3);
   padding-left: 1.3rem;
 }
 
-.help__chapter li::marker {
+.help__chapter ul > li::marker {
   color: var(--text-muted);
+}
+
+/* Steps in order: each number in an open circle in the accent. */
+.help__chapter ol {
+  counter-reset: help-step;
+  padding-left: 0;
+  list-style: none;
+}
+
+.help__chapter ol > li {
+  position: relative;
+  padding-left: 2.25rem;
+  counter-increment: help-step;
+}
+
+.help__chapter ol > li::before {
+  content: counter(help-step);
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Messages: the message on the left, what it means on the right; one column when narrow. */

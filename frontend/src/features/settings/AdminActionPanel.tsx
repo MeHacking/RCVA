@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { describeError } from '../../api/client'
+import { TrashIcon } from '../../components/MotionIcons'
 import { ADMIN_PASSWORD } from './adminPassword'
 import { keepForReload } from './afterReload'
 import type { LucideIcon } from 'lucide-react'
@@ -73,6 +74,7 @@ export function AdminActionPanel({
         </div>
         <div className="form-actions">
           <button type="submit" className="button--danger" disabled={working || password === ''}>
+            <TrashIcon />
             {working ? 'Brisanje…' : action}
           </button>
         </div>

@@ -86,14 +86,6 @@ const PATHS = {
     </>
   ),
   close: <path d="M6 6l12 12M18 6 6 18" />,
-  trash: (
-    <>
-      <path d="M4 7h16" />
-      <path d="M9 7V4.5h6V7" />
-      <path d="M6.5 7l1 13h9l1-13" />
-      <path d="M10 11v5.5M14 11v5.5" />
-    </>
-  ),
   layers: (
     <>
       <path d="m12 3 9 5-9 5-9-5z" />
@@ -160,12 +152,6 @@ const PATHS = {
     <>
       <path d="M9 7a3 3 0 1 1 6 0" />
       <path d="M6.5 9h11l2 11h-15z" />
-    </>
-  ),
-  edit: (
-    <>
-      <path d="M4 20h4L19 9l-4-4L4 16z" />
-      <path d="m13.5 6.5 4 4" />
     </>
   ),
   undo: (

@@ -4,7 +4,7 @@ import { useApi } from '../../api/apiContext'
 import { apiMode } from '../../api/apiMode'
 import { describeError } from '../../api/client'
 import type { Truck, TruckStart, TruckType } from '../../api/types'
-import { Icon } from '../../components/Icon'
+import { PencilIcon, TrashIcon } from '../../components/MotionIcons'
 import { Notice } from '../../components/Notice'
 import { matchesQuery } from '../../app/search'
 import { PageHeader } from '../../components/PageHeader'
@@ -275,14 +275,14 @@ export function TrucksPage() {
               {CAN_REMOVE_ALL && (
                 <button
                   type="button"
-                  className="button--primary"
+                  className="button--delete"
                   onClick={() => {
                     setRemoveError(null)
                     setRemoveAll('asking')
                   }}
                   disabled={removeAll !== 'idle'}
                 >
-                  <Icon name="trash" size={14} />
+                  <TrashIcon />
                   Ukloni sve kamione
                 </button>
               )}
@@ -444,15 +444,16 @@ function TruckTable({
                 ) : (
                   <span className="confirm-inline">
                     <button type="button" onClick={() => onEdit(truck)} aria-label={`Izmeni ${truck.name}`}>
+                      <PencilIcon />
                       Izmeni
                     </button>
                     <button
                       type="button"
-                      className="button--primary"
+                      className="button--delete"
                       onClick={() => onAskDelete(truck)}
                       aria-label={`Ukloni ${truck.name}`}
                     >
-                      <Icon name="trash" size={14} />
+                      <TrashIcon />
                       Ukloni
                     </button>
                   </span>

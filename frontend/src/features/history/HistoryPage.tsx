@@ -9,6 +9,7 @@ import { PATHS } from '../../app/paths'
 import type { JobStatus, JobSummary } from '../../api/types'
 import { Badge, type BadgeTone } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
+import { PencilIcon, TrashIcon } from '../../components/MotionIcons'
 import { Notice } from '../../components/Notice'
 import { matchesQuery } from '../../app/search'
 import { PageHeader } from '../../components/PageHeader'
@@ -229,9 +230,9 @@ export function HistoryPage() {
                               disabled={!isTerminal(job.status)}
                               aria-label={`Obriši: ${summary.name}`}
                               title="Obriši"
-                              className="button--icon"
+                              className="button--icon button--delete"
                             >
-                              <Icon name="trash" size={14} />
+                              <TrashIcon />
                             </button>
                             {/* Icons only, so the row fits; the names are for screen readers and the tooltip. */}
                             <button
@@ -241,7 +242,7 @@ export function HistoryPage() {
                               title="Preimenuj"
                               className="button--icon"
                             >
-                              <Icon name="edit" size={14} />
+                              <PencilIcon />
                             </button>
                           </span>
                         )}

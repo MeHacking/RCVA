@@ -6,6 +6,7 @@ import { describeError } from '../../api/client'
 import type { Location, Shipment, ShipmentUpdateResult } from '../../api/types'
 import { Badge, type BadgeTone } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
+import { PencilIcon, TrashIcon } from '../../components/MotionIcons'
 import { Notice } from '../../components/Notice'
 import { PageHeader } from '../../components/PageHeader'
 import { PATHS } from '../../app/paths'
@@ -99,10 +100,11 @@ export function ShipmentsPage() {
             {CAN_DELETE_ALL && (
               <button
                 type="button"
+                className="button--delete"
                 onClick={() => setConfirming(true)}
                 disabled={!rows || rows.length === 0 || confirming}
               >
-                <Icon name="trash" size={16} />
+                <TrashIcon />
                 Ukloni sve pošiljke
               </button>
             )}
@@ -362,18 +364,19 @@ function ShipmentTable({
                           aria-haspopup="dialog"
                           aria-label={`Izmeni pošiljku ${row.externalId}`}
                         >
+                          <PencilIcon size={14} />
                           Izmeni
                         </button>
                         <button
                           type="button"
-                          className="button--small button--primary"
+                          className="button--small button--delete"
                           onClick={() => {
                             setDeleteError(null)
                             setConfirmingId(row.id)
                           }}
                           aria-label={`Ukloni pošiljku ${row.externalId}`}
                         >
-                          <Icon name="trash" size={14} />
+                          <TrashIcon size={14} />
                           Ukloni
                         </button>
                       </span>

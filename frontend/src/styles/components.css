@@ -6,6 +6,79 @@
   flex: none;
 }
 
+/*
+ * The trash and the pencil of smartLoad+ (MotionIcons.tsx; owner, 22.11.2026): on hover the lid
+ * opens, hinged at its right end, and the pencil writes a little, once per hover. They may leave
+ * their 24 x 24 box while they move; nothing is cut off.
+ */
+.trash-icon,
+.pencil-icon {
+  flex: none;
+  overflow: visible;
+}
+
+.trash-icon__lid {
+  transform-box: view-box;
+  transform-origin: 21px 6px;
+  transition:
+    rotate 0.2s var(--ease-out),
+    translate 0.2s var(--ease-out);
+}
+
+.pencil-icon__body {
+  transform-box: view-box;
+  transform-origin: 3px 21px;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  button:hover:not(:disabled) .trash-icon__lid {
+    rotate: 24deg;
+    translate: 0 -1px;
+  }
+
+  button:hover:not(:disabled) .pencil-icon__body {
+    animation: pencil-write 0.7s ease-in-out 1;
+  }
+}
+
+/* A short line of writing: the tip goes right in small strokes, then back. */
+@keyframes pencil-write {
+  0% {
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  20% {
+    translate: 1px -1px;
+    rotate: -4deg;
+  }
+  40% {
+    translate: 2px 0;
+    rotate: 3deg;
+  }
+  60% {
+    translate: 3px -1px;
+    rotate: -4deg;
+  }
+  80% {
+    translate: 1.5px 0;
+    rotate: 2deg;
+  }
+  100% {
+    translate: 0 0;
+    rotate: 0deg;
+  }
+}
+
+/* A button that deletes: a plain button with the trash in the colour of danger, as in smartLoad+
+   (light red on the dark cards). The "are you sure?" step keeps its filled red button. */
+button.button--delete .trash-icon {
+  color: var(--danger);
+}
+
+:is(.panel--cherry, .panel--dark, .table-wrap--dark) button.button--delete .trash-icon {
+  color: var(--on-dark-danger);
+}
+
 /* Buttons */
 
 button {

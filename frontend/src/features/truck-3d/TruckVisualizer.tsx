@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from 'react
 import type { LoadPlanMode, Placement } from '../../api/types'
 import { Badge } from '../../components/Badge'
 import { Icon } from '../../components/Icon'
+import { PencilIcon } from '../../components/MotionIcons'
 import { formatShipmentCount } from '../../format/count'
 import { useFullscreen } from '../../hooks/useFullscreen'
 import { piecesFromPlan, spaceOf, type CargoSpaceMm, type ViewName } from './scene'
@@ -78,7 +79,7 @@ export function TruckVisualizer({ truck, placements, mode, selectedShipmentId = 
                 onEdit()
               }}
             >
-              <Icon name="edit" />
+              <PencilIcon />
               Uredi
             </button>
           )}
